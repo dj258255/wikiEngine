@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: wiki-engine
+
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:wikidb}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
+    username: ${DB_USERNAME:wiki}
+    password: ${DB_PASSWORD:wiki1234}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          batch_size: ${HIBERNATE_BATCH_SIZE:1000}
+        order_inserts: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  level:
+    com.wiki.engine: ${LOG_LEVEL:INFO}
