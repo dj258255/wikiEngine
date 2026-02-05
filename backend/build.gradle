@@ -23,17 +23,58 @@ repositories {
     mavenCentral()
 }
 
-dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
+dependencyManagement {
+    imports {
+        mavenBom 'org.springframework.modulith:spring-modulith-bom:2.0.2'
+    }
+}
 
+dependencies {
+    // Spring Boot 핵심 스타터
+    implementation 'org.springframework.boot:spring-boot-starter-web'          // Spring MVC, 내장 Tomcat
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'     // JPA, Hibernate
+    implementation 'org.springframework.boot:spring-boot-starter-validation'   // Bean Validation (@NotBlank, @Size 등)
+    implementation 'org.springframework.boot:spring-boot-starter-security'     // Spring Security (JWT 인증용)
+
+    // Spring Modulith: 모듈 간 의존성 관리 및 검증
+    implementation 'org.springframework.modulith:spring-modulith-starter-core'
+    implementation 'org.springframework.modulith:spring-modulith-starter-jpa'
+
+    // JWT (jjwt): 토큰 생성, 파싱, 서명 검증
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    // Swagger / OpenAPI: REST API 문서 자동 생성, Swagger UI 제공
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.15'
+
+    // Actuator + Micrometer: 애플리케이션 메트릭 모니터링 (JVM, HTTP, HikariCP, Hibernate 등)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Caffeine Cache: JWT 토큰 블랙리스트용 고성능 로컬 캐시
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.2.0'
+
+    // Datafaker: 더미 데이터 생성 (한글/영문 랜덤 이름, 닉네임 등)
+    implementation 'net.datafaker:datafaker:2.5.3'
+
+    // Log4j2: Logback 대신 Log4j2 사용 (비동기 로깅, 성능 우수)
+    implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+    modules {
+        module("org.springframework.boot:spring-boot-starter-logging") {
+            replacedBy("org.springframework.boot:spring-boot-starter-log4j2", "Use Log4j2 instead of Logback")
+        }
+    }
+
+    // MySQL Connector: MySQL 8.0 JDBC 드라이버
     runtimeOnly 'com.mysql:mysql-connector-j'
 
+    // Lombok: 보일러플레이트 코드 자동 생성 (@Getter, @Builder, @RequiredArgsConstructor 등)
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
+    // 테스트
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.modulith:spring-modulith-starter-test'  // Modulith 모듈 의존성 검증 테스트
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

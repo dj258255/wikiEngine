@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Log4j2 로깅 설정 파일.
+    Spring Boot의 기본 Logback 대신 Log4j2를 사용한다.
+    build.gradle에서 spring-boot-starter-logging을 spring-boot-starter-log4j2로 교체하여 적용.
+
+    Appender 구성:
+    - Console: 컬러 콘솔 출력 (개발 시 가독성)
+    - File: 롤링 파일 (일별/100MB 단위, 30일 보관)
+    - ErrorFile: ERROR 레벨 전용 롤링 파일 (30일 보관)
+
+    monitorInterval="30": 30초마다 설정 파일 변경 감지 (재시작 없이 로그 레벨 변경 가능)
+-->
+<Configuration status="WARN" monitorInterval="30">
+
+    <!-- 공통 속성 정의 -->
+    <Properties>
+        <Property name="LOG_PATH">${sys:LOG_PATH:-logs}</Property>
+        <Property name="LOG_FILE">${sys:LOG_FILE:-wiki-engine}</Property>
+        <!-- 콘솔용 패턴: 로그 레벨별 색상 하이라이트 적용 -->
+        <Property name="CONSOLE_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight{%-5level}{FATAL=red blink, ERROR=red, WARN=yellow bold, INFO=green, DEBUG=cyan, TRACE=blue} [%t] %cyan{%c{1.}} - %msg%n</Property>
+        <!-- 파일용 패턴: 색상 코드 없는 일반 텍스트 -->
+        <Property name="FILE_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %c{1.} - %msg%n</Property>
+    </Properties>
+
+    <Appenders>
+        <!-- 콘솔 Appender: 표준 출력(SYSTEM_OUT)으로 컬러 로그 출력 -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${CONSOLE_PATTERN}" charset="UTF-8"/>
+        </Console>
+
+        <!-- 파일 Appender (Rolling): 일별 또는 100MB 초과 시 새 파일로 롤링 -->
+        <RollingFile name="File"
+                     fileName="${LOG_PATH}/${LOG_FILE}.log"
+                     filePattern="${LOG_PATH}/${LOG_FILE}.%d{yyyy-MM-dd}.%i.log.gz">
+            <PatternLayout pattern="${FILE_PATTERN}" charset="UTF-8"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>  <!-- 매일 롤링 -->
+                <SizeBasedTriggeringPolicy size="100MB"/>  <!-- 100MB 초과 시 롤링 -->
+            </Policies>
+            <DefaultRolloverStrategy max="30">  <!-- 최대 30개 파일 유지 -->
+                <Delete basePath="${LOG_PATH}" maxDepth="1">
+                    <IfFileName glob="${LOG_FILE}.*.log.gz"/>
+                    <IfLastModified age="30d"/>  <!-- 30일 이상 된 파일 삭제 -->
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+        <!-- 에러 전용 파일 Appender: ERROR 레벨 이상만 별도 파일에 기록 -->
+        <RollingFile name="ErrorFile"
+                     fileName="${LOG_PATH}/${LOG_FILE}-error.log"
+                     filePattern="${LOG_PATH}/${LOG_FILE}-error.%d{yyyy-MM-dd}.%i.log.gz">
+            <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout pattern="${FILE_PATTERN}" charset="UTF-8"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${LOG_PATH}" maxDepth="1">
+                    <IfFileName glob="${LOG_FILE}-error.*.log.gz"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <!-- 애플리케이션 로거: 콘솔 + 파일 + 에러 파일 모두 출력 -->
+        <Logger name="com.wiki.engine" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+            <AppenderRef ref="ErrorFile"/>
+        </Logger>
+
+        <!-- Hibernate SQL 로깅: 실행되는 SQL 쿼리를 콘솔에 출력 (디버그용) -->
+        <Logger name="org.hibernate.SQL" level="debug" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+
+        <!-- SQL 바인딩 파라미터 로깅: 쿼리의 ? 파라미터 값 확인 (필요시 주석 해제) -->
+        <!--
+        <Logger name="org.hibernate.orm.jdbc.bind" level="trace" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        -->
+
+        <!-- Spring 프레임워크 로거 -->
+        <Logger name="org.springframework" level="info"/>
+
+        <!-- Root 로거: 위에서 처리되지 않은 모든 로그 -->
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+            <AppenderRef ref="ErrorFile"/>
+        </Root>
+    </Loggers>
+
+</Configuration>

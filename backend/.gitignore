@@ -38,3 +38,9 @@ out/
 
 ### Mac ###
 .DS_Store
+
+### Environment ###
+.env.*
+
+### k6 결과 ###
+k6/baseline-result.json

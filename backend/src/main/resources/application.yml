@@ -1,30 +1,56 @@
+# Wiki Engine 애플리케이션 설정
+# 환경변수로 값을 오버라이드할 수 있으며, 기본값은 로컬 개발 환경에 맞춰져 있다.
 spring:
   application:
     name: wiki-engine
 
+  # MySQL 데이터소스 설정
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:wikidb}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
     username: ${DB_USERNAME:wiki}
     password: ${DB_PASSWORD:wiki1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: ${DB_POOL_SIZE:10}
+      maximum-pool-size: ${DB_POOL_SIZE:10}  # HikariCP 커넥션 풀 크기
 
+  # JPA / Hibernate 설정
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      ddl-auto: ${JPA_DDL_AUTO:update}  # 개발 환경: update, 운영 환경: validate 또는 none
     show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
         jdbc:
-          batch_size: ${HIBERNATE_BATCH_SIZE:1000}
-        order_inserts: true
+          batch_size: ${HIBERNATE_BATCH_SIZE:1000}  # 배치 INSERT 크기
+        order_inserts: true  # INSERT 문 순서 정렬 (배치 최적화)
+        generate_statistics: true  # Hibernate 쿼리 통계 수집 (Actuator 메트릭 노출용)
 
+# 서버 포트
 server:
   port: ${SERVER_PORT:8080}
 
+# JWT 설정
+jwt:
+  secret: ${JWT_SECRET:dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBqd3QgdG9rZW4gZ2VuZXJhdGlvbg==}  # Base64 인코딩된 비밀키
+  expiration: ${JWT_EXPIRATION:1800000}  # 토큰 만료 시간 (30분 = 1800000ms)
+
+# Spring Actuator 설정: 애플리케이션 메트릭 모니터링
+# /actuator/health, /actuator/metrics, /actuator/prometheus 등 엔드포인트 제공
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,hikaricp,env
+  endpoint:
+    health:
+      show-details: always  # 상세 헬스 정보 (DB 연결, 디스크 등)
+  metrics:
+    tags:
+      application: ${spring.application.name}  # 메트릭에 앱 이름 태그 추가
+
+# 로깅 레벨 설정
 logging:
   level:
     com.wiki.engine: ${LOG_LEVEL:INFO}
