@@ -4,16 +4,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.datafaker.Faker;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Random;
 import java.util.Set;
 
 /**
@@ -21,18 +23,21 @@ import java.util.Set;
  * "init-data" 프로필이 활성화된 경우에만 동작하며, 10만 명의 랜덤 사용자를 생성한다.
  *
  * 데이터 구성 (Datafaker 라이브러리 사용):
- * - 50% 영문 이름 기반 (username: james.parker, nickname: JamesParker)
- * - 50% 한글 이름 기반 (username: minjun.kim, nickname: 김민준)
+ * - 50% 영문 이름 기반 (username: james.parker.123, nickname: HappyJamesParker123)
+ * - 50% 한글 이름 기반 (username: user_kr_0_123, nickname: 행복한김민준123)
+ * - 닉네임 앞에 랜덤 형용사를 붙여 자연스러운 닉네임 생성
+ * - 숫자 접미사는 3자리(1~999)로 제한
  * - 모든 유저의 비밀번호는 "password"의 BCrypt 해시 (한 번만 계산)
  *
  * JdbcTemplate 배치 INSERT로 1000건씩 묶어서 삽입하여 성능을 최적화한다.
  *
- * 실행 예시:
- * java -jar wiki-engine.jar --spring.profiles.active=init-data
+ * 실행 조건:
+ * .env 파일에서 INIT_USERS=true 설정 시 앱 시작과 함께 자동 실행된다.
+ * 이미 데이터가 존재하면 스킵한다.
  */
 @Slf4j
 @Component
-@Profile("init-data")
+@ConditionalOnProperty(name = "app.init-users", havingValue = "true")
 @RequiredArgsConstructor
 class DummyDataInitializer implements CommandLineRunner {
 
@@ -41,6 +46,15 @@ class DummyDataInitializer implements CommandLineRunner {
 
     private static final int TOTAL_USERS = 100_000;
     private static final int BATCH_SIZE = 1000;
+
+    private static final String[] KO_ADJECTIVES = {
+            "행복한", "빛나는", "용감한", "지혜로운", "활발한",
+            "따뜻한", "씩씩한", "명랑한", "신나는", "든든한",
+            "재빠른", "유쾌한", "당당한", "멋진", "착한",
+            "똑똑한", "귀여운", "다정한", "느긋한", "튼튼한"
+    };
+
+    private final Random random = new Random();
 
     @Override
     public void run(String... args) {
@@ -83,15 +97,16 @@ class DummyDataInitializer implements CommandLineRunner {
             do {
                 String firstName = faker.name().firstName().toLowerCase().replaceAll("[^a-z가-힣]", "");
                 String lastName = faker.name().lastName().toLowerCase().replaceAll("[^a-z가-힣]", "");
-                int suffix = enFaker.number().numberBetween(1, 99999);
+                int suffix = enFaker.number().numberBetween(1, 999);
 
                 if (useKorean) {
-                    // 한글: username은 로마자 변환 대신 숫자 조합
+                    String adjective = KO_ADJECTIVES[random.nextInt(KO_ADJECTIVES.length)];
                     username = "user_kr_" + insertedCount + "_" + suffix;
-                    nickname = lastName + firstName + suffix;
+                    nickname = adjective + lastName + firstName + suffix;
                 } else {
+                    String adjective = capitalize(enFaker.word().adjective());
                     username = firstName + "." + lastName + "." + suffix;
-                    nickname = capitalize(firstName) + capitalize(lastName) + suffix;
+                    nickname = adjective + capitalize(firstName) + capitalize(lastName) + suffix;
                 }
 
                 attempt++;
@@ -112,10 +127,10 @@ class DummyDataInitializer implements CommandLineRunner {
             usedNicknames.add(nickname);
 
             // 생성 시각을 랜덤하게 분포 (최근 2년 내)
-            LocalDateTime createdAt = LocalDateTime.now()
-                    .minusDays(enFaker.number().numberBetween(0, 730))
-                    .minusHours(enFaker.number().numberBetween(0, 24))
-                    .minusMinutes(enFaker.number().numberBetween(0, 60));
+            Instant createdAt = Instant.now()
+                    .minus(enFaker.number().numberBetween(0, 730), ChronoUnit.DAYS)
+                    .minus(enFaker.number().numberBetween(0, 24), ChronoUnit.HOURS)
+                    .minus(enFaker.number().numberBetween(0, 60), ChronoUnit.MINUTES);
 
             batch.add(new Object[]{username, nickname, hashedPassword, createdAt});
             insertedCount++;

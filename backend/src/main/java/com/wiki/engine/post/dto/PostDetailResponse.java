@@ -2,7 +2,7 @@ package com.wiki.engine.post.dto;
 
 import com.wiki.engine.post.Post;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record PostDetailResponse(
         Long id,
@@ -12,8 +12,8 @@ public record PostDetailResponse(
         Long categoryId,
         Long viewCount,
         Long likeCount,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        Instant createdAt,
+        Instant updatedAt
 ) {
     public static PostDetailResponse from(Post post) {
         return new PostDetailResponse(

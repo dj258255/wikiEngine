@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import UserMenu from "./components/UserMenu";
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -15,7 +16,12 @@ export default function Home() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-white dark:bg-zinc-950">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-white dark:bg-zinc-950">
+      {/* Top-right auth area */}
+      <div className="absolute right-6 top-6">
+        <UserMenu />
+      </div>
+
       <main className="flex flex-col items-center gap-8">
         <p className="text-sm text-zinc-400 dark:text-zinc-500">
           2026년 1월 2일 데이터 기준입니다

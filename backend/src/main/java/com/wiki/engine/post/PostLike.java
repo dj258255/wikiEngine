@@ -5,7 +5,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * 게시글 좋아요 엔티티.
@@ -37,11 +37,11 @@ public class PostLike {
     private Long userId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     public PostLike(Long postId, Long userId) {
         this.postId = postId;
         this.userId = userId;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
     }
 }

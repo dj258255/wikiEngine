@@ -66,22 +66,4 @@ public class CategoryService {
     public List<Category> findRootCategories() {
         return categoryRepository.findByParentIdIsNull();
     }
-
-    /**
-     * 카테고리의 게시글 수를 1 증가시킨다.
-     * DB에서 원자적(atomic) UPDATE를 수행하여 동시성 문제를 방지한다.
-     */
-    @Transactional
-    public void incrementPostCount(Long categoryId) {
-        categoryRepository.incrementPostCount(categoryId);
-    }
-
-    /**
-     * 카테고리의 게시글 수를 1 감소시킨다.
-     * DB에서 원자적(atomic) UPDATE를 수행하며, 0 이하로 내려가지 않도록 WHERE 조건을 포함한다.
-     */
-    @Transactional
-    public void decrementPostCount(Long categoryId) {
-        categoryRepository.decrementPostCount(categoryId);
-    }
 }

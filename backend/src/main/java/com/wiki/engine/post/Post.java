@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * 게시글 엔티티.
@@ -50,10 +50,10 @@ public class Post {
     private Long likeCount = 0L;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @Builder
     public Post(String title, String content, Long authorId, Long categoryId) {
@@ -63,14 +63,14 @@ public class Post {
         this.categoryId = categoryId;
         this.viewCount = 0L;
         this.likeCount = 0L;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
     }
 
     /** 게시글 제목과 본문을 수정한다. */
     public void update(String title, String content) {
         this.title = title;
         this.content = content;
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 
     /** 조회수 증가 (엔티티 레벨, 실제로는 Repository의 원자적 쿼리 사용 권장) */

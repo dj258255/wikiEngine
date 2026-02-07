@@ -1,67 +1,35 @@
-# 로컬 개발 환경
-# 사용법: docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
+# 개발 환경 Override
+# 사용법: docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up -d
+
 services:
   mysql:
-    image: mysql:8.0
     container_name: wiki-mysql-dev
     restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "${DB_PORT}:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - mysql_logs:/var/log/mysql
-    deploy:
-      resources:
-        limits:
-          memory: ${MYSQL_MEMORY_LIMIT}
-    command: >
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
-      --slow-query-log=ON
-      --slow-query-log-file=/var/log/mysql/slow.log
-      --long-query-time=1
-      --log-queries-not-using-indexes=ON
-      --performance-schema=ON
 
-  # k6 부하 테스트 메트릭 저장소
+  app:
+    container_name: wiki-app-dev
+    restart: unless-stopped
+
   influxdb:
-    image: influxdb:1.8
     container_name: wiki-influxdb-dev
     restart: unless-stopped
-    environment:
-      INFLUXDB_DB: k6
-      INFLUXDB_HTTP_AUTH_ENABLED: "false"
-    ports:
-      - "8086:8086"
-    volumes:
-      - influxdb_data:/var/lib/influxdb
 
-  # k6 메트릭 시각화 대시보드
+  prometheus:
+    container_name: wiki-prometheus-dev
+    restart: unless-stopped
+
+  mysql-exporter:
+    container_name: wiki-mysql-exporter-dev
+    restart: unless-stopped
+
+  loki:
+    container_name: wiki-loki-dev
+    restart: unless-stopped
+
+  promtail:
+    container_name: wiki-promtail-dev
+    restart: unless-stopped
+
   grafana:
-    image: grafana/grafana:11.4.0
     container_name: wiki-grafana-dev
     restart: unless-stopped
-    environment:
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
-      GF_AUTH_DISABLE_LOGIN_FORM: "true"
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
-    depends_on:
-      - influxdb
-
-volumes:
-  mysql_data:
-  mysql_logs:
-  influxdb_data:
-  grafana_data:

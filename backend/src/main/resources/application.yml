@@ -42,13 +42,22 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,hikaricp,env
+        include: health,info,metrics,hikaricp,env,prometheus
   endpoint:
     health:
       show-details: always  # 상세 헬스 정보 (DB 연결, 디스크 등)
   metrics:
     tags:
       application: ${spring.application.name}  # 메트릭에 앱 이름 태그 추가
+
+# 데이터 초기화 설정 (비활성화)
+# 초기 데이터 적재 완료 후 주석 처리. mysqldump로 백업/복원 방식 사용.
+# 필요 시 .env에서 환경변수를 설정하고 아래 주석을 해제하면 재실행 가능.
+#app:
+#  init-users: ${INIT_USERS:false}
+#  wiki-import:
+#    enabled: ${WIKI_IMPORT_ENABLED:false}
+#    path: ${WIKI_IMPORT_PATH:/data/wiki-dump.xml}
 
 # 로깅 레벨 설정
 logging:

@@ -8,8 +8,7 @@ import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamReader;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.Instant;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,8 +37,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class WikiXmlParser {
 
-    /** 위키피디아 timestamp 포맷 (ISO 8601) */
-    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ISO_DATE_TIME;
+    // Instant.parse()가 ISO 8601 (2024-01-01T00:00:00Z) 형식을 직접 파싱
 
     /** 리다이렉트 패턴: 한국어(#넘겨주기) 및 영어(#REDIRECT) 지원 */
     private static final Pattern REDIRECT_PATTERN = Pattern.compile("#(?:넘겨주기|REDIRECT)\\s*\\[\\[(.+?)\\]\\]", Pattern.CASE_INSENSITIVE);
@@ -52,6 +50,10 @@ public class WikiXmlParser {
      * @param pageConsumer 파싱된 WikiPage를 전달받는 콜백 함수
      */
     public void parse(String filePath, Consumer<WikiPage> pageConsumer) {
+        // 위키피디아 대형 문서(10만 자 이상)를 위해 JDK XML 엔티티 크기 제한 해제
+        System.setProperty("jdk.xml.maxGeneralEntitySizeLimit", "0");
+        System.setProperty("jdk.xml.totalEntitySizeLimit", "0");
+
         XMLInputFactory factory = XMLInputFactory.newInstance();
         // 분할된 텍스트 노드를 하나로 합침 (대용량 텍스트 처리에 필요)
         factory.setProperty(XMLInputFactory.IS_COALESCING, true);
@@ -125,10 +127,10 @@ public class WikiXmlParser {
                                     }
                                 }
 
-                                // timestamp 파싱 (ISO 8601 → LocalDateTime)
-                                LocalDateTime createdAt = null;
+                                // timestamp 파싱 (ISO 8601 → Instant)
+                                Instant createdAt = null;
                                 if (timestamp != null) {
-                                    createdAt = LocalDateTime.parse(timestamp, TIMESTAMP_FORMAT);
+                                    createdAt = Instant.parse(timestamp);
                                 }
 
                                 WikiPage page = WikiPage.builder()

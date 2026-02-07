@@ -44,3 +44,6 @@ out/
 
 ### k6 결과 ###
 k6/baseline-result.json
+
+### 위키 덤프 데이터 ###
+data/

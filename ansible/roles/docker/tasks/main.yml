@@ -1,0 +1,26 @@
+# Docker 설치 (초기 1회)
+- name: Docker 설치 여부 확인
+  command: docker --version
+  register: docker_check
+  ignore_errors: true
+  changed_when: false
+  tags: [setup]
+
+- name: Docker 설치 (없을 때만)
+  when: docker_check.rc != 0
+  tags: [setup]
+  block:
+    - name: Docker 설치 스크립트 실행
+      shell: curl -fsSL https://get.docker.com | sh
+
+    - name: 유저를 docker 그룹에 추가
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Docker 서비스 활성화
+      systemd:
+        name: docker
+        enabled: true
+        state: started

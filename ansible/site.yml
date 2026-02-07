@@ -1,0 +1,15 @@
+# 메인 플레이북
+# 사용법:
+#   초기 세팅 + 배포: ansible-playbook -i inventory.yml site.yml
+#   배포만:           ansible-playbook -i inventory.yml site.yml --tags deploy
+- name: Wiki Engine - OCI ARM 서버 배포
+  hosts: oci
+  become: true
+  vars:
+    app_dir: /home/{{ ansible_user }}/wiki-engine/backend
+    compose_file: docker-compose.prod.yml
+    env_file: .env.prod
+
+  roles:
+    - docker
+    - app

@@ -1,62 +1,35 @@
-# 운영 환경
-# 사용법: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+# 운영 환경 Override
+# 사용법: docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d
+
 services:
   mysql:
-    image: mysql:8.0
     container_name: wiki-mysql-prod
     restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "${DB_PORT}:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - mysql_logs:/var/log/mysql
-    deploy:
-      resources:
-        limits:
-          memory: ${MYSQL_MEMORY_LIMIT}
-    command: >
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
-      --slow-query-log=ON
-      --slow-query-log-file=/var/log/mysql/slow.log
-      --long-query-time=2
-      --performance-schema=ON
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
     container_name: wiki-app-prod
     restart: always
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: ${DB_NAME}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_POOL_SIZE: ${DB_POOL_SIZE}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRATION: ${JWT_EXPIRATION}
-      SERVER_PORT: 8080
-      LOG_LEVEL: ${LOG_LEVEL}
-      HIBERNATE_BATCH_SIZE: ${HIBERNATE_BATCH_SIZE}
-    ports:
-      - "${SERVER_PORT}:8080"
-    depends_on:
-      mysql:
-        condition: service_healthy
 
-volumes:
-  mysql_data:
-  mysql_logs:
+  influxdb:
+    container_name: wiki-influxdb-prod
+    restart: always
+
+  prometheus:
+    container_name: wiki-prometheus-prod
+    restart: always
+
+  mysql-exporter:
+    container_name: wiki-mysql-exporter-prod
+    restart: always
+
+  loki:
+    container_name: wiki-loki-prod
+    restart: always
+
+  promtail:
+    container_name: wiki-promtail-prod
+    restart: always
+
+  grafana:
+    container_name: wiki-grafana-prod
+    restart: always

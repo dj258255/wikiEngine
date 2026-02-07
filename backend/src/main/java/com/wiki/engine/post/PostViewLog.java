@@ -5,7 +5,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * 게시글 조회 로그 엔티티.
@@ -30,10 +30,10 @@ public class PostViewLog {
 
     /** 조회 시각 */
     @Column(name = "viewed_at", nullable = false, updatable = false)
-    private LocalDateTime viewedAt;
+    private Instant viewedAt;
 
     public PostViewLog(Long postId) {
         this.postId = postId;
-        this.viewedAt = LocalDateTime.now();
+        this.viewedAt = Instant.now();
     }
 }

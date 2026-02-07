@@ -24,3 +24,301 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ===== Wiki Content Styles ===== */
+
+.wiki-content {
+  line-height: 1.8;
+}
+
+.wiki-content p {
+  margin-bottom: 0.75em;
+}
+
+/* Headings */
+.wiki-content .wiki-heading {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid #e4e4e7;
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wiki-content .wiki-heading {
+    border-bottom-color: #3f3f46;
+  }
+}
+
+.wiki-content .wiki-h2 { font-size: 1.5em; }
+.wiki-content .wiki-h3 { font-size: 1.25em; border-bottom: none; }
+.wiki-content .wiki-h4 { font-size: 1.1em; border-bottom: none; }
+.wiki-content .wiki-h5 { font-size: 1em; border-bottom: none; }
+.wiki-content .wiki-h6 { font-size: 0.9em; border-bottom: none; }
+
+/* Links */
+.wiki-content .wiki-link {
+  color: #2563eb;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.wiki-content .wiki-link:hover {
+  border-bottom-color: #2563eb;
+}
+
+.wiki-content .wiki-ext-link {
+  color: #7c3aed;
+  text-decoration: none;
+}
+.wiki-content .wiki-ext-link:hover {
+  text-decoration: underline;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wiki-content .wiki-link { color: #60a5fa; }
+  .wiki-content .wiki-link:hover { border-bottom-color: #60a5fa; }
+  .wiki-content .wiki-ext-link { color: #a78bfa; }
+}
+
+/* Tables */
+.wiki-content .wiki-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.9em;
+  overflow-x: auto;
+  display: block;
+}
+
+.wiki-content .wiki-table tr {
+  border-bottom: 1px solid #e4e4e7;
+}
+
+.wiki-content .wiki-table th,
+.wiki-content .wiki-table td {
+  padding: 0.5em 0.75em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.wiki-content .wiki-table th {
+  background: #f4f4f5;
+  font-weight: 600;
+}
+
+.wiki-content .wiki-table tr:nth-child(even) td {
+  background: #fafafa;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wiki-content .wiki-table tr { border-bottom-color: #3f3f46; }
+  .wiki-content .wiki-table th { background: #27272a; }
+  .wiki-content .wiki-table tr:nth-child(even) td { background: #18181b; }
+}
+
+/* Lists */
+.wiki-content .wiki-list {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.wiki-content .wiki-list li {
+  margin: 0.25em 0;
+}
+
+.wiki-content ul.wiki-list {
+  list-style-type: disc;
+}
+
+.wiki-content ol.wiki-list {
+  list-style-type: decimal;
+}
+
+/* Blockquotes */
+.wiki-content .wiki-quote {
+  margin: 1em 0;
+  padding: 0.75em 1em;
+  border-left: 4px solid #3b82f6;
+  background: #eff6ff;
+  border-radius: 0 0.5em 0.5em 0;
+  color: #1e3a5f;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wiki-content .wiki-quote {
+    background: rgba(59, 130, 246, 0.1);
+    color: #bfdbfe;
+    border-left-color: #2563eb;
+  }
+}
+
+/* Code blocks */
+.wiki-content .wiki-codeblock {
+  margin: 1em 0;
+  padding: 1em;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.5em;
+  overflow-x: auto;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.875em;
+  line-height: 1.6;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wiki-content .wiki-codeblock {
+    background: #1c1c1e;
+    border-color: #3f3f46;
+  }
+}
+
+.wiki-content .wiki-inline-code {
+  padding: 0.15em 0.4em;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.25em;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.875em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wiki-content .wiki-inline-code {
+    background: #27272a;
+    border-color: #3f3f46;
+  }
+}
+
+/* Horizontal rule */
+.wiki-content .wiki-hr {
+  margin: 1.5em 0;
+  border: none;
+  border-top: 1px solid #e4e4e7;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wiki-content .wiki-hr {
+    border-top-color: #3f3f46;
+  }
+}
+
+/* Footnotes */
+.wiki-content .wiki-footnote-ref a {
+  color: #2563eb;
+  font-size: 0.75em;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.wiki-content .wiki-footnotes {
+  margin-top: 2em;
+  font-size: 0.875em;
+  color: #71717a;
+}
+
+.wiki-content .wiki-footnotes ol {
+  padding-left: 1.5em;
+}
+
+.wiki-content .wiki-footnotes li {
+  margin: 0.3em 0;
+}
+
+.wiki-content .wiki-footnotes a {
+  color: #2563eb;
+  text-decoration: none;
+  margin-right: 0.3em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wiki-content .wiki-footnotes { color: #a1a1aa; }
+  .wiki-content .wiki-footnote-ref a { color: #60a5fa; }
+  .wiki-content .wiki-footnotes a { color: #60a5fa; }
+}
+
+/* Images */
+.wiki-content .wiki-image {
+  margin: 1em 0;
+  text-align: center;
+}
+
+.wiki-content .wiki-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5em;
+}
+
+.wiki-content .wiki-image figcaption {
+  margin-top: 0.5em;
+  font-size: 0.85em;
+  color: #71717a;
+}
+
+.wiki-content .wiki-image-thumb {
+  max-width: 300px;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.5em;
+  padding: 0.5em;
+  background: #fafafa;
+}
+
+.wiki-content .wiki-image-right {
+  float: right;
+  margin-left: 1em;
+  margin-bottom: 0.5em;
+}
+
+.wiki-content .wiki-image-left {
+  float: left;
+  margin-right: 1em;
+  margin-bottom: 0.5em;
+}
+
+.wiki-content .wiki-image-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wiki-content .wiki-image figcaption { color: #a1a1aa; }
+  .wiki-content .wiki-image-thumb {
+    border-color: #3f3f46;
+    background: #18181b;
+  }
+}
+
+/* Definition lists */
+.wiki-content .wiki-deflist {
+  margin: 0.5em 0;
+}
+
+.wiki-content .wiki-deflist dt {
+  font-weight: 600;
+}
+
+.wiki-content .wiki-deflist dd {
+  margin-left: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+/* Indent */
+.wiki-content .wiki-indent {
+  margin: 0.25em 0;
+}
+
+/* Placeholder */
+.wiki-content .wiki-placeholder {
+  display: inline-block;
+  padding: 0.15em 0.5em;
+  background: #f4f4f5;
+  border-radius: 0.25em;
+  font-size: 0.85em;
+  color: #71717a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .wiki-content .wiki-placeholder {
+    background: #27272a;
+    color: #a1a1aa;
+  }
+}

@@ -1,0 +1,163 @@
+# Base 설정 (공통)
+# 사용법:
+#   개발: docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up -d
+#   운영: docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${DB_PORT}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - mysql_logs:/var/log/mysql
+    deploy:
+      resources:
+        limits:
+          memory: ${MYSQL_MEMORY_LIMIT}
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --slow-query-log=ON
+      --slow-query-log-file=/var/log/mysql/slow.log
+      --long-query-time=${MYSQL_SLOW_QUERY_TIME}
+      --log-queries-not-using-indexes=ON
+      --performance-schema=ON
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wiki-net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: ${ENVIRONMENT}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_POOL_SIZE: ${DB_POOL_SIZE}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      SERVER_PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL}
+      HIBERNATE_BATCH_SIZE: ${HIBERNATE_BATCH_SIZE}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO}
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL}
+      # 데이터 초기화 (비활성화 - mysqldump 복원 방식 사용)
+      # 재실행 필요 시 주석 해제 + .env, application.yml도 함께 해제할 것.
+      #INIT_USERS: ${INIT_USERS}
+      #WIKI_IMPORT_ENABLED: ${WIKI_IMPORT_ENABLED}
+      #WIKI_IMPORT_PATH: ${WIKI_IMPORT_PATH}
+    ports:
+      - "${SERVER_PORT}:8080"
+    #volumes:
+    #  - ${WIKI_DUMP_DIR:-./data}:/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - wiki-net
+
+  influxdb:
+    image: influxdb:1.8
+    environment:
+      INFLUXDB_DB: k6
+      INFLUXDB_HTTP_AUTH_ENABLED: "false"
+    ports:
+      - "${INFLUXDB_PORT}:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+    networks:
+      - wiki-net
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    depends_on:
+      - app
+    networks:
+      - wiki-net
+
+  mysql-exporter:
+    image: prom/mysqld-exporter:v0.16.0
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: ${DB_PASSWORD}
+    command:
+      - "--mysqld.address=mysql:3306"
+      - "--mysqld.username=${DB_USERNAME}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - wiki-net
+
+  loki:
+    image: grafana/loki:3.4.2
+    ports:
+      - "${LOKI_PORT}:3100"
+    volumes:
+      - ./loki/loki.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - wiki-net
+
+  promtail:
+    image: grafana/promtail:3.4.2
+    volumes:
+      - ./promtail/promtail.yml:/etc/promtail/config.yml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - wiki-net
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS_ENABLED}
+      GF_AUTH_ANONYMOUS_ORG_ROLE: ${GRAFANA_ANONYMOUS_ROLE}
+      GF_AUTH_DISABLE_LOGIN_FORM: ${GRAFANA_DISABLE_LOGIN}
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - influxdb
+      - prometheus
+      - loki
+    networks:
+      - wiki-net
+
+volumes:
+  mysql_data:
+  mysql_logs:
+  influxdb_data:
+  grafana_data:
+  prometheus_data:
+  loki_data:
+
+networks:
+  wiki-net:
+    driver: bridge

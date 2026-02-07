@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * 사용자 엔티티.
@@ -36,22 +36,22 @@ public class User {
     private String password;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @Builder
     public User(String username, String nickname, String password) {
         this.username = username;
         this.nickname = nickname;
         this.password = password;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
     }
 
     /** 엔티티 수정 시 updatedAt을 자동으로 갱신한다. */
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 }

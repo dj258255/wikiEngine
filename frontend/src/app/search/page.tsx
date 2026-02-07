@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import UserMenu from "../components/UserMenu";
 
 interface SearchResult {
   id: string;
@@ -11,6 +12,18 @@ interface SearchResult {
 }
 
 export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+      </div>
+    }>
+      <SearchPageContent />
+    </Suspense>
+  );
+}
+
+function SearchPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get("q") || "";
@@ -104,6 +117,7 @@ export default function SearchPage() {
               </button>
             </div>
           </form>
+          <UserMenu />
         </div>
       </header>
 
