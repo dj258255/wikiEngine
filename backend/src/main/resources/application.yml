@@ -18,6 +18,7 @@ spring:
     enabled: ${FLYWAY_ENABLED:false}
     locations: classpath:db/migration
     baseline-on-migrate: true
+    baseline-version: 0
 
   # JPA / Hibernate 설정
   jpa:
