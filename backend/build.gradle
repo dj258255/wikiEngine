@@ -66,8 +66,8 @@ dependencies {
         }
     }
 
-    // Flyway: DB 스키마 버전 관리 및 마이그레이션
-    implementation 'org.flywaydb:flyway-core'
+    // Flyway: DB 스키마 버전 관리 및 마이그레이션 (Spring Boot 4.0+ 스타터)
+    implementation 'org.springframework.boot:spring-boot-starter-flyway'
     implementation 'org.flywaydb:flyway-mysql'
 
     // MySQL Connector: MySQL 8.0 JDBC 드라이버

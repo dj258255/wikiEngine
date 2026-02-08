@@ -2,6 +2,10 @@
 # Docker 컨테이너에서 실행될 때 사용
 # 활성화: SPRING_PROFILES_ACTIVE=prod
 spring:
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
   jpa:
     hibernate:
       ddl-auto: validate
