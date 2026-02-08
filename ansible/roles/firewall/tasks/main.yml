@@ -1,4 +1,17 @@
 # 서버별 방화벽 포트 오픈 (최초 1회)
+- name: firewalld 설치
+  dnf:
+    name: firewalld
+    state: present
+  tags: [setup]
+
+- name: firewalld 서비스 활성화
+  systemd:
+    name: firewalld
+    enabled: true
+    state: started
+  tags: [setup]
+
 - name: ARM App Server 포트 오픈
   when: server_role == 'app-server'
   command: "firewall-cmd --permanent --add-port={{ item }}/tcp"
