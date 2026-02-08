@@ -1,10 +1,7 @@
 # 서버별 방화벽 포트 오픈 (최초 1회)
 - name: ARM App Server 포트 오픈
   when: server_role == 'app-server'
-  firewalld:
-    port: "{{ item }}/tcp"
-    permanent: true
-    state: enabled
+  command: "firewall-cmd --permanent --add-port={{ item }}/tcp"
   loop:
     - "80"     # Nginx HTTP
     - "443"    # Nginx HTTPS
@@ -12,29 +9,29 @@
     - "9100"   # Node Exporter
     - "9104"   # MySQL Exporter
     - "8081"   # cAdvisor
+  register: fw_result
+  changed_when: "'ALREADY_ENABLED' not in fw_result.stderr"
   tags: [setup]
 
 - name: AMD Loki+Grafana 포트 오픈
   when: server_role == 'monitoring-loki'
-  firewalld:
-    port: "{{ item }}/tcp"
-    permanent: true
-    state: enabled
+  command: "firewall-cmd --permanent --add-port={{ item }}/tcp"
   loop:
     - "3100"   # Loki
     - "3001"   # Grafana
     - "9100"   # Node Exporter
+  register: fw_result
+  changed_when: "'ALREADY_ENABLED' not in fw_result.stderr"
   tags: [setup]
 
 - name: AMD Prometheus 포트 오픈
   when: server_role == 'monitoring-prometheus'
-  firewalld:
-    port: "{{ item }}/tcp"
-    permanent: true
-    state: enabled
+  command: "firewall-cmd --permanent --add-port={{ item }}/tcp"
   loop:
     - "9090"   # Prometheus
     - "9100"   # Node Exporter
+  register: fw_result
+  changed_when: "'ALREADY_ENABLED' not in fw_result.stderr"
   tags: [setup]
 
 - name: 방화벽 리로드

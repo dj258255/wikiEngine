@@ -5,6 +5,46 @@
     state: present
   tags: [setup]
 
+# 1GB RAM 서버는 Docker 설치 시 메모리 부족 → Swap 먼저 생성
+- name: Swap 파일 존재 여부 확인
+  stat:
+    path: /swapfile
+  register: swap_file
+  tags: [setup]
+
+- name: 저메모리 서버 Swap 생성 (1GB 미만)
+  when:
+    - ansible_memtotal_mb < 1500
+    - not swap_file.stat.exists
+  tags: [setup]
+  block:
+    - name: 1GB Swap 파일 생성
+      command: dd if=/dev/zero of=/swapfile bs=1M count=1024
+
+    - name: Swap 파일 권한 설정
+      file:
+        path: /swapfile
+        mode: "0600"
+
+    - name: Swap 포맷
+      command: mkswap /swapfile
+
+    - name: Swap 활성화
+      command: swapon /swapfile
+
+    - name: fstab에 Swap 등록
+      lineinfile:
+        path: /etc/fstab
+        line: "/swapfile swap swap defaults 0 0"
+        state: present
+
+    - name: Swappiness 설정 (10)
+      sysctl:
+        name: vm.swappiness
+        value: "10"
+        state: present
+        sysctl_set: true
+
 - name: Docker 설치 여부 확인
   command: docker --version
   register: docker_check
