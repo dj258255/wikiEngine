@@ -74,11 +74,16 @@
           - docker-compose-plugin
         state: present
 
-    - name: 유저를 docker 그룹에 추가
-      user:
-        name: "{{ ansible_user }}"
-        groups: docker
-        append: true
+- name: 유저를 docker 그룹에 추가
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true
+  tags: [setup]
+
+- name: Docker 그룹 변경 반영
+  meta: reset_connection
+  tags: [setup]
 
 - name: Docker 서비스 활성화
   systemd:
