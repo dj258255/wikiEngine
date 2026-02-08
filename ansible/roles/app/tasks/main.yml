@@ -1,25 +1,26 @@
 # App Server 배포 (ARM)
+- name: 기존 소스코드/빌드 파일 정리 (GHCR 전환)
+  file:
+    path: "{{ app_dir }}/{{ item }}"
+    state: absent
+  loop:
+    - src
+    - gradle
+    - gradlew
+    - gradlew.bat
+    - build.gradle
+    - settings.gradle
+    - build
+    - .gradle
+    - Dockerfile
+  tags: [deploy]
+
 - name: 프로젝트 디렉토리 생성
   file:
     path: "{{ app_dir }}"
     state: directory
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-  tags: [deploy]
-
-- name: 소스 코드 동기화
-  synchronize:
-    src: "{{ playbook_dir }}/../backend/"
-    dest: "{{ app_dir }}/"
-    delete: true
-    rsync_opts:
-      - "--exclude=.gradle"
-      - "--exclude=build"
-      - "--exclude=.env.*"
-      - "--exclude=.idea"
-      - "--exclude=docker-compose.dev.yml"
-      - "--exclude=docker-compose.prod.yml"
-  become: false
   tags: [deploy]
 
 - name: App Server용 docker-compose.yml 배포
@@ -74,16 +75,6 @@
     mode: "0600"
   tags: [deploy]
 
-- name: Docker 이미지 빌드
-  community.docker.docker_compose_v2:
-    project_src: "{{ app_dir }}"
-    env_files: [".env.prod"]
-    build: always
-    services: [app]
-    state: present
-  become: false
-  tags: [deploy]
-
 - name: MySQL 시작 및 헬스체크 대기
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
@@ -100,7 +91,7 @@
     project_src: "{{ app_dir }}"
     env_files: [".env.prod"]
     state: present
-    pull: missing
+    pull: always
   become: false
   tags: [deploy]
 
@@ -117,7 +108,5 @@
 - name: 미사용 Docker 이미지 정리
   community.docker.docker_prune:
     images: true
-    images_filters:
-      dangling: true
   become: false
   tags: [deploy]

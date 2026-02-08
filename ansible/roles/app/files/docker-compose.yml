@@ -54,9 +54,7 @@ services:
       - wiki-net
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${APP_IMAGE}
     container_name: wiki-app-prod
     restart: always
     environment:
