@@ -1,4 +1,10 @@
-# Docker 설치 (초기 1회)
+# Docker 설치 (초기 1회) - Rocky Linux용
+- name: 필수 패키지 설치 (rsync)
+  dnf:
+    name: rsync
+    state: present
+  tags: [setup]
+
 - name: Docker 설치 여부 확인
   command: docker --version
   register: docker_check
@@ -10,8 +16,23 @@
   when: docker_check.rc != 0
   tags: [setup]
   block:
-    - name: Docker 설치 스크립트 실행
-      shell: curl -fsSL https://get.docker.com | sh
+    - name: Docker CE 리포지토리 추가
+      yum_repository:
+        name: docker-ce
+        description: Docker CE Stable
+        baseurl: https://download.docker.com/linux/rhel/$releasever/$basearch/stable
+        gpgcheck: true
+        gpgkey: https://download.docker.com/linux/centos/gpg
+        enabled: true
+
+    - name: Docker 패키지 설치
+      dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
 
     - name: 유저를 docker 그룹에 추가
       user:

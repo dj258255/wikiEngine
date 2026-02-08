@@ -11,7 +11,7 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./loki/loki.yml:/etc/loki/local-config.yaml
+      - ./loki/loki.yml:/etc/loki/local-config.yaml:Z
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     deploy:
@@ -33,10 +33,10 @@ services:
       - "3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
-      - ./grafana/dashboards/k6:/var/lib/grafana/dashboards/k6
-      - ./grafana/dashboards/monitoring:/var/lib/grafana/dashboards/monitoring
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:Z
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:Z
+      - ./grafana/dashboards/k6:/var/lib/grafana/dashboards/k6:Z
+      - ./grafana/dashboards/monitoring:/var/lib/grafana/dashboards/monitoring:Z
     deploy:
       resources:
         limits:
