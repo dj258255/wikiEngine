@@ -1,4 +1,4 @@
-# 앱 배포
+# App Server 배포 (ARM)
 - name: 프로젝트 디렉토리 생성
   file:
     path: "{{ app_dir }}"
@@ -17,13 +17,58 @@
       - "--exclude=build"
       - "--exclude=.env.*"
       - "--exclude=.idea"
+      - "--exclude=docker-compose.dev.yml"
+      - "--exclude=docker-compose.prod.yml"
   become: false
+  tags: [deploy]
+
+- name: App Server용 docker-compose.yml 배포
+  copy:
+    src: docker-compose.yml
+    dest: "{{ app_dir }}/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  tags: [deploy]
+
+- name: Promtail 디렉토리 생성
+  file:
+    path: "{{ app_dir }}/promtail"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: [deploy]
+
+- name: Promtail 설정 생성 (템플릿)
+  template:
+    src: promtail.yml.j2
+    dest: "{{ app_dir }}/promtail/promtail.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  tags: [deploy]
+
+- name: Nginx 디렉토리 생성
+  file:
+    path: "{{ app_dir }}/nginx"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: [deploy]
+
+- name: Nginx 설정 배포
+  copy:
+    src: nginx/nginx.conf
+    dest: "{{ app_dir }}/nginx/nginx.conf"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
   tags: [deploy]
 
 - name: .env.prod 생성
   template:
     src: env.prod.j2
-    dest: "{{ app_dir }}/{{ env_file }}"
+    dest: "{{ app_dir }}/.env.prod"
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0600"
@@ -32,8 +77,7 @@
 - name: Docker 이미지 빌드
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
-    files: ["{{ compose_file }}"]
-    env_files: ["{{ env_file }}"]
+    env_files: [".env.prod"]
     build: always
     services: [app]
     state: present
@@ -43,8 +87,7 @@
 - name: MySQL 시작 및 헬스체크 대기
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
-    files: ["{{ compose_file }}"]
-    env_files: ["{{ env_file }}"]
+    env_files: [".env.prod"]
     services: [mysql]
     state: present
     wait: true
@@ -55,8 +98,7 @@
 - name: 전체 서비스 시작
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
-    files: ["{{ compose_file }}"]
-    env_files: ["{{ env_file }}"]
+    env_files: [".env.prod"]
     state: present
     pull: missing
   become: false

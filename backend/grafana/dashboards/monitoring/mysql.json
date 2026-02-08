@@ -1,0 +1,225 @@
+{
+  "uid": "wiki-mysql",
+  "title": "Wiki Engine - MySQL",
+  "tags": ["mysql", "wiki-engine", "monitoring"],
+  "timezone": "browser",
+  "refresh": "15s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "MySQL QPS (Queries Per Second)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(mysql_global_status_queries[1m])",
+          "legendFormat": "Queries/s",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "MySQL 커넥션 수",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "mysql_global_status_threads_connected",
+          "legendFormat": "Connected",
+          "refId": "A"
+        },
+        {
+          "expr": "mysql_global_status_threads_running",
+          "legendFormat": "Running",
+          "refId": "B"
+        },
+        {
+          "expr": "mysql_global_variables_max_connections",
+          "legendFormat": "Max Connections",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "InnoDB 버퍼 풀 히트율 (%)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.95 },
+              { "color": "green", "value": 0.99 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "1 - (rate(mysql_global_status_innodb_buffer_pool_reads[5m]) / rate(mysql_global_status_innodb_buffer_pool_read_requests[5m]))",
+          "legendFormat": "Hit Rate",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "InnoDB 버퍼 풀 사용량",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "mysql_global_status_innodb_buffer_pool_bytes_data",
+          "legendFormat": "Data",
+          "refId": "A"
+        },
+        {
+          "expr": "mysql_global_variables_innodb_buffer_pool_size",
+          "legendFormat": "Pool Size",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Slow Queries (누적)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "mysql_global_status_slow_queries",
+          "legendFormat": "Slow Queries",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Table Locks",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(mysql_global_status_table_locks_waited[5m])",
+          "legendFormat": "Locks Waited/s",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "MySQL 명령 유형별 처리량",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(mysql_global_status_commands_total{command=~\"select|insert|update|delete\"}[1m])",
+          "legendFormat": "{{command}}/s",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "InnoDB Row Lock 대기시간",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(mysql_global_status_innodb_row_lock_time[1m]) / 1000",
+          "legendFormat": "Row Lock Time/s",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "InnoDB Row 연산",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(mysql_global_status_innodb_rows_read[1m])",
+          "legendFormat": "Rows Read/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(mysql_global_status_innodb_rows_inserted[1m])",
+          "legendFormat": "Rows Inserted/s",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(mysql_global_status_innodb_rows_updated[1m])",
+          "legendFormat": "Rows Updated/s",
+          "refId": "C"
+        },
+        {
+          "expr": "rate(mysql_global_status_innodb_rows_deleted[1m])",
+          "legendFormat": "Rows Deleted/s",
+          "refId": "D"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39
+}

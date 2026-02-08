@@ -55,5 +55,13 @@ frontend/next-env.d.ts
 # Docs
 docs/
 
+# Environment (secrets)
+**/.env
+**/.env.*
+!**/.env.*.example
+
+# Ansible Vault
+ansible/.vault_pass
+
 # Logs
 *.log

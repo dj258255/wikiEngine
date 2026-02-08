@@ -1,13 +1,9 @@
-# OCI ARM 서버 배포 워크플로우 (Ansible)
+# OCI 멀티서버 배포 워크플로우 (Ansible + Vault)
 # main 브랜치 push 시 자동 배포
 #
 # 필요한 GitHub Secrets:
-#   OCI_HOST         - OCI 서버 공인 IP
-#   OCI_USER         - SSH 접속 유저 (ubuntu 등)
-#   OCI_SSH_KEY      - SSH 개인키 (PEM 형식)
-#   DB_PASSWORD      - MySQL wiki 유저 비밀번호
-#   DB_ROOT_PASSWORD - MySQL root 비밀번호
-#   JWT_SECRET       - JWT 서명 비밀키 (Base64)
+#   OCI_SSH_KEY      - SSH 개인키 (PEM, 3대 서버 공통)
+#   VAULT_PASSWORD   - ansible-vault 비밀번호
 
 name: Deploy to OCI
 
@@ -31,21 +27,19 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.OCI_SSH_KEY }}" > ~/.ssh/oci_key
           chmod 600 ~/.ssh/oci_key
-          ssh-keyscan -H ${{ secrets.OCI_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H 168.107.53.115 >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H 168.107.57.43 >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H 152.67.195.6 >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Ansible 설치
         run: |
           pip install ansible
           ansible-galaxy collection install community.docker
 
+      - name: Vault 비밀번호 설정
+        run: echo "${{ secrets.VAULT_PASSWORD }}" > ansible/.vault_pass
+
       - name: Ansible 배포 실행
-        env:
-          OCI_HOST: ${{ secrets.OCI_HOST }}
-          OCI_USER: ${{ secrets.OCI_USER }}
-          SSH_KEY_PATH: ~/.ssh/oci_key
         run: |
           cd ansible
-          ansible-playbook -i inventory.yml site.yml --tags deploy \
-            -e "db_password=${{ secrets.DB_PASSWORD }}" \
-            -e "db_root_password=${{ secrets.DB_ROOT_PASSWORD }}" \
-            -e "jwt_secret=${{ secrets.JWT_SECRET }}"
+          ansible-playbook -i inventory.yml site.yml --tags deploy

@@ -1,0 +1,73 @@
+# AMD #1 Monitoring Server (168.107.57.43)
+# Loki + Grafana + Node Exporter
+#
+# 사용법: docker compose up -d
+
+services:
+  loki:
+    image: grafana/loki:3.4.2
+    container_name: wiki-loki-prod
+    restart: always
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+    networks:
+      - wiki-net
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: wiki-grafana-prod
+    restart: always
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/dashboards/k6:/var/lib/grafana/dashboards/k6
+      - ./grafana/dashboards/monitoring:/var/lib/grafana/dashboards/monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+    depends_on:
+      - loki
+    networks:
+      - wiki-net
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.0
+    container_name: wiki-node-exporter-prod
+    restart: always
+    pid: host
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      - "9100:9100"
+    deploy:
+      resources:
+        limits:
+          memory: 30M
+    networks:
+      - wiki-net
+
+volumes:
+  loki_data:
+  grafana_data:
+
+networks:
+  wiki-net:
+    driver: bridge

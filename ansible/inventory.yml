@@ -1,9 +1,32 @@
-# OCI 서버 인벤토리
-# host_vars는 GitHub Secrets에서 주입되므로 여기서는 구조만 정의
+# OCI 멀티서버 인벤토리
+# 모든 설정값은 group_vars/all.yml에서 관리
+#
+# 사용법:
+#   ansible-playbook -i inventory.yml site.yml --ask-vault-pass
 all:
-  hosts:
-    oci:
-      ansible_host: "{{ lookup('env', 'OCI_HOST') }}"
-      ansible_user: "{{ lookup('env', 'OCI_USER') | default('rocky', true) }}"
-      ansible_ssh_private_key_file: "{{ lookup('env', 'SSH_KEY_PATH') | default('~/.ssh/oci_key', true) }}"
-      ansible_python_interpreter: /usr/bin/python3
+  children:
+    app:
+      hosts:
+        app-arm:
+          ansible_host: "{{ app_server_host }}"
+          private_ip: "{{ app_server_private_ip }}"
+          ansible_user: "{{ ssh_user_arm }}"
+          server_role: app-server
+
+    monitoring:
+      hosts:
+        monitoring-loki:
+          ansible_host: "{{ monitoring_loki_host }}"
+          private_ip: "{{ monitoring_loki_private_ip }}"
+          ansible_user: "{{ ssh_user_amd }}"
+          server_role: monitoring-loki
+
+        monitoring-prometheus:
+          ansible_host: "{{ monitoring_prometheus_host }}"
+          private_ip: "{{ monitoring_prometheus_private_ip }}"
+          ansible_user: "{{ ssh_user_amd }}"
+          server_role: monitoring-prometheus
+
+  vars:
+    ansible_ssh_private_key_file: "{{ ssh_key_path }}"
+    ansible_python_interpreter: /usr/bin/python3

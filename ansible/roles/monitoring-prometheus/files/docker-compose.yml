@@ -1,0 +1,50 @@
+# AMD #2 Monitoring Server (152.67.195.6)
+# Prometheus + Node Exporter
+#
+# 사용법: docker compose up -d
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: wiki-prometheus-prod
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+      - "--storage.tsdb.retention.size=5GB"
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+    networks:
+      - wiki-net
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.0
+    container_name: wiki-node-exporter-prod
+    restart: always
+    pid: host
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      - "9100:9100"
+    deploy:
+      resources:
+        limits:
+          memory: 30M
+    networks:
+      - wiki-net
+
+volumes:
+  prometheus_data:
+
+networks:
+  wiki-net:
+    driver: bridge

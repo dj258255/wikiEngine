@@ -9,6 +9,8 @@ services:
   app:
     container_name: wiki-app-dev
     restart: unless-stopped
+    profiles:
+      - with-app
 
   influxdb:
     container_name: wiki-influxdb-dev
@@ -17,6 +19,8 @@ services:
   prometheus:
     container_name: wiki-prometheus-dev
     restart: unless-stopped
+    extra_hosts:
+      - "app:host-gateway"
 
   mysql-exporter:
     container_name: wiki-mysql-exporter-dev
@@ -28,6 +32,14 @@ services:
 
   promtail:
     container_name: wiki-promtail-dev
+    restart: unless-stopped
+
+  node-exporter:
+    container_name: wiki-node-exporter-dev
+    restart: unless-stopped
+
+  cadvisor:
+    container_name: wiki-cadvisor-dev
     restart: unless-stopped
 
   grafana:
