@@ -75,6 +75,14 @@
     mode: "0600"
   tags: [deploy]
 
+- name: GHCR 로그인
+  community.docker.docker_login:
+    registry_url: ghcr.io
+    username: "{{ ghcr_user }}"
+    password: "{{ ghcr_token }}"
+  become: false
+  tags: [deploy]
+
 - name: MySQL 시작 및 헬스체크 대기
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"

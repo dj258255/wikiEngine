@@ -25,6 +25,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: 레포지토리명 소문자 변환
+        id: repo
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
       - name: QEMU 설정 (ARM64 크로스 빌드)
         uses: docker/setup-qemu-action@v3
 
@@ -46,17 +50,23 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ steps.repo.outputs.name }}:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.name }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: 레포지토리명 소문자 변환
+        id: repo
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
       - name: SSH 키 설정
         run: |
@@ -79,4 +89,6 @@ jobs:
         run: |
           cd ansible
           ansible-playbook -i inventory.yml site.yml --tags setup,deploy \
-            -e "app_image=ghcr.io/${{ github.repository }}:${{ github.sha }}"
+            -e "app_image=ghcr.io/${{ steps.repo.outputs.name }}:${{ github.sha }}" \
+            -e "ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+            -e "ghcr_user=${{ github.actor }}"
