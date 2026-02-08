@@ -80,8 +80,9 @@
         groups: docker
         append: true
 
-    - name: Docker 서비스 활성화
-      systemd:
-        name: docker
-        enabled: true
-        state: started
+- name: Docker 서비스 활성화
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+  tags: [setup]
