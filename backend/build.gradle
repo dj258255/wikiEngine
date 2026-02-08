@@ -66,6 +66,10 @@ dependencies {
         }
     }
 
+    // Flyway: DB 스키마 버전 관리 및 마이그레이션
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+
     // MySQL Connector: MySQL 8.0 JDBC 드라이버
     runtimeOnly 'com.mysql:mysql-connector-j'
 

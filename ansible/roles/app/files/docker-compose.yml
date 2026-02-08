@@ -74,6 +74,7 @@ services:
       HIBERNATE_BATCH_SIZE: ${HIBERNATE_BATCH_SIZE}
       JPA_DDL_AUTO: ${JPA_DDL_AUTO}
       JPA_SHOW_SQL: ${JPA_SHOW_SQL}
+      FLYWAY_ENABLED: ${FLYWAY_ENABLED}
     ports:
       - "8080:8080"  # Prometheus 스크래핑용 (nginx는 80/443)
     depends_on:

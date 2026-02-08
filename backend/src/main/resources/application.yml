@@ -13,10 +13,16 @@ spring:
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:10}  # HikariCP 커넥션 풀 크기
 
+  # Flyway: DB 스키마 버전 관리 및 마이그레이션 (운영만 활성화)
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
   # JPA / Hibernate 설정
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}  # 개발 환경: update, 운영 환경: validate 또는 none
+      ddl-auto: ${JPA_DDL_AUTO:update}  # 로컬: update, 운영: validate (Flyway가 스키마 관리)
     show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
