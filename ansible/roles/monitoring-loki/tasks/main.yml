@@ -12,6 +12,10 @@
     src: "{{ role_path }}/files/"
     dest: "{{ deploy_dir }}/"
     delete: true
+    rsync_opts:
+      - "--exclude=nginx/"
+      - "--exclude=certbot/"
+      - "--exclude=.env.prod"
   become: false
   tags: [deploy]
 
@@ -32,9 +36,82 @@
     mode: "0644"
   tags: [deploy]
 
+# --- Nginx + Certbot + Basic Auth ---
+- name: Nginx 디렉토리 생성
+  file:
+    path: "{{ deploy_dir }}/nginx"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: [deploy]
+
+- name: Certbot 디렉토리 생성
+  file:
+    path: "{{ deploy_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  loop:
+    - certbot/www
+    - certbot/certs
+  tags: [deploy]
+
+- name: SSL 인증서 존재 확인
+  stat:
+    path: "{{ deploy_dir }}/certbot/certs/live/{{ grafana_domain }}/fullchain.pem"
+  register: ssl_cert
+  tags: [deploy]
+
+- name: htpasswd 파일 생성 (Basic Auth)
+  shell: |
+    echo "{{ monitoring_basic_auth_user }}:$(openssl passwd -apr1 '{{ monitoring_basic_auth_password }}')" > {{ deploy_dir }}/nginx/htpasswd
+  args:
+    creates: "{{ deploy_dir }}/nginx/htpasswd"
+  tags: [deploy]
+
+- name: htpasswd 권한 설정
+  file:
+    path: "{{ deploy_dir }}/nginx/htpasswd"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  tags: [deploy]
+
+- name: "Nginx 설정 배포 (HTTP - 인증서 없음)"
+  template:
+    src: nginx-http.conf.j2
+    dest: "{{ deploy_dir }}/nginx/nginx.conf"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  when: not ssl_cert.stat.exists
+  tags: [deploy]
+
+- name: "Nginx 설정 배포 (HTTPS - 인증서 있음)"
+  template:
+    src: nginx-https.conf.j2
+    dest: "{{ deploy_dir }}/nginx/nginx.conf"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  when: ssl_cert.stat.exists
+  tags: [deploy]
+
+# --- .env.prod 생성 ---
+- name: .env.prod 생성
+  template:
+    src: env.prod.j2
+    dest: "{{ deploy_dir }}/.env.prod"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+  tags: [deploy]
+
+# --- 서비스 시작 ---
 - name: 전체 서비스 시작
   community.docker.docker_compose_v2:
     project_src: "{{ deploy_dir }}"
+    env_files: [".env.prod"]
     state: present
     pull: missing
   become: false
@@ -48,6 +125,51 @@
   until: loki_health.status == 200
   retries: 12
   delay: 5
+  tags: [deploy]
+
+# --- Certbot 인증서 발급 (최초 1회) ---
+- name: "Certbot 인증서 발급 (최초)"
+  command: >
+    docker run --rm
+    -v {{ deploy_dir }}/certbot/www:/var/www/certbot
+    -v {{ deploy_dir }}/certbot/certs:/etc/letsencrypt
+    certbot/certbot certonly
+    --webroot -w /var/www/certbot
+    -d {{ grafana_domain }}
+    --email {{ certbot_email }}
+    --agree-tos --no-eff-email --non-interactive
+  when: not ssl_cert.stat.exists
+  tags: [deploy]
+
+- name: "HTTPS Nginx 설정으로 전환"
+  template:
+    src: nginx-https.conf.j2
+    dest: "{{ deploy_dir }}/nginx/nginx.conf"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  when: not ssl_cert.stat.exists
+  tags: [deploy]
+
+- name: "Nginx 리로드 (HTTPS 적용)"
+  command: docker exec monitoring-nginx-prod nginx -s reload
+  when: not ssl_cert.stat.exists
+  tags: [deploy]
+
+# --- Certbot 자동 갱신 cron ---
+- name: Certbot 자동 갱신 cron 등록 (주 1회)
+  cron:
+    name: "certbot renew - monitoring"
+    minute: "0"
+    hour: "4"
+    weekday: "1"
+    job: >
+      docker run --rm
+      -v {{ deploy_dir }}/certbot/www:/var/www/certbot
+      -v {{ deploy_dir }}/certbot/certs:/etc/letsencrypt
+      certbot/certbot renew --quiet
+      && docker exec monitoring-nginx-prod nginx -s reload
+    user: "{{ ansible_user }}"
   tags: [deploy]
 
 - name: 미사용 Docker 이미지 정리

@@ -57,13 +57,41 @@
     group: "{{ ansible_user }}"
   tags: [deploy]
 
-- name: Nginx 설정 배포
-  copy:
-    src: nginx/nginx.conf
+- name: Certbot 디렉토리 생성
+  file:
+    path: "{{ app_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  loop:
+    - certbot/www
+    - certbot/certs
+  tags: [deploy]
+
+- name: SSL 인증서 존재 확인
+  stat:
+    path: "{{ app_dir }}/certbot/certs/live/{{ app_domain }}/fullchain.pem"
+  register: ssl_cert
+  tags: [deploy]
+
+- name: "Nginx 설정 배포 (HTTP - 인증서 없음)"
+  template:
+    src: nginx-http.conf.j2
     dest: "{{ app_dir }}/nginx/nginx.conf"
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0644"
+  when: not ssl_cert.stat.exists
+  tags: [deploy]
+
+- name: "Nginx 설정 배포 (HTTPS - 인증서 있음)"
+  template:
+    src: nginx-https.conf.j2
+    dest: "{{ app_dir }}/nginx/nginx.conf"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  when: ssl_cert.stat.exists
   tags: [deploy]
 
 - name: .env.prod 생성
@@ -111,6 +139,51 @@
   until: health.status == 200
   retries: 24
   delay: 5
+  tags: [deploy]
+
+# --- Certbot 인증서 발급 (최초 1회) ---
+- name: "Certbot 인증서 발급 (최초)"
+  command: >
+    docker run --rm
+    -v {{ app_dir }}/certbot/www:/var/www/certbot
+    -v {{ app_dir }}/certbot/certs:/etc/letsencrypt
+    certbot/certbot certonly
+    --webroot -w /var/www/certbot
+    -d {{ app_domain }}
+    --email {{ certbot_email }}
+    --agree-tos --no-eff-email --non-interactive
+  when: not ssl_cert.stat.exists
+  tags: [deploy]
+
+- name: "HTTPS Nginx 설정으로 전환"
+  template:
+    src: nginx-https.conf.j2
+    dest: "{{ app_dir }}/nginx/nginx.conf"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  when: not ssl_cert.stat.exists
+  tags: [deploy]
+
+- name: "Nginx 리로드 (HTTPS 적용)"
+  command: docker exec wiki-nginx-prod nginx -s reload
+  when: not ssl_cert.stat.exists
+  tags: [deploy]
+
+# --- Certbot 자동 갱신 cron ---
+- name: Certbot 자동 갱신 cron 등록 (주 1회)
+  cron:
+    name: "certbot renew - app"
+    minute: "30"
+    hour: "3"
+    weekday: "1"
+    job: >
+      docker run --rm
+      -v {{ app_dir }}/certbot/www:/var/www/certbot
+      -v {{ app_dir }}/certbot/certs:/etc/letsencrypt
+      certbot/certbot renew --quiet
+      && docker exec wiki-nginx-prod nginx -s reload
+    user: "{{ ansible_user }}"
   tags: [deploy]
 
 - name: 미사용 Docker 이미지 정리

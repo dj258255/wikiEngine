@@ -30,11 +30,20 @@
   when: server_role == 'monitoring-loki'
   command: "firewall-cmd --permanent --add-port={{ item }}/tcp"
   loop:
+    - "80"     # Nginx HTTP
+    - "443"    # Nginx HTTPS
     - "3100"   # Loki
-    - "3001"   # Grafana
     - "9100"   # Node Exporter
   register: fw_result
   changed_when: "'ALREADY_ENABLED' not in fw_result.stderr"
+  tags: [setup]
+
+- name: AMD Loki+Grafana 3001 포트 제거
+  when: server_role == 'monitoring-loki'
+  command: "firewall-cmd --permanent --remove-port=3001/tcp"
+  register: fw_remove_result
+  changed_when: "'NOT_ENABLED' not in fw_remove_result.stderr"
+  failed_when: false
   tags: [setup]
 
 - name: AMD Prometheus 포트 오픈

@@ -1,0 +1,33 @@
+# {{ ansible_managed }}
+# HTTP 전용 설정 (Let's Encrypt 인증서 발급용)
+
+upstream grafana {
+    server grafana:3000;
+}
+
+server {
+    listen 80;
+    server_name {{ grafana_domain }};
+
+    # Let's Encrypt ACME challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Basic Auth + Grafana 프록시
+    location / {
+        auth_basic "Monitoring";
+        auth_basic_user_file /etc/nginx/htpasswd;
+
+        proxy_pass http://grafana;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket (Grafana Live)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
