@@ -63,8 +63,10 @@
   tags: [deploy]
 
 - name: htpasswd 파일 생성 (Basic Auth)
-  shell: |
-    echo "{{ monitoring_basic_auth_user }}:$(openssl passwd -apr1 '{{ monitoring_basic_auth_password }}')" > {{ deploy_dir }}/nginx/htpasswd
+  shell: >
+    echo "{{ monitoring_basic_auth_user }}:$(openssl passwd -apr1
+    {{ monitoring_basic_auth_password | quote }})"
+    > {{ deploy_dir }}/nginx/htpasswd
   args:
     creates: "{{ deploy_dir }}/nginx/htpasswd"
   tags: [deploy]
