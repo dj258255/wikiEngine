@@ -15,6 +15,14 @@
   become: false
   tags: [deploy]
 
+- name: Monitoring Prometheus docker-compose.yml 배포
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ deploy_dir }}/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: [deploy]
+
 - name: Prometheus 디렉토리 생성
   file:
     path: "{{ deploy_dir }}/prometheus"

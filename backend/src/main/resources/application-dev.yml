@@ -1,16 +1,5 @@
 # 로컬 개발 환경 프로필
 # Spring Boot 앱을 IDE에서 직접 실행할 때 사용
 # 활성화: --spring.profiles.active=dev
-spring:
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        generate_statistics: true
-
-logging:
-  level:
-    com.wiki.engine: DEBUG
-    org.hibernate.SQL: DEBUG
+# 현재 환경별 차이는 모두 환경변수로 주입한다.
+# 향후 로컬 환경에서만 필요한 설정이 생기면 여기에 추가한다.

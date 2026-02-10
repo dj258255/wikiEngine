@@ -19,6 +19,14 @@
   become: false
   tags: [deploy]
 
+- name: Monitoring Loki docker-compose.yml 배포
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ deploy_dir }}/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: [deploy]
+
 - name: Grafana datasources 디렉토리 생성
   file:
     path: "{{ deploy_dir }}/grafana/provisioning/datasources"

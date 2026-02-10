@@ -1,11 +1,11 @@
-# ARM App Server (168.107.53.115)
+# ARM App Server ({{ app_server_host }})
 # Nginx + App + MySQL + Promtail + cAdvisor + Node Exporter + MySQL Exporter
 #
 # 사용법: docker compose --env-file .env.prod up -d
 
 services:
   nginx:
-    image: nginx:1.27-alpine
+    image: {{ nginx_image }}
     container_name: wiki-nginx-prod
     restart: always
     ports:
@@ -21,7 +21,7 @@ services:
       - wiki-net
 
   mysql:
-    image: mysql:8.0
+    image: {{ mysql_image }}
     container_name: wiki-mysql-prod
     restart: always
     environment:
@@ -73,6 +73,11 @@ services:
       JPA_DDL_AUTO: ${JPA_DDL_AUTO}
       JPA_SHOW_SQL: ${JPA_SHOW_SQL}
       FLYWAY_ENABLED: ${FLYWAY_ENABLED}
+      HIBERNATE_STATISTICS: ${HIBERNATE_STATISTICS}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      ACTUATOR_ENDPOINTS: ${ACTUATOR_ENDPOINTS}
+      HEALTH_SHOW_DETAILS: ${HEALTH_SHOW_DETAILS}
     ports:
       - "8080:8080"  # Prometheus 스크래핑용 (nginx는 80/443)
     depends_on:
@@ -82,7 +87,7 @@ services:
       - wiki-net
 
   mysql-exporter:
-    image: prom/mysqld-exporter:v0.16.0
+    image: {{ mysqld_exporter_image }}
     container_name: wiki-mysql-exporter-prod
     restart: always
     environment:
@@ -99,7 +104,7 @@ services:
       - wiki-net
 
   promtail:
-    image: grafana/promtail:3.4.2
+    image: {{ promtail_image }}
     container_name: wiki-promtail-prod
     restart: always
     volumes:
@@ -111,7 +116,7 @@ services:
       - wiki-net
 
   node-exporter:
-    image: prom/node-exporter:v1.9.0
+    image: {{ node_exporter_image }}
     container_name: wiki-node-exporter-prod
     restart: always
     pid: host
@@ -125,7 +130,7 @@ services:
       - wiki-net
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.51.0
+    image: {{ cadvisor_image }}
     container_name: wiki-cadvisor-prod
     restart: always
     ports:

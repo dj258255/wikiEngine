@@ -14,7 +14,7 @@ import java.util.List;
  * 카테고리 조회는 인증 없이 허용, 생성은 인증 필요.
  */
 @RestController
-@RequestMapping("/categories")
+@RequestMapping(path = "/categories", version = "1.0")
 @RequiredArgsConstructor
 public class CategoryController {
 

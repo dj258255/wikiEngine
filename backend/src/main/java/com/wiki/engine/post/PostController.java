@@ -23,7 +23,7 @@ import java.util.List;
  * - 동기 조회수 증가 (Row Lock 경합)
  */
 @RestController
-@RequestMapping("/posts")
+@RequestMapping(path = "/posts", version = "1.0")
 @RequiredArgsConstructor
 public class PostController {
 

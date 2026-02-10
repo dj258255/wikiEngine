@@ -2,13 +2,13 @@ package com.wiki.engine.auth;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * JWT 인증 필터.
  * 모든 HTTP 요청마다 한 번씩 실행되며(OncePerRequestFilter),
- * Authorization 헤더에서 Bearer 토큰을 추출하여 유효성을 검증한다.
+ * 쿠키에서 JWT 토큰을 추출하여 유효성을 검증한다.
  * 유효한 토큰이면 SecurityContext에 인증 정보를 설정하여 이후 요청에서 인증된 사용자로 처리한다.
  */
 @Component
@@ -49,15 +49,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * HTTP 요청의 Authorization 헤더에서 Bearer 토큰을 추출한다.
+     * HTTP 요청의 쿠키에서 "token" 이름의 JWT 토큰을 추출한다.
      *
      * @param request HTTP 요청
      * @return JWT 토큰 문자열, 없으면 null
      */
     private String resolveToken(HttpServletRequest request) {
-        String bearer = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
-            return bearer.substring(7);
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
         }
         return null;
     }

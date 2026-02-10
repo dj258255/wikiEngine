@@ -1,11 +1,12 @@
-# Base 설정 (공통)
-# 사용법:
-#   개발: docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up -d
-#   운영: docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d
+# 로컬 개발 환경 (MySQL + 모니터링)
+# 앱은 IDE에서 직접 실행, 운영 배포는 Ansible이 담당
+# 사용법: docker compose --env-file .env.dev up -d
 
 services:
   mysql:
     image: mysql:8.0
+    container_name: wiki-mysql-dev
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
@@ -36,42 +37,10 @@ services:
     networks:
       - wiki-net
 
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      SPRING_PROFILES_ACTIVE: ${ENVIRONMENT}
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: ${DB_NAME}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_POOL_SIZE: ${DB_POOL_SIZE}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRATION: ${JWT_EXPIRATION}
-      SERVER_PORT: 8080
-      LOG_LEVEL: ${LOG_LEVEL}
-      HIBERNATE_BATCH_SIZE: ${HIBERNATE_BATCH_SIZE}
-      JPA_DDL_AUTO: ${JPA_DDL_AUTO}
-      JPA_SHOW_SQL: ${JPA_SHOW_SQL}
-      # 데이터 초기화 (비활성화 - mysqldump 복원 방식 사용)
-      # 재실행 필요 시 주석 해제 + .env, application.yml도 함께 해제할 것.
-      #INIT_USERS: ${INIT_USERS}
-      #WIKI_IMPORT_ENABLED: ${WIKI_IMPORT_ENABLED}
-      #WIKI_IMPORT_PATH: ${WIKI_IMPORT_PATH}
-    ports:
-      - "${SERVER_PORT}:8080"
-    #volumes:
-    #  - ${WIKI_DUMP_DIR:-./data}:/data
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - wiki-net
-
   influxdb:
     image: influxdb:1.8
+    container_name: wiki-influxdb-dev
+    restart: unless-stopped
     environment:
       INFLUXDB_DB: k6
       INFLUXDB_HTTP_AUTH_ENABLED: "false"
@@ -84,6 +53,10 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.2.1
+    container_name: wiki-prometheus-dev
+    restart: unless-stopped
+    extra_hosts:
+      - "app:host-gateway"
     ports:
       - "${PROMETHEUS_PORT}:9090"
     volumes:
@@ -94,6 +67,8 @@ services:
 
   mysql-exporter:
     image: prom/mysqld-exporter:v0.16.0
+    container_name: wiki-mysql-exporter-dev
+    restart: unless-stopped
     environment:
       MYSQLD_EXPORTER_PASSWORD: ${DB_PASSWORD}
     command:
@@ -107,6 +82,8 @@ services:
 
   loki:
     image: grafana/loki:3.4.2
+    container_name: wiki-loki-dev
+    restart: unless-stopped
     ports:
       - "${LOKI_PORT}:3100"
     volumes:
@@ -118,6 +95,8 @@ services:
 
   promtail:
     image: grafana/promtail:3.4.2
+    container_name: wiki-promtail-dev
+    restart: unless-stopped
     volumes:
       - ./promtail/promtail.yml:/etc/promtail/config.yml
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -130,12 +109,16 @@ services:
 
   node-exporter:
     image: prom/node-exporter:v1.9.0
+    container_name: wiki-node-exporter-dev
+    restart: unless-stopped
     pid: host
     networks:
       - wiki-net
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.51.0
+    container_name: wiki-cadvisor-dev
+    restart: unless-stopped
     ports:
       - "${CADVISOR_PORT}:8080"
     volumes:
@@ -148,6 +131,8 @@ services:
 
   grafana:
     image: grafana/grafana:11.4.0
+    container_name: wiki-grafana-dev
+    restart: unless-stopped
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS_ENABLED}
       GF_AUTH_ANONYMOUS_ORG_ROLE: ${GRAFANA_ANONYMOUS_ROLE}

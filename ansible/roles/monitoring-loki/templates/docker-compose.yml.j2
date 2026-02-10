@@ -1,11 +1,11 @@
-# AMD #1 Monitoring Server (168.107.57.43)
+# AMD #1 Monitoring Server ({{ monitoring_loki_host }})
 # Nginx + Loki + Grafana + Node Exporter
 #
 # 사용법: docker compose --env-file .env.prod up -d
 
 services:
   nginx:
-    image: nginx:1.27-alpine
+    image: {{ nginx_image }}
     container_name: monitoring-nginx-prod
     restart: always
     ports:
@@ -21,12 +21,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 30M
+          memory: {{ nginx_memory_limit }}
     networks:
       - wiki-net
 
   loki:
-    image: grafana/loki:3.4.2
+    image: {{ loki_image }}
     container_name: wiki-loki-prod
     restart: always
     ports:
@@ -38,12 +38,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 400M
+          memory: {{ loki_memory_limit }}
     networks:
       - wiki-net
 
   grafana:
-    image: grafana/grafana:11.4.0
+    image: {{ grafana_image }}
     container_name: wiki-grafana-prod
     restart: always
     environment:
@@ -62,14 +62,14 @@ services:
     deploy:
       resources:
         limits:
-          memory: 250M
+          memory: {{ grafana_memory_limit }}
     depends_on:
       - loki
     networks:
       - wiki-net
 
   node-exporter:
-    image: prom/node-exporter:v1.9.0
+    image: {{ node_exporter_image }}
     container_name: wiki-node-exporter-prod
     restart: always
     pid: host
@@ -82,7 +82,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 30M
+          memory: {{ node_exporter_memory_limit }}
     networks:
       - wiki-net
 

@@ -1,24 +1,5 @@
 # 운영 환경 프로필
 # Docker 컨테이너에서 실행될 때 사용
 # 활성화: SPRING_PROFILES_ACTIVE=prod
-spring:
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
-    baseline-version: 0
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: false
-    properties:
-      hibernate:
-        generate_statistics: false
-
-management:
-  endpoint:
-    health:
-      show-details: when-authorized
-
-logging:
-  level:
-    com.wiki.engine: INFO
+# 현재 환경별 차이는 모두 환경변수로 주입한다.
+# 향후 운영 환경에서만 필요한 설정이 생기면 여기에 추가한다.

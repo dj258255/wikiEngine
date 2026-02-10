@@ -8,7 +8,6 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   signup: (username: string, nickname: string, password: string) => Promise<void>;
@@ -19,39 +18,16 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-function parseJwt(token: string): { sub: string; username: string; exp: number } | null {
-  try {
-    const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    if (savedToken) {
-      const payload = parseJwt(savedToken);
-      if (payload && payload.exp * 1000 > Date.now()) {
-        setToken(savedToken);
-        setUser({ username: payload.username });
-      } else {
-        localStorage.removeItem("token");
-      }
-    }
-    setLoading(false);
+    fetch(`${API_URL}/api/v1.0/auth/me`, { credentials: "include" })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data) setUser({ username: data.username }); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const handleAuthResponse = useCallback(async (res: Response) => {
@@ -67,17 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(message);
     }
     const data = await res.json();
-    const jwt = data.token;
-    const payload = parseJwt(jwt);
-    localStorage.setItem("token", jwt);
-    setToken(jwt);
-    setUser({ username: payload?.username || "" });
+    setUser({ username: data.username });
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
     const res = await fetch(`${API_URL}/api/v1.0/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ username, password }),
     });
     await handleAuthResponse(res);
@@ -87,29 +60,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await fetch(`${API_URL}/api/v1.0/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ username, nickname, password }),
     });
     await handleAuthResponse(res);
   }, [handleAuthResponse]);
 
   const logout = useCallback(async () => {
-    if (token) {
-      try {
-        await fetch(`${API_URL}/api/v1.0/auth/logout`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch {
-        // ignore logout API errors
-      }
+    try {
+      await fetch(`${API_URL}/api/v1.0/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // ignore logout API errors
     }
-    localStorage.removeItem("token");
-    setToken(null);
     setUser(null);
-  }, [token]);
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
