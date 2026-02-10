@@ -82,14 +82,9 @@ jobs:
           echo "${{ secrets.OCI_SSH_KEY }}" > ~/.ssh/oci_key
           chmod 600 ~/.ssh/oci_key
           cd ansible
-          ansible-inventory -i inventory.yml --list --vault-password-file .vault_pass 2>/dev/null \
-            | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          for host in data.get('_meta', {}).get('hostvars', {}).values():
-              if 'ansible_host' in host:
-                  print(host['ansible_host'])
-          " | while read -r host; do
+          ansible-inventory -i inventory.yml --list --vault-password-file .vault_pass \
+            | python3 -c "import json,sys;[print(h['ansible_host']) for h in json.load(sys.stdin).get('_meta',{}).get('hostvars',{}).values() if 'ansible_host' in h]" \
+            | while read -r host; do
             ssh-keyscan -H "$host" >> ~/.ssh/known_hosts 2>/dev/null
           done
 
