@@ -86,7 +86,7 @@ jobs:
           python -m venv ~/.ansible-venv
           source ~/.ansible-venv/bin/activate
           pip install ansible-core
-          ansible-galaxy collection install community.docker
+          ansible-galaxy collection install community.docker ansible.posix
 
       - name: Vault 비밀번호 설정
         run: echo "${{ secrets.VAULT_PASSWORD }}" > ansible/.vault_pass

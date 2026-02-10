@@ -1,10 +1,16 @@
 # Monitoring Loki + Grafana 배포 (AMD #1)
 - name: 프로젝트 디렉토리 생성
   file:
-    path: "{{ deploy_dir }}"
+    path: "{{ deploy_dir }}/{{ item }}"
     state: directory
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
+  loop:
+    - ""
+    - grafana/provisioning/datasources
+    - nginx
+    - certbot/www
+    - certbot/certs
   tags: [deploy]
 
 - name: Monitoring Loki 파일 동기화
@@ -27,14 +33,6 @@
     group: "{{ ansible_user }}"
   tags: [deploy]
 
-- name: Grafana datasources 디렉토리 생성
-  file:
-    path: "{{ deploy_dir }}/grafana/provisioning/datasources"
-    state: directory
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-  tags: [deploy]
-
 - name: Grafana Prometheus 데이터소스 생성 (템플릿)
   template:
     src: prometheus-datasource.yml.j2
@@ -42,26 +40,6 @@
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0644"
-  tags: [deploy]
-
-# --- Nginx + Certbot + Basic Auth ---
-- name: Nginx 디렉토리 생성
-  file:
-    path: "{{ deploy_dir }}/nginx"
-    state: directory
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-  tags: [deploy]
-
-- name: Certbot 디렉토리 생성
-  file:
-    path: "{{ deploy_dir }}/{{ item }}"
-    state: directory
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-  loop:
-    - certbot/www
-    - certbot/certs
   tags: [deploy]
 
 - name: SSL 인증서 존재 확인
@@ -131,10 +109,11 @@
   uri:
     url: http://localhost:3100/ready
     status_code: 200
+    timeout: 5
   register: loki_health
   until: loki_health.status == 200
-  retries: 12
-  delay: 5
+  retries: 10
+  delay: 3
   tags: [deploy]
 
 # --- Certbot 인증서 발급 (최초 1회) ---
@@ -180,12 +159,4 @@
       certbot/certbot renew --quiet
       && docker exec monitoring-nginx-prod nginx -s reload
     user: "{{ ansible_user }}"
-  tags: [deploy]
-
-- name: 미사용 Docker 이미지 정리
-  community.docker.docker_prune:
-    images: true
-    images_filters:
-      dangling: true
-  become: false
   tags: [deploy]

@@ -17,10 +17,16 @@
 
 - name: 프로젝트 디렉토리 생성
   file:
-    path: "{{ app_dir }}"
+    path: "{{ app_dir }}/{{ item }}"
     state: directory
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
+  loop:
+    - ""
+    - promtail
+    - nginx
+    - certbot/www
+    - certbot/certs
   tags: [deploy]
 
 - name: App Server용 docker-compose.yml 배포
@@ -32,14 +38,6 @@
     mode: "0644"
   tags: [deploy]
 
-- name: Promtail 디렉토리 생성
-  file:
-    path: "{{ app_dir }}/promtail"
-    state: directory
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-  tags: [deploy]
-
 - name: Promtail 설정 생성 (템플릿)
   template:
     src: promtail.yml.j2
@@ -47,25 +45,6 @@
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0644"
-  tags: [deploy]
-
-- name: Nginx 디렉토리 생성
-  file:
-    path: "{{ app_dir }}/nginx"
-    state: directory
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-  tags: [deploy]
-
-- name: Certbot 디렉토리 생성
-  file:
-    path: "{{ app_dir }}/{{ item }}"
-    state: directory
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-  loop:
-    - certbot/www
-    - certbot/certs
   tags: [deploy]
 
 - name: SSL 인증서 존재 확인
@@ -111,23 +90,14 @@
   become: false
   tags: [deploy]
 
-- name: MySQL 시작 및 헬스체크 대기
-  community.docker.docker_compose_v2:
-    project_src: "{{ app_dir }}"
-    env_files: [".env.prod"]
-    services: [mysql]
-    state: present
-    wait: true
-    wait_timeout: 120
-  become: false
-  tags: [deploy]
-
 - name: 전체 서비스 시작
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
     env_files: [".env.prod"]
     state: present
     pull: always
+    wait: true
+    wait_timeout: 120
   become: false
   tags: [deploy]
 
@@ -135,9 +105,10 @@
   uri:
     url: http://localhost:8080/actuator/health
     status_code: 200
+    timeout: 5
   register: health
   until: health.status == 200
-  retries: 24
+  retries: 15
   delay: 5
   tags: [deploy]
 
@@ -184,10 +155,4 @@
       certbot/certbot renew --quiet
       && docker exec wiki-nginx-prod nginx -s reload
     user: "{{ ansible_user }}"
-  tags: [deploy]
-
-- name: 미사용 Docker 이미지 정리
-  community.docker.docker_prune:
-    images: true
-  become: false
   tags: [deploy]

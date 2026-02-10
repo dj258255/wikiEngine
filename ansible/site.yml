@@ -40,6 +40,18 @@
   roles:
     - monitoring-prometheus
 
+# --- 전체 Docker 이미지 정리 (배포 후 1회) ---
+- name: Docker 이미지 정리
+  hosts: all
+  become: false
+  tasks:
+    - name: 미사용 Docker 이미지 정리
+      community.docker.docker_prune:
+        images: true
+        images_filters:
+          dangling: true
+      tags: [deploy]
+
 # --- Swap (수동 실행, 성능 비교용) ---
 # ansible-playbook site.yml --tags swap
 - name: Swap 설정 (성능 비교 후 수동 실행)

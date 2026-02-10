@@ -30,7 +30,7 @@
         state: present
 
     - name: Swappiness 설정 (10)
-      sysctl:
+      ansible.posix.sysctl:
         name: vm.swappiness
         value: "10"
         state: present

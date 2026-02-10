@@ -1,32 +1,17 @@
 # Monitoring Prometheus 배포 (AMD #2)
 - name: 프로젝트 디렉토리 생성
   file:
-    path: "{{ deploy_dir }}"
+    path: "{{ deploy_dir }}/prometheus"
     state: directory
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-  tags: [deploy]
-
-- name: Monitoring Prometheus 파일 동기화
-  synchronize:
-    src: "{{ role_path }}/files/"
-    dest: "{{ deploy_dir }}/"
-    delete: true
-  become: false
+    recurse: true
   tags: [deploy]
 
 - name: Monitoring Prometheus docker-compose.yml 배포
   template:
     src: docker-compose.yml.j2
     dest: "{{ deploy_dir }}/docker-compose.yml"
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-  tags: [deploy]
-
-- name: Prometheus 디렉토리 생성
-  file:
-    path: "{{ deploy_dir }}/prometheus"
-    state: directory
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
   tags: [deploy]
@@ -52,16 +37,9 @@
   uri:
     url: http://localhost:9090/-/ready
     status_code: 200
+    timeout: 5
   register: prom_health
   until: prom_health.status == 200
-  retries: 12
-  delay: 5
-  tags: [deploy]
-
-- name: 미사용 Docker 이미지 정리
-  community.docker.docker_prune:
-    images: true
-    images_filters:
-      dangling: true
-  become: false
+  retries: 10
+  delay: 3
   tags: [deploy]
