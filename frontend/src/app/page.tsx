@@ -23,9 +23,10 @@ export default function Home() {
       </div>
 
       <main className="flex flex-col items-center gap-8">
-        <p className="text-sm text-zinc-400 dark:text-zinc-500">
-          2026년 1월 2일 데이터 기준입니다
-        </p>
+        <div className="flex flex-col items-center gap-1 text-sm text-zinc-400 dark:text-zinc-500">
+          <p>위키피디아: 2026년 1월 2일 데이터 기준</p>
+          <p>나무위키: 2021년 3월 데이터 기준</p>
+        </div>
         <h1 className="text-4xl font-bold text-zinc-900 dark:text-zinc-100">
           위키 검색
         </h1>

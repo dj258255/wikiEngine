@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "../contexts/AuthContext";
-import AuthModal from "./AuthModal";
 
 export default function UserMenu() {
   const { user, loading, logout } = useAuth();
-  const [showModal, setShowModal] = useState(false);
-  const [modalTab, setModalTab] = useState<"login" | "signup">("login");
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -27,23 +25,20 @@ export default function UserMenu() {
 
   if (!user) {
     return (
-      <>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setModalTab("login"); setShowModal(true); }}
-            className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-all hover:bg-zinc-50 hover:border-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-          >
-            로그인
-          </button>
-          <button
-            onClick={() => { setModalTab("signup"); setShowModal(true); }}
-            className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-700 hover:shadow-md"
-          >
-            회원가입
-          </button>
-        </div>
-        <AuthModal isOpen={showModal} onClose={() => setShowModal(false)} initialTab={modalTab} />
-      </>
+      <div className="flex items-center gap-2">
+        <Link
+          href="/login"
+          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-all hover:bg-zinc-50 hover:border-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        >
+          로그인
+        </Link>
+        <Link
+          href="/signup"
+          className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-700 hover:shadow-md"
+        >
+          회원가입
+        </Link>
+      </div>
     );
   }
 
