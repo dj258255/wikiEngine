@@ -76,19 +76,15 @@ jobs:
       - name: Vault 비밀번호 설정
         run: echo "${{ secrets.VAULT_PASSWORD }}" > ansible/.vault_pass
 
-      - name: SSH 키 설정 (Vault에서 서버 IP 추출)
+      - name: SSH 키 설정
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.OCI_SSH_KEY }}" > ~/.ssh/oci_key
           chmod 600 ~/.ssh/oci_key
-          cd ansible
-          HOSTS=$(ansible-inventory -i inventory.yml --list --vault-password-file .vault_pass \
-            | python3 -c "import json,sys;[print(h['ansible_host']) for h in json.load(sys.stdin).get('_meta',{}).get('hostvars',{}).values() if 'ansible_host' in h]")
-          for host in $HOSTS; do
-            ssh-keyscan -H "$host" >> ~/.ssh/known_hosts 2>/dev/null || true
-          done
 
       - name: Ansible 배포 실행
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
         run: |
           cd ansible
           ansible-playbook -i inventory.yml site.yml --tags setup,deploy \
