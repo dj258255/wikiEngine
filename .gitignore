@@ -64,4 +64,6 @@ docs/
 ansible/.vault_pass
 
 # Logs
+logs/
 *.log
+

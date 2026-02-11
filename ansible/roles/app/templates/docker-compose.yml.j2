@@ -29,7 +29,9 @@ services:
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
-    # MySQL 포트는 외부 노출하지 않음 (Docker 네트워크 내부에서만 접근)
+    # MySQL 포트는 localhost에서만 접근 가능 (SSH 터널용)
+    ports:
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - mysql_logs:/var/log/mysql
