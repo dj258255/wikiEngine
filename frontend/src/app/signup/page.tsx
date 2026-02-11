@@ -80,24 +80,30 @@ export default function SignupPage() {
     return () => { clearTimeout(timer); controller.abort(); };
   }, [nickname]);
 
-  if (user) {
-    router.replace("/");
-    return null;
-  }
+  useEffect(() => {
+    if (user) router.replace("/");
+  }, [user, router]);
 
-  const passwordStrength = (() => {
-    if (!password) return { level: 0, label: "", color: "" };
-    let score = 0;
-    if (password.length >= 8) score++;
-    if (password.length >= 12) score++;
-    if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
-    if (/\d/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
-    if (score <= 1) return { level: 1, label: "약함", color: "bg-red-500" };
-    if (score <= 2) return { level: 2, label: "보통", color: "bg-yellow-500" };
-    if (score <= 3) return { level: 3, label: "강함", color: "bg-blue-500" };
-    return { level: 4, label: "매우 강함", color: "bg-green-500" };
-  })();
+  if (user) return null;
+
+  // 아이디 형식 검증
+  const usernameChecks = {
+    length: username.trim().length >= 5 && username.trim().length <= 20,
+    letter: /[a-zA-Z]/.test(username),
+    digit: /\d/.test(username),
+    onlyAlnum: /^[a-zA-Z0-9]*$/.test(username),
+  };
+  const usernameValid = usernameChecks.length && usernameChecks.letter && usernameChecks.digit && usernameChecks.onlyAlnum;
+
+  // 비밀번호 형식 검증
+  const pwChecks = {
+    length: password.length >= 8 && password.length <= 16,
+    letter: /[A-Za-z]/.test(password),
+    digit: /\d/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+  const pwTypesCount = [pwChecks.letter, pwChecks.digit, pwChecks.special].filter(Boolean).length;
+  const pwValid = pwChecks.length && pwTypesCount >= 2;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,16 +112,16 @@ export default function SignupPage() {
       setError("모든 항목을 입력해주세요.");
       return;
     }
-    if (username.trim().length < 5 || username.trim().length > 20) {
-      setError("아이디는 5~20자여야 합니다.");
+    if (!usernameValid) {
+      setError("아이디는 영문과 숫자를 조합한 5~20자여야 합니다.");
       return;
     }
     if (nickname.trim().length < 2 || nickname.trim().length > 12) {
       setError("닉네임은 2~12자여야 합니다.");
       return;
     }
-    if (password.length < 8 || password.length > 16) {
-      setError("비밀번호는 8~16자여야 합니다.");
+    if (!pwValid) {
+      setError("비밀번호는 8~16자, 영문/숫자/특수문자 중 2가지 이상 조합해야 합니다.");
       return;
     }
     if (password !== passwordConfirm) {
@@ -159,12 +165,6 @@ export default function SignupPage() {
         </svg>
       );
     }
-    return null;
-  };
-
-  const statusMessage = (status: CheckStatus, takenMsg: string) => {
-    if (status === "available") return <p className="mt-1 text-xs text-green-600 dark:text-green-400">사용 가능합니다</p>;
-    if (status === "taken") return <p className="mt-1 text-xs text-red-600 dark:text-red-400">{takenMsg}</p>;
     return null;
   };
 
@@ -236,7 +236,41 @@ export default function SignupPage() {
                   </div>
                 )}
               </div>
-              {statusMessage(usernameStatus, "이미 사용 중인 아이디입니다")}
+              {/* 중복 확인 상태 — 높이 고정 */}
+              <div className="h-5 mt-1">
+                {usernameStatus === "available" && <p className="text-xs text-green-600 dark:text-green-400">사용 가능합니다</p>}
+                {usernameStatus === "taken" && <p className="text-xs text-red-600 dark:text-red-400">이미 사용 중인 아이디입니다</p>}
+              </div>
+              {/* 형식 체크리스트 — 항상 표시 */}
+              <div className="rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-800/50">
+                <ul className="space-y-1">
+                  {[
+                    { ok: usernameChecks.length, label: "5~20자" },
+                    { ok: usernameChecks.letter, label: "영문 포함" },
+                    { ok: usernameChecks.digit, label: "숫자 포함" },
+                  ].map(({ ok, label }) => {
+                    const active = username.trim().length > 0;
+                    return (
+                      <li key={label} className={`flex items-center gap-2 text-[13px] font-medium ${
+                        !active ? "text-zinc-400 dark:text-zinc-500"
+                          : ok ? "text-green-600 dark:text-green-400"
+                          : "text-zinc-400 dark:text-zinc-500"
+                      }`}>
+                        {active && ok ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                          </svg>
+                        ) : (
+                          <span className="flex h-4 w-4 items-center justify-center">
+                            <span className="h-1.5 w-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
+                          </span>
+                        )}
+                        {label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </div>
 
             <div>
@@ -266,7 +300,15 @@ export default function SignupPage() {
                   </div>
                 )}
               </div>
-              {statusMessage(nicknameStatus, "이미 사용 중인 닉네임입니다")}
+              {/* 중복 확인 상태 + 안내 — 높이 고정 */}
+              <div className="h-5 mt-1">
+                {nicknameStatus === "available"
+                  ? <p className="text-xs text-green-600 dark:text-green-400">사용 가능합니다</p>
+                  : nicknameStatus === "taken"
+                  ? <p className="text-xs text-red-600 dark:text-red-400">이미 사용 중인 닉네임입니다</p>
+                  : <p className="text-xs text-zinc-400 dark:text-zinc-500">한글, 영문, 숫자 2~12자</p>
+                }
+              </div>
             </div>
 
             <div>
@@ -306,28 +348,86 @@ export default function SignupPage() {
                   )}
                 </button>
               </div>
-              {password && (
-                <div className="mt-2">
+              {/* 형식 체크리스트 — 항상 표시 */}
+              <div className="mt-2 rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800/50">
+                <ul className="space-y-1.5">
+                  {[
+                    { ok: pwChecks.length, label: "8~16자" },
+                    { ok: pwChecks.letter, label: "영문 포함" },
+                    { ok: pwChecks.digit, label: "숫자 포함" },
+                    { ok: pwChecks.special, label: "특수문자 포함" },
+                  ].map(({ ok, label }) => {
+                    const active = password.length > 0;
+                    return (
+                      <li key={label} className={`flex items-center gap-2 text-[13px] font-medium ${
+                        !active ? "text-zinc-400 dark:text-zinc-500"
+                          : ok ? "text-green-600 dark:text-green-400"
+                          : "text-red-400 dark:text-red-400"
+                      }`}>
+                        {active && ok ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                          </svg>
+                        ) : active && !ok ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                          </svg>
+                        ) : (
+                          <span className="flex h-4 w-4 items-center justify-center">
+                            <span className="h-1.5 w-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
+                          </span>
+                        )}
+                        {label}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className={`mt-2 flex items-center gap-2 border-t border-zinc-200 pt-2 text-[13px] font-semibold dark:border-zinc-700 ${
+                  !password ? "text-zinc-400 dark:text-zinc-500"
+                    : pwTypesCount >= 2 ? "text-green-600 dark:text-green-400"
+                    : "text-red-400 dark:text-red-400"
+                }`}>
+                  {password && pwTypesCount >= 2 ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                  ) : password ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126Z" />
+                    </svg>
+                  ) : (
+                    <span className="flex h-4 w-4 items-center justify-center">
+                      <span className="h-1.5 w-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
+                    </span>
+                  )}
+                  영문 / 숫자 / 특수문자 중 2가지 이상 조합
+                </div>
+                {/* 강도 바 */}
+                <div className="mt-2.5">
                   <div className="flex gap-1">
-                    {[1, 2, 3, 4].map((i) => (
+                    {[1, 2, 3].map((i) => (
                       <div
                         key={i}
-                        className={`h-1 flex-1 rounded-full transition-all ${
-                          i <= passwordStrength.level ? passwordStrength.color : "bg-zinc-200 dark:bg-zinc-700"
+                        className={`h-1.5 flex-1 rounded-full transition-all ${
+                          password && i <= pwTypesCount
+                            ? pwTypesCount === 1 ? "bg-red-400"
+                              : pwTypesCount === 2 ? "bg-yellow-400"
+                              : "bg-green-400"
+                            : "bg-zinc-200 dark:bg-zinc-700"
                         }`}
                       />
                     ))}
                   </div>
-                  <p className={`mt-1 text-xs ${
-                    passwordStrength.level <= 1 ? "text-red-500" :
-                    passwordStrength.level <= 2 ? "text-yellow-600 dark:text-yellow-400" :
-                    passwordStrength.level <= 3 ? "text-blue-600 dark:text-blue-400" :
-                    "text-green-600 dark:text-green-400"
+                  <p className={`mt-1 text-xs font-medium ${
+                    !password ? "text-zinc-400 dark:text-zinc-500"
+                      : pwTypesCount <= 1 ? "text-red-500"
+                      : pwTypesCount === 2 ? "text-yellow-600 dark:text-yellow-400"
+                      : "text-green-600 dark:text-green-400"
                   }`}>
-                    비밀번호 강도: {passwordStrength.label}
+                    {!password ? "-" : pwTypesCount <= 1 ? "약함" : pwTypesCount === 2 ? "보통" : "강함"}
                   </p>
                 </div>
-              )}
+              </div>
             </div>
 
             <div>

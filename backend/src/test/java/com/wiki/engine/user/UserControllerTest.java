@@ -141,14 +141,14 @@ class UserControllerTest {
         @Test
         @DisplayName("[임계] username 정확히 5자 (min=5 경계) — 200 OK")
         void usernameExactlyMin() throws Exception {
-            User user = User.builder().username("abcde").nickname("존존").password("$2a$10$h").build();
-            given(userService.createUser("abcde", "존존", "password123")).willReturn(user);
-            given(authService.issueToken(user.getId(), "abcde")).willReturn(DUMMY_COOKIE);
+            User user = User.builder().username("abc12").nickname("존존").password("$2a$10$h").build();
+            given(userService.createUser("abc12", "존존", "password123")).willReturn(user);
+            given(authService.issueToken(user.getId(), "abc12")).willReturn(DUMMY_COOKIE);
 
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new SignupRequest("abcde", "존존", "password123"))))
+                                    new SignupRequest("abc12", "존존", "password123"))))
                     .andExpect(status().isOk());
         }
 
@@ -158,7 +158,7 @@ class UserControllerTest {
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"username":"johnny","nickname":"존존","password":"1234567"}
+                                    {"username":"john12","nickname":"존존","password":"1234567"}
                                     """))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
@@ -167,14 +167,14 @@ class UserControllerTest {
         @Test
         @DisplayName("[임계] password 정확히 8자 (min=8 경계) — 200 OK")
         void passwordExactlyMin() throws Exception {
-            User user = User.builder().username("johnny").nickname("존존").password("$2a$10$h").build();
-            given(userService.createUser("johnny", "존존", "12345678")).willReturn(user);
-            given(authService.issueToken(user.getId(), "johnny")).willReturn(DUMMY_COOKIE);
+            User user = User.builder().username("john12").nickname("존존").password("$2a$10$h").build();
+            given(userService.createUser("john12", "존존", "abcd1234")).willReturn(user);
+            given(authService.issueToken(user.getId(), "john12")).willReturn(DUMMY_COOKIE);
 
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new SignupRequest("johnny", "존존", "12345678"))))
+                                    new SignupRequest("john12", "존존", "abcd1234"))))
                     .andExpect(status().isOk());
         }
 
@@ -184,7 +184,7 @@ class UserControllerTest {
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"username":"johnny","nickname":"a","password":"password123"}
+                                    {"username":"john12","nickname":"a","password":"password123"}
                                     """))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
@@ -193,14 +193,14 @@ class UserControllerTest {
         @Test
         @DisplayName("[임계] nickname 정확히 2자 (min=2 경계) — 200 OK")
         void nicknameExactlyMin() throws Exception {
-            User user = User.builder().username("johnny").nickname("ab").password("$2a$10$h").build();
-            given(userService.createUser("johnny", "ab", "password123")).willReturn(user);
-            given(authService.issueToken(user.getId(), "johnny")).willReturn(DUMMY_COOKIE);
+            User user = User.builder().username("john12").nickname("ab").password("$2a$10$h").build();
+            given(userService.createUser("john12", "ab", "password123")).willReturn(user);
+            given(authService.issueToken(user.getId(), "john12")).willReturn(DUMMY_COOKIE);
 
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new SignupRequest("johnny", "ab", "password123"))))
+                                    new SignupRequest("john12", "ab", "password123"))))
                     .andExpect(status().isOk());
         }
 
