@@ -79,6 +79,7 @@ dependencies {
 
     // 테스트
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'   // @WebMvcTest, MockMvc 등 웹 MVC 테스트 슬라이스
     testImplementation 'org.springframework.modulith:spring-modulith-starter-test'  // Modulith 모듈 의존성 검증 테스트
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

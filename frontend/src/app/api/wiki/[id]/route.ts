@@ -19,16 +19,17 @@ export async function GET(
     }
 
     const data = await res.json();
+    const post = data.data;
     const article = {
-      id: String(data.id),
-      title: data.title,
-      content: data.content || "",
-      authorId: data.authorId,
-      categoryId: data.categoryId,
-      viewCount: data.viewCount,
-      likeCount: data.likeCount,
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
+      id: String(post.id),
+      title: post.title,
+      content: post.content || "",
+      authorId: post.authorId,
+      categoryId: post.categoryId,
+      viewCount: post.viewCount,
+      likeCount: post.likeCount,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
     };
 
     return NextResponse.json({ article });

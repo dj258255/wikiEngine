@@ -36,11 +36,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null && jwtTokenProvider.validateToken(token) && !tokenBlacklist.isBlacklisted(token)) {
             Long userId = jwtTokenProvider.getUserId(token);
             String username = jwtTokenProvider.getUsername(token);
+            UserPrincipal principal = new UserPrincipal(userId, username);
 
-            // principal에 userId를 설정하여 컨트롤러에서 authentication.getPrincipal()로 꺼낼 수 있도록 한다
-            // 권한(Role)은 사용하지 않으므로 빈 리스트를 전달한다
             UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, List.of());
+                    new UsernamePasswordAuthenticationToken(principal, null, List.of());
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }

@@ -1,5 +1,7 @@
 package com.wiki.engine.category;
 
+import com.wiki.engine.common.BusinessException;
+import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.category.internal.CategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,7 +33,7 @@ public class CategoryService {
     @Transactional
     public Category createCategory(String name, Long parentId) {
         if (categoryRepository.existsByName(name)) {
-            throw new IllegalArgumentException("Category already exists: " + name);
+            throw new BusinessException(ErrorCode.DUPLICATE_CATEGORY);
         }
 
         Category category = Category.builder()

@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  flyway:
+    enabled: false
+
+server:
+  port: 0
+
+jwt:
+  secret: dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RpbmctcHVycG9zZS1vbmx5LW11c3QtYmUtbG9uZw==
+  expiration: 1800000
+
+cookie:
+  secure: false
+
+cors:
+  allowed-origins: http://localhost:3000
+
+logging:
+  level:
+    com.wiki.engine: DEBUG

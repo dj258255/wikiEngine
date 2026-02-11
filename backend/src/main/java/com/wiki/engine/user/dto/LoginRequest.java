@@ -1,4 +1,4 @@
-package com.wiki.engine.auth.dto;
+package com.wiki.engine.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
 

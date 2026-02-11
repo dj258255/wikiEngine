@@ -1,9 +1,10 @@
 package com.wiki.engine.category;
 
+import com.wiki.engine.auth.CurrentUser;
+import com.wiki.engine.auth.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -43,7 +44,7 @@ public class CategoryController {
     public ResponseEntity<Category> createCategory(
             @RequestParam String name,
             @RequestParam(required = false) Long parentId,
-            @AuthenticationPrincipal Long userId) {
+            @CurrentUser UserPrincipal currentUser) {
 
         Category category = categoryService.createCategory(name, parentId);
         return ResponseEntity.status(HttpStatus.CREATED).body(category);

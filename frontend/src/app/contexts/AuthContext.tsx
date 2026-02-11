@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 
 interface User {
+  userId: number;
   username: string;
 }
 
@@ -25,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetch(`${API_URL}/api/v1.0/auth/me`, { credentials: "include" })
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data) setUser({ username: data.username }); })
+      .then(data => { if (data) setUser({ userId: data.data.userId, username: data.data.username }); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -43,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(message);
     }
     const data = await res.json();
-    setUser({ username: data.username });
+    setUser({ userId: data.data.userId, username: data.data.username });
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {

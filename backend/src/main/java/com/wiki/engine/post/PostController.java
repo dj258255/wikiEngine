@@ -1,5 +1,7 @@
 package com.wiki.engine.post;
 
+import com.wiki.engine.auth.CurrentUser;
+import com.wiki.engine.auth.UserPrincipal;
 import com.wiki.engine.post.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -8,7 +10,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -53,10 +54,10 @@ public class PostController {
     @PostMapping
     public ResponseEntity<PostDetailResponse> createPost(
             @Valid @RequestBody CreatePostRequest request,
-            @AuthenticationPrincipal Long userId) {
+            @CurrentUser UserPrincipal currentUser) {
 
         Post post = postService.createPost(
-                request.title(), request.content(), userId, request.categoryId());
+                request.title(), request.content(), currentUser.userId(), request.categoryId());
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(PostDetailResponse.from(post));
@@ -67,9 +68,9 @@ public class PostController {
     public ResponseEntity<Void> updatePost(
             @PathVariable Long id,
             @Valid @RequestBody UpdatePostRequest request,
-            @AuthenticationPrincipal Long userId) {
+            @CurrentUser UserPrincipal currentUser) {
 
-        postService.updatePost(id, request.title(), request.content(), userId);
+        postService.updatePost(id, request.title(), request.content(), currentUser.userId());
         return ResponseEntity.ok().build();
     }
 
@@ -77,9 +78,9 @@ public class PostController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePost(
             @PathVariable Long id,
-            @AuthenticationPrincipal Long userId) {
+            @CurrentUser UserPrincipal currentUser) {
 
-        postService.deletePost(id, userId);
+        postService.deletePost(id, currentUser.userId());
         return ResponseEntity.noContent().build();
     }
 
@@ -87,9 +88,9 @@ public class PostController {
     @PostMapping("/{id}/like")
     public ResponseEntity<Void> likePost(
             @PathVariable Long id,
-            @AuthenticationPrincipal Long userId) {
+            @CurrentUser UserPrincipal currentUser) {
 
-        boolean liked = postService.likePost(id, userId);
+        boolean liked = postService.likePost(id, currentUser.userId());
         return liked
                 ? ResponseEntity.ok().build()
                 : ResponseEntity.status(HttpStatus.CONFLICT).build();
@@ -99,9 +100,9 @@ public class PostController {
     @DeleteMapping("/{id}/like")
     public ResponseEntity<Void> unlikePost(
             @PathVariable Long id,
-            @AuthenticationPrincipal Long userId) {
+            @CurrentUser UserPrincipal currentUser) {
 
-        boolean unliked = postService.unlikePost(id, userId);
+        boolean unliked = postService.unlikePost(id, currentUser.userId());
         return unliked
                 ? ResponseEntity.ok().build()
                 : ResponseEntity.status(HttpStatus.NOT_FOUND).build();

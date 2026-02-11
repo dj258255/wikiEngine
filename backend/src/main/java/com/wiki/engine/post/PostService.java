@@ -1,5 +1,7 @@
 package com.wiki.engine.post;
 
+import com.wiki.engine.common.BusinessException;
+import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
 import lombok.RequiredArgsConstructor;
@@ -62,7 +64,7 @@ public class PostService {
     @Transactional
     public Post getPostAndIncrementView(Long id) {
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Post not found: " + id));
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         postRepository.incrementViewCount(id);
 
@@ -81,10 +83,10 @@ public class PostService {
     @Transactional
     public void updatePost(Long id, String title, String content, Long userId) {
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Post not found: " + id));
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         if (!post.getAuthorId().equals(userId)) {
-            throw new IllegalArgumentException("Not authorized to update this post");
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
 
         post.update(title, content);
@@ -100,10 +102,10 @@ public class PostService {
     @Transactional
     public void deletePost(Long id, Long userId) {
         Post post = postRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Post not found: " + id));
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         if (!post.getAuthorId().equals(userId)) {
-            throw new IllegalArgumentException("Not authorized to delete this post");
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
         }
 
         // 게시글에 달린 좋아요를 먼저 삭제한 뒤 게시글 삭제
