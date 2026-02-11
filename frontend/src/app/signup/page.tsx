@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../contexts/AuthContext";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+type CheckStatus = "idle" | "checking" | "available" | "taken";
 
 export default function SignupPage() {
   const { signup, user } = useAuth();
@@ -15,6 +19,66 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<CheckStatus>("idle");
+  const [nicknameStatus, setNicknameStatus] = useState<CheckStatus>("idle");
+
+  // 아이디 중복 확인 (debounce 500ms + AbortController)
+  useEffect(() => {
+    const trimmed = username.trim();
+    if (trimmed.length < 5) {
+      setUsernameStatus("idle");
+      return;
+    }
+    setUsernameStatus("checking");
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}/api/v1.0/auth/check-username?value=${encodeURIComponent(trimmed)}`,
+          { credentials: "include", signal: controller.signal }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setUsernameStatus(data.data.available ? "available" : "taken");
+        } else {
+          setUsernameStatus("idle");
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setUsernameStatus("idle");
+      }
+    }, 500);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [username]);
+
+  // 닉네임 중복 확인 (debounce 500ms + AbortController)
+  useEffect(() => {
+    const trimmed = nickname.trim();
+    if (trimmed.length < 2) {
+      setNicknameStatus("idle");
+      return;
+    }
+    setNicknameStatus("checking");
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}/api/v1.0/auth/check-nickname?value=${encodeURIComponent(trimmed)}`,
+          { credentials: "include", signal: controller.signal }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setNicknameStatus(data.data.available ? "available" : "taken");
+        } else {
+          setNicknameStatus("idle");
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setNicknameStatus("idle");
+      }
+    }, 500);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [nickname]);
 
   if (user) {
     router.replace("/");
@@ -24,8 +88,8 @@ export default function SignupPage() {
   const passwordStrength = (() => {
     if (!password) return { level: 0, label: "", color: "" };
     let score = 0;
-    if (password.length >= 6) score++;
-    if (password.length >= 10) score++;
+    if (password.length >= 8) score++;
+    if (password.length >= 12) score++;
     if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
     if (/\d/.test(password)) score++;
     if (/[^A-Za-z0-9]/.test(password)) score++;
@@ -42,20 +106,28 @@ export default function SignupPage() {
       setError("모든 항목을 입력해주세요.");
       return;
     }
-    if (username.trim().length < 3) {
-      setError("아이디는 3자 이상이어야 합니다.");
+    if (username.trim().length < 5 || username.trim().length > 20) {
+      setError("아이디는 5~20자여야 합니다.");
       return;
     }
-    if (nickname.trim().length < 2) {
-      setError("닉네임은 2자 이상이어야 합니다.");
+    if (nickname.trim().length < 2 || nickname.trim().length > 12) {
+      setError("닉네임은 2~12자여야 합니다.");
       return;
     }
-    if (password.length < 6) {
-      setError("비밀번호는 6자 이상이어야 합니다.");
+    if (password.length < 8 || password.length > 16) {
+      setError("비밀번호는 8~16자여야 합니다.");
       return;
     }
     if (password !== passwordConfirm) {
       setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+    if (usernameStatus === "taken") {
+      setError("이미 사용 중인 아이디입니다.");
+      return;
+    }
+    if (nicknameStatus === "taken") {
+      setError("이미 사용 중인 닉네임입니다.");
       return;
     }
     setSubmitting(true);
@@ -67,6 +139,39 @@ export default function SignupPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const statusIcon = (status: CheckStatus) => {
+    if (status === "checking") {
+      return <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />;
+    }
+    if (status === "available") {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-green-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+        </svg>
+      );
+    }
+    if (status === "taken") {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5 text-red-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      );
+    }
+    return null;
+  };
+
+  const statusMessage = (status: CheckStatus, takenMsg: string) => {
+    if (status === "available") return <p className="mt-1 text-xs text-green-600 dark:text-green-400">사용 가능합니다</p>;
+    if (status === "taken") return <p className="mt-1 text-xs text-red-600 dark:text-red-400">{takenMsg}</p>;
+    return null;
+  };
+
+  const inputBorder = (status: CheckStatus) => {
+    if (status === "available") return "border-green-300 focus:border-green-500 focus:ring-green-500/10 dark:border-green-700 dark:focus:border-green-400 dark:focus:ring-green-400/10";
+    if (status === "taken") return "border-red-300 focus:border-red-500 focus:ring-red-500/10 dark:border-red-700 dark:focus:border-red-400 dark:focus:ring-red-400/10";
+    return "border-zinc-200 focus:border-blue-500 focus:ring-blue-500/10 dark:border-zinc-700 dark:focus:border-blue-400 dark:focus:ring-blue-400/10";
   };
 
   return (
@@ -119,13 +224,19 @@ export default function SignupPage() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="3자 이상"
-                  maxLength={50}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-11 pr-4 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-blue-400 dark:focus:bg-zinc-800 dark:focus:ring-blue-400/10"
+                  placeholder="5~20자"
+                  maxLength={20}
+                  className={`w-full rounded-xl border bg-zinc-50 py-3 pl-11 pr-10 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:bg-white focus:ring-4 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:bg-zinc-800 ${inputBorder(usernameStatus)}`}
                   autoFocus
                   autoComplete="username"
                 />
+                {usernameStatus !== "idle" && (
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                    {statusIcon(usernameStatus)}
+                  </div>
+                )}
               </div>
+              {statusMessage(usernameStatus, "이미 사용 중인 아이디입니다")}
             </div>
 
             <div>
@@ -144,12 +255,18 @@ export default function SignupPage() {
                   type="text"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  placeholder="2자 이상"
-                  maxLength={50}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-11 pr-4 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-blue-400 dark:focus:bg-zinc-800 dark:focus:ring-blue-400/10"
+                  placeholder="2~12자"
+                  maxLength={12}
+                  className={`w-full rounded-xl border bg-zinc-50 py-3 pl-11 pr-10 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:bg-white focus:ring-4 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:bg-zinc-800 ${inputBorder(nicknameStatus)}`}
                   autoComplete="nickname"
                 />
+                {nicknameStatus !== "idle" && (
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                    {statusIcon(nicknameStatus)}
+                  </div>
+                )}
               </div>
+              {statusMessage(nicknameStatus, "이미 사용 중인 닉네임입니다")}
             </div>
 
             <div>
@@ -167,8 +284,8 @@ export default function SignupPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="6자 이상"
-                  maxLength={100}
+                  placeholder="8~16자"
+                  maxLength={16}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-11 pr-11 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-blue-400 dark:focus:bg-zinc-800 dark:focus:ring-blue-400/10"
                   autoComplete="new-password"
                 />
@@ -229,7 +346,7 @@ export default function SignupPage() {
                   value={passwordConfirm}
                   onChange={(e) => setPasswordConfirm(e.target.value)}
                   placeholder="비밀번호를 다시 입력하세요"
-                  maxLength={100}
+                  maxLength={16}
                   className={`w-full rounded-xl border bg-zinc-50 py-3 pl-11 pr-11 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:bg-white focus:ring-4 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:bg-zinc-800 ${
                     passwordConfirm && password !== passwordConfirm
                       ? "border-red-300 focus:border-red-500 focus:ring-red-500/10 dark:border-red-700 dark:focus:border-red-400 dark:focus:ring-red-400/10"

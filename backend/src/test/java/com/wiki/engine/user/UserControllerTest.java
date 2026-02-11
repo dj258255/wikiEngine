@@ -58,7 +58,7 @@ class UserControllerTest {
 
     private User createTestUser() {
         return User.builder()
-                .username("john")
+                .username("john1")
                 .nickname("존도이")
                 .password("$2a$10$hashed")
                 .build();
@@ -74,28 +74,28 @@ class UserControllerTest {
         @DisplayName("[해피] 정상 회원가입 — 200 + Set-Cookie + userId/username 반환")
         void success() throws Exception {
             User user = createTestUser();
-            given(userService.createUser("john", "존도이", "password123")).willReturn(user);
-            given(authService.issueToken(user.getId(), "john")).willReturn(DUMMY_COOKIE);
+            given(userService.createUser("john1", "존도이", "password123")).willReturn(user);
+            given(authService.issueToken(user.getId(), "john1")).willReturn(DUMMY_COOKIE);
 
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new SignupRequest("john", "존도이", "password123"))))
+                                    new SignupRequest("john1", "존도이", "password123"))))
                     .andExpect(status().isOk())
                     .andExpect(header().exists("Set-Cookie"))
-                    .andExpect(jsonPath("$.data.username").value("john"));
+                    .andExpect(jsonPath("$.data.username").value("john1"));
         }
 
         @Test
         @DisplayName("[코너] 중복 username — 409 DUPLICATE_USERNAME")
         void duplicateUsername() throws Exception {
-            given(userService.createUser("john", "존도이", "password123"))
+            given(userService.createUser("john1", "존도이", "password123"))
                     .willThrow(new BusinessException(ErrorCode.DUPLICATE_USERNAME));
 
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new SignupRequest("john", "존도이", "password123"))))
+                                    new SignupRequest("john1", "존도이", "password123"))))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.code").value("DUPLICATE_USERNAME"));
         }
@@ -103,13 +103,13 @@ class UserControllerTest {
         @Test
         @DisplayName("[코너] 중복 nickname — 409 DUPLICATE_NICKNAME")
         void duplicateNickname() throws Exception {
-            given(userService.createUser("john", "존도이", "password123"))
+            given(userService.createUser("john1", "존도이", "password123"))
                     .willThrow(new BusinessException(ErrorCode.DUPLICATE_NICKNAME));
 
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new SignupRequest("john", "존도이", "password123"))))
+                                    new SignupRequest("john1", "존도이", "password123"))))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.code").value("DUPLICATE_NICKNAME"));
         }
@@ -127,54 +127,54 @@ class UserControllerTest {
         }
 
         @Test
-        @DisplayName("[임계] username 2자 (min=3 미만) — 400 Validation 실패")
+        @DisplayName("[임계] username 4자 (min=5 미만) — 400 Validation 실패")
         void usernameTooShort() throws Exception {
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"username":"ab","nickname":"존존","password":"password123"}
+                                    {"username":"abcd","nickname":"존존","password":"password123"}
                                     """))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
         }
 
         @Test
-        @DisplayName("[임계] username 정확히 3자 (min=3 경계) — 200 OK")
+        @DisplayName("[임계] username 정확히 5자 (min=5 경계) — 200 OK")
         void usernameExactlyMin() throws Exception {
-            User user = User.builder().username("abc").nickname("존존").password("$2a$10$h").build();
-            given(userService.createUser("abc", "존존", "password123")).willReturn(user);
-            given(authService.issueToken(user.getId(), "abc")).willReturn(DUMMY_COOKIE);
+            User user = User.builder().username("abcde").nickname("존존").password("$2a$10$h").build();
+            given(userService.createUser("abcde", "존존", "password123")).willReturn(user);
+            given(authService.issueToken(user.getId(), "abcde")).willReturn(DUMMY_COOKIE);
 
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new SignupRequest("abc", "존존", "password123"))))
+                                    new SignupRequest("abcde", "존존", "password123"))))
                     .andExpect(status().isOk());
         }
 
         @Test
-        @DisplayName("[임계] password 5자 (min=6 미만) — 400 Validation 실패")
+        @DisplayName("[임계] password 7자 (min=8 미만) — 400 Validation 실패")
         void shortPassword() throws Exception {
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"username":"john","nickname":"존존","password":"12345"}
+                                    {"username":"johnny","nickname":"존존","password":"1234567"}
                                     """))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
         }
 
         @Test
-        @DisplayName("[임계] password 정확히 6자 (min=6 경계) — 200 OK")
+        @DisplayName("[임계] password 정확히 8자 (min=8 경계) — 200 OK")
         void passwordExactlyMin() throws Exception {
-            User user = User.builder().username("john").nickname("존존").password("$2a$10$h").build();
-            given(userService.createUser("john", "존존", "123456")).willReturn(user);
-            given(authService.issueToken(user.getId(), "john")).willReturn(DUMMY_COOKIE);
+            User user = User.builder().username("johnny").nickname("존존").password("$2a$10$h").build();
+            given(userService.createUser("johnny", "존존", "12345678")).willReturn(user);
+            given(authService.issueToken(user.getId(), "johnny")).willReturn(DUMMY_COOKIE);
 
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new SignupRequest("john", "존존", "123456"))))
+                                    new SignupRequest("johnny", "존존", "12345678"))))
                     .andExpect(status().isOk());
         }
 
@@ -184,7 +184,7 @@ class UserControllerTest {
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"username":"john","nickname":"a","password":"password123"}
+                                    {"username":"johnny","nickname":"a","password":"password123"}
                                     """))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
@@ -193,14 +193,14 @@ class UserControllerTest {
         @Test
         @DisplayName("[임계] nickname 정확히 2자 (min=2 경계) — 200 OK")
         void nicknameExactlyMin() throws Exception {
-            User user = User.builder().username("john").nickname("ab").password("$2a$10$h").build();
-            given(userService.createUser("john", "ab", "password123")).willReturn(user);
-            given(authService.issueToken(user.getId(), "john")).willReturn(DUMMY_COOKIE);
+            User user = User.builder().username("johnny").nickname("ab").password("$2a$10$h").build();
+            given(userService.createUser("johnny", "ab", "password123")).willReturn(user);
+            given(authService.issueToken(user.getId(), "johnny")).willReturn(DUMMY_COOKIE);
 
             mockMvc.perform(post(BASE + "/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new SignupRequest("john", "ab", "password123"))))
+                                    new SignupRequest("johnny", "ab", "password123"))))
                     .andExpect(status().isOk());
         }
 
@@ -229,7 +229,7 @@ class UserControllerTest {
         void noContentType() throws Exception {
             mockMvc.perform(post(BASE + "/signup")
                             .content("""
-                                    {"username":"john","nickname":"존도이","password":"password123"}
+                                    {"username":"john1","nickname":"존도이","password":"password123"}
                                     """))
                     .andExpect(result -> {
                         int status = result.getResponse().getStatus();
@@ -248,28 +248,28 @@ class UserControllerTest {
         @DisplayName("[해피] 정상 로그인 — 200 + Set-Cookie + username 반환")
         void success() throws Exception {
             User user = createTestUser();
-            given(userService.login("john", "password123")).willReturn(user);
-            given(authService.issueToken(user.getId(), "john")).willReturn(DUMMY_COOKIE);
+            given(userService.login("john1", "password123")).willReturn(user);
+            given(authService.issueToken(user.getId(), "john1")).willReturn(DUMMY_COOKIE);
 
             mockMvc.perform(post(BASE + "/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new LoginRequest("john", "password123"))))
+                                    new LoginRequest("john1", "password123"))))
                     .andExpect(status().isOk())
                     .andExpect(header().exists("Set-Cookie"))
-                    .andExpect(jsonPath("$.data.username").value("john"));
+                    .andExpect(jsonPath("$.data.username").value("john1"));
         }
 
         @Test
         @DisplayName("[코너] 잘못된 비밀번호 — 401 INVALID_CREDENTIALS")
         void wrongPassword() throws Exception {
-            given(userService.login("john", "wrong"))
+            given(userService.login("john1", "wrong"))
                     .willThrow(new BusinessException(ErrorCode.INVALID_CREDENTIALS));
 
             mockMvc.perform(post(BASE + "/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
-                                    new LoginRequest("john", "wrong"))))
+                                    new LoginRequest("john1", "wrong"))))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
         }
@@ -306,7 +306,7 @@ class UserControllerTest {
             mockMvc.perform(post(BASE + "/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"username":"john","password":""}
+                                    {"username":"john1","password":""}
                                     """))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
@@ -372,9 +372,9 @@ class UserControllerTest {
         @Test
         @DisplayName("[해피] 이미 존재하는 username — available: false")
         void taken() throws Exception {
-            given(userService.isUsernameAvailable("john")).willReturn(false);
+            given(userService.isUsernameAvailable("john1")).willReturn(false);
 
-            mockMvc.perform(get(BASE + "/check-username").param("value", "john"))
+            mockMvc.perform(get(BASE + "/check-username").param("value", "john1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.available").value(false));
         }
@@ -436,14 +436,14 @@ class UserControllerTest {
         @Test
         @DisplayName("[해피] 인증된 사용자 — userId + username 반환")
         void authenticated() throws Exception {
-            UserPrincipal principal = new UserPrincipal(1L, "john");
+            UserPrincipal principal = new UserPrincipal(1L, "john1");
             SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(principal, null, List.of()));
 
             mockMvc.perform(get(BASE + "/me"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.userId").value(1))
-                    .andExpect(jsonPath("$.data.username").value("john"));
+                    .andExpect(jsonPath("$.data.username").value("john1"));
 
             SecurityContextHolder.clearContext();
         }
