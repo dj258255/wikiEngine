@@ -178,9 +178,12 @@ public class PostService {
     }
 
     /**
-     * 제목+본문 LIKE 검색 (1단계 - 의도적 비효율).
-     * LIKE '%keyword%'이므로 Full Table Scan이 발생한다.
+     * FULLTEXT ngram 검색 (4단계).
+     * MATCH(title, content) AGAINST(:keyword IN BOOLEAN MODE)로
+     * Full Table Scan 없이 FULLTEXT 인덱스를 활용한다.
+     * 5초 타임아웃은 비정상 쿼리 보호용 안전장치로 유지한다.
      */
+    @Transactional(readOnly = true, timeout = 5)
     public Page<Post> search(String keyword, Pageable pageable) {
         return postRepository.searchByKeyword(keyword, pageable);
     }
@@ -188,7 +191,9 @@ public class PostService {
     /**
      * 자동완성 v1: 제목 prefix 매칭.
      * LIKE 'prefix%'로 최대 10건을 조회수 내림차순으로 반환한다.
+     * 5초 타임아웃으로 HikariPool 고갈을 방지한다.
      */
+    @Transactional(readOnly = true, timeout = 5)
     public List<String> autocomplete(String prefix) {
         return postRepository.findByTitleStartingWith(prefix, PageRequest.of(0, 10))
                 .stream()

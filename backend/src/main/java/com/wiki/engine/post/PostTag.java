@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
  */
 @Entity
 @Table(name = "post_tags",
-    uniqueConstraints = @UniqueConstraint(name = "uk_post_tags_post_tag", columnNames = {"post_id", "tag_id"})
+        uniqueConstraints = @UniqueConstraint(name = "uk_post_tags_post_tag", columnNames = {"post_id", "tag_id"})
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -21,7 +21,9 @@ public class PostTag {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** 게시글 ID */
+    /**
+     * 게시글 ID
+     */
     @Column(name = "post_id", nullable = false)
     private Long postId;
 

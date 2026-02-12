@@ -23,12 +23,12 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** 로그인용 사용자 아이디 (고유값, 5~20자) */
-    @Column(nullable = false, unique = true, length = 20)
+    /** 로그인용 사용자 아이디 (고유값). 입력 검증은 DTO @Size(5~20)에서 처리. */
+    @Column(nullable = false, unique = true, length = 50)
     private String username;
 
-    /** 표시용 닉네임 (고유값, 2~12자) */
-    @Column(nullable = false, unique = true, length = 12)
+    /** 표시용 닉네임 (고유값). 입력 검증은 DTO @Size(2~12)에서 처리. */
+    @Column(nullable = false, unique = true, length = 50)
     private String nickname;
 
     /** BCrypt 해싱된 비밀번호 (60자 고정) */

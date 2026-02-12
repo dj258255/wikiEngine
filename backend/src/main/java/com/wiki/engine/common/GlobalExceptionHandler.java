@@ -1,6 +1,7 @@
 package com.wiki.engine.common;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -44,6 +45,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(ApiResponse.error(ErrorCode.INVALID_INPUT, errors));
+    }
+
+    /**
+     * 쿼리 타임아웃 예외 처리.
+     * 검색/자동완성 등 느린 쿼리가 타임아웃됐을 때 503으로 응답한다.
+     */
+    @ExceptionHandler(QueryTimeoutException.class)
+    public ResponseEntity<ApiResponse<Void>> handleQueryTimeout(QueryTimeoutException e) {
+        log.warn("Query timeout: {}", e.getMessage());
+        ErrorCode errorCode = ErrorCode.QUERY_TIMEOUT;
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiResponse.error(errorCode));
     }
 
     /**

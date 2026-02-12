@@ -33,7 +33,10 @@ public enum ErrorCode {
     ALREADY_LIKED(HttpStatus.CONFLICT, "이미 좋아요를 눌렀습니다"),
 
     // 500 Internal Server Error
-    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다");
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다"),
+
+    // 503 Service Unavailable
+    QUERY_TIMEOUT(HttpStatus.SERVICE_UNAVAILABLE, "검색 요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요");
 
     private final HttpStatus status;
     private final String message;

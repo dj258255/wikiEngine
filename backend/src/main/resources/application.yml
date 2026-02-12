@@ -14,6 +14,8 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE}  # HikariCP 커넥션 풀 크기
+      connection-timeout: 5000  # 커넥션 대기 최대 5초 (기본 30초 → 빠른 실패)
+      leak-detection-threshold: 10000  # 10초 이상 반환 안 된 커넥션 경고 로깅
 
   # Flyway: DB 스키마 버전 관리 및 마이그레이션
   flyway:
@@ -80,3 +82,4 @@ management:
 logging:
   level:
     com.wiki.engine: ${LOG_LEVEL}
+    org.hibernate.orm.jdbc.bind: ${HIBERNATE_BIND_LOG_LEVEL:TRACE}  # SQL 파라미터 값 출력 (운영에서는 OFF)

@@ -27,10 +27,23 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findByCategoryIdOrderByCreatedAtDesc(Long categoryId, Pageable pageable);
 
     /**
-     * 제목+본문 LIKE 검색 (의도적 비효율 - Full Table Scan 발생).
-     * '%keyword%' 패턴이므로 인덱스를 타지 않는다.
+     * FULLTEXT ngram 검색 (4단계).
+     * LIKE '%keyword%' Full Table Scan -> MATCH(title, content) AGAINST로 전환.
+     * ngram parser가 한국어를 2-gram으로 토큰화하여 부분 검색을 지원한다.
+     * BOOLEAN MODE: 50% threshold 없이 매칭, 27M rows에서 더 예측 가능.
      */
-    @Query("SELECT p FROM Post p WHERE p.title LIKE %:keyword% OR p.content LIKE %:keyword% ORDER BY p.createdAt DESC")
+    @Query(value = """
+        SELECT * FROM posts
+        WHERE MATCH(title, content) AGAINST(:keyword IN BOOLEAN MODE)
+        ORDER BY MATCH(title, content) AGAINST(:keyword IN BOOLEAN MODE) DESC, created_at DESC
+        LIMIT :#{#pageable.pageSize}
+        OFFSET :#{#pageable.offset}
+        """,
+        countQuery = """
+        SELECT COUNT(*) FROM posts
+        WHERE MATCH(title, content) AGAINST(:keyword IN BOOLEAN MODE)
+        """,
+        nativeQuery = true)
     Page<Post> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     /**
