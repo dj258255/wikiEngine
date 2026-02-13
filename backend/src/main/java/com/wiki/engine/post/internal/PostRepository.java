@@ -28,19 +28,20 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     /**
      * FULLTEXT ngram 검색 (4단계).
-     * LIKE '%keyword%' Full Table Scan -> MATCH(title, content) AGAINST로 전환.
-     * ngram parser가 한국어를 2-gram으로 토큰화하여 부분 검색을 지원한다.
-     * BOOLEAN MODE: 50% threshold 없이 매칭, 27M rows에서 더 예측 가능.
+     * 본 테이블(posts)에 ngram 인덱스를 생성하면 content(LONGTEXT) 때문에
+     * 인덱스가 수백 GB에 달해 디스크를 초과하므로,
+     * 한국어 데이터(category_id=1)만 복사한 tmp_namu_posts에서 검색한다.
+     * 본문 검색은 이후 Lucene + Nori로 전환 예정.
      */
     @Query(value = """
-        SELECT * FROM posts
+        SELECT * FROM tmp_namu_posts
         WHERE MATCH(title, content) AGAINST(:keyword IN BOOLEAN MODE)
         ORDER BY MATCH(title, content) AGAINST(:keyword IN BOOLEAN MODE) DESC, created_at DESC
         LIMIT :#{#pageable.pageSize}
         OFFSET :#{#pageable.offset}
         """,
         countQuery = """
-        SELECT COUNT(*) FROM posts
+        SELECT COUNT(*) FROM tmp_namu_posts
         WHERE MATCH(title, content) AGAINST(:keyword IN BOOLEAN MODE)
         """,
         nativeQuery = true)

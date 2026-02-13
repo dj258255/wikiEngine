@@ -9,6 +9,12 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 /**
+ * -- 제목+본문 검색: LIKE '%keyword%' -> MATCH(title, content) AGAINST(? IN BOOLEAN MODE)
+ * -- ngram parser로 한국어/영어 모두 2-gram 토큰화
+ * CREATE FULLTEXT INDEX ft_title_content ON posts(title, content) WITH PARSER ngram;
+ */
+
+/**
  * 게시글 엔티티.
  * 위키 데이터 및 사용자 작성 게시글을 모두 저장하는 핵심 테이블이다.
  * 약 2,700만 건의 위키피디아 데이터가 이 테이블에 임포트된다.
@@ -16,7 +22,9 @@ import java.time.Instant;
  * 인덱스는 성능 최적화 단계에서 병목 확인 후 추가한다.
  */
 @Entity
-@Table(name = "posts")
+@Table(name = "posts", indexes = {
+        @Index(name = "idx_title_viewcount", columnList = "title, view_count DESC")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Post {
