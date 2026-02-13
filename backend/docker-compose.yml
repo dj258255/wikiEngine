@@ -25,6 +25,7 @@ services:
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
       --ngram-token-size=2
+      --innodb-buffer-pool-size=512M
       --slow-query-log=ON
       --slow-query-log-file=/var/log/mysql/slow.log
       --long-query-time=${MYSQL_SLOW_QUERY_TIME}
