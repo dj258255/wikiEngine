@@ -66,6 +66,8 @@ public class SecurityConfig {
                 // 게시글, 카테고리 조회 API 허용
                 .requestMatchers("/api/v*/posts/**").permitAll()
                 .requestMatchers("/api/v*/categories/**").permitAll()
+                // Lucene 관리 API (인덱싱, 검색 테스트)
+                .requestMatchers("/api/v*/admin/lucene/**").permitAll()
                 // 그 외 모든 요청은 인증 필요
                 .anyRequest().authenticated()
             )

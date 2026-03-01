@@ -54,6 +54,13 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p FROM Post p WHERE p.title LIKE :prefix% ORDER BY p.viewCount DESC")
     List<Post> findByTitleStartingWith(@Param("prefix") String prefix, Pageable pageable);
 
+    /**
+     * Lucene 배치 인덱싱용 cursor 기반 조회.
+     * ID 순으로 batchSize만큼 읽어온다 (OFFSET 없이 WHERE id > lastId).
+     */
+    @Query(value = "SELECT * FROM posts WHERE id > :lastId ORDER BY id ASC LIMIT :batchSize", nativeQuery = true)
+    List<Post> findBatchAfterId(@Param("lastId") long lastId, @Param("batchSize") int batchSize);
+
     /** 조회수를 원자적으로 1 증가시킨다. */
     @Modifying
     @Query("UPDATE Post p SET p.viewCount = p.viewCount + 1 WHERE p.id = :id")

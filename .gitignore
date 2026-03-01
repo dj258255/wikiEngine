@@ -63,6 +63,10 @@ docs/
 # Ansible Vault
 ansible/.vault_pass
 
+# Lucene index data
+data/
+backend/data/
+
 # Logs
 logs/
 *.log

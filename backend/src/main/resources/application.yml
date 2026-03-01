@@ -78,6 +78,11 @@ management:
 #    enabled: ${WIKI_IMPORT_ENABLED}
 #    path: ${WIKI_IMPORT_PATH}
 
+# Lucene 검색엔진 설정
+lucene:
+  index-path: ${LUCENE_INDEX_PATH}    # 인덱스 파일 저장 경로 (dev: ./data/lucene, prod: /data/lucene)
+  batch-size: ${LUCENE_BATCH_SIZE}    # DB에서 한 번에 읽어올 건수 (1만 건씩 → Lucene에 쓰기 → 다음 1만 건)
+
 # 로깅 레벨 설정
 logging:
   level:

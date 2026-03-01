@@ -52,6 +52,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
 
+    // Lucene: 임베디드 전문 검색엔진 (Nori 한국어 형태소 분석기 포함)
+    implementation 'org.apache.lucene:lucene-core:10.3.2'
+    implementation 'org.apache.lucene:lucene-analysis-nori:10.3.2'
+    implementation 'org.apache.lucene:lucene-queryparser:10.3.2'
+
     // Caffeine Cache: JWT 토큰 블랙리스트용 고성능 로컬 캐시
     implementation 'com.github.ben-manes.caffeine:caffeine:3.2.0'
 
@@ -84,6 +89,15 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+tasks.withType(JavaExec).configureEach {
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+}
+
 tasks.named('test') {
     useJUnitPlatform()
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+}
+
+tasks.named('bootRun') {
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
 }
