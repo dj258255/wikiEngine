@@ -47,6 +47,15 @@ public class LuceneIndexService {
     }
 
     /**
+     * 단건 삭제: 게시글 삭제 시 호출.
+     * Term("id", postId)로 해당 문서를 삭제한 뒤 NRT reader를 갱신한다.
+     */
+    public void deleteFromIndex(Long postId) throws IOException {
+        indexWriter.deleteDocuments(new Term("id", postId.toString()));
+        searcherManager.maybeRefresh();
+    }
+
+    /**
      * 전체 배치 인덱싱: posts 테이블 전체를 Lucene에 인덱싱한다.
      * cursor 기반 페이징으로 메모리 효율적으로 처리한다.
      */

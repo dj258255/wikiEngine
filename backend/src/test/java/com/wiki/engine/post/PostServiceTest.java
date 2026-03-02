@@ -2,6 +2,7 @@ package com.wiki.engine.post;
 
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
+import com.wiki.engine.post.internal.LuceneIndexService;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
@@ -27,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -41,6 +43,9 @@ class PostServiceTest {
 
     @Mock
     private PostLikeRepository postLikeRepository;
+
+    @Mock
+    private LuceneIndexService luceneIndexService;
 
     @Mock
     private LuceneSearchService luceneSearchService;
@@ -61,8 +66,8 @@ class PostServiceTest {
     class CreatePost {
 
         @Test
-        @DisplayName("[해피] 정상적으로 게시글을 생성한다")
-        void success() {
+        @DisplayName("[해피] 정상적으로 게시글을 생성한다 + Lucene 색인")
+        void success() throws IOException {
             given(postRepository.save(any(Post.class)))
                     .willAnswer(invocation -> invocation.getArgument(0));
 
@@ -72,6 +77,20 @@ class PostServiceTest {
             assertThat(result.getContent()).isEqualTo("본문");
             assertThat(result.getAuthorId()).isEqualTo(1L);
             assertThat(result.getCategoryId()).isEqualTo(1L);
+            verify(postRepository).save(any(Post.class));
+            verify(luceneIndexService).indexPost(result);
+        }
+
+        @Test
+        @DisplayName("[코너] Lucene 색인 실패해도 게시글 생성은 정상 동작")
+        void luceneFailure() throws IOException {
+            given(postRepository.save(any(Post.class)))
+                    .willAnswer(invocation -> invocation.getArgument(0));
+            willThrow(new IOException("index error")).given(luceneIndexService).indexPost(any());
+
+            Post result = postService.createPost("제목", "본문", 1L, 1L);
+
+            assertThat(result.getTitle()).isEqualTo("제목");
             verify(postRepository).save(any(Post.class));
         }
 
@@ -123,8 +142,8 @@ class PostServiceTest {
     class UpdatePost {
 
         @Test
-        @DisplayName("[해피] 작성자가 정상적으로 수정한다")
-        void success() {
+        @DisplayName("[해피] 작성자가 정상적으로 수정한다 + Lucene 재색인")
+        void success() throws IOException {
             Post post = createTestPost();
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
 
@@ -133,6 +152,19 @@ class PostServiceTest {
             assertThat(post.getTitle()).isEqualTo("수정 제목");
             assertThat(post.getContent()).isEqualTo("수정 본문");
             assertThat(post.getUpdatedAt()).isNotNull();
+            verify(luceneIndexService).indexPost(post);
+        }
+
+        @Test
+        @DisplayName("[코너] Lucene 색인 실패해도 수정은 정상 동작")
+        void luceneFailure() throws IOException {
+            Post post = createTestPost();
+            given(postRepository.findById(1L)).willReturn(Optional.of(post));
+            willThrow(new IOException("index error")).given(luceneIndexService).indexPost(any());
+
+            postService.updatePost(1L, "수정 제목", "수정 본문", 1L);
+
+            assertThat(post.getTitle()).isEqualTo("수정 제목");
         }
 
         @Test
@@ -164,14 +196,27 @@ class PostServiceTest {
     class DeletePost {
 
         @Test
-        @DisplayName("[해피] 작성자가 정상적으로 삭제한다 (좋아요도 함께 삭제)")
-        void success() {
+        @DisplayName("[해피] 작성자가 정상적으로 삭제한다 (좋아요 + Lucene 인덱스 함께 삭제)")
+        void success() throws IOException {
             Post post = createTestPost();
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
 
             postService.deletePost(1L, 1L);
 
             verify(postLikeRepository).deleteByPostId(1L);
+            verify(postRepository).delete(post);
+            verify(luceneIndexService).deleteFromIndex(1L);
+        }
+
+        @Test
+        @DisplayName("[코너] Lucene 삭제 실패해도 게시글 삭제는 정상 동작")
+        void luceneFailure() throws IOException {
+            Post post = createTestPost();
+            given(postRepository.findById(1L)).willReturn(Optional.of(post));
+            willThrow(new IOException("delete error")).given(luceneIndexService).deleteFromIndex(any());
+
+            postService.deletePost(1L, 1L);
+
             verify(postRepository).delete(post);
         }
 

@@ -2,10 +2,12 @@ package com.wiki.engine.post;
 
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
+import com.wiki.engine.post.internal.LuceneIndexService;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import java.util.Optional;
  * 게시글 CRUD, 조회수 증가, 좋아요/좋아요취소 기능을 제공한다.
  * 기본적으로 읽기 전용 트랜잭션이며, 쓰기 작업은 별도 @Transactional로 관리한다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -28,6 +31,7 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
+    private final LuceneIndexService luceneIndexService;
     private final LuceneSearchService luceneSearchService;
 
     /**
@@ -48,7 +52,9 @@ public class PostService {
                 .categoryId(categoryId)
                 .build();
 
-        return postRepository.save(post);
+        Post saved = postRepository.save(post);
+        indexSafely(saved);
+        return saved;
     }
 
     /** ID로 게시글을 조회한다. */
@@ -93,6 +99,7 @@ public class PostService {
         }
 
         post.update(title, content);
+        indexSafely(post);
     }
 
     /**
@@ -114,6 +121,7 @@ public class PostService {
         // 게시글에 달린 좋아요를 먼저 삭제한 뒤 게시글 삭제
         postLikeRepository.deleteByPostId(id);
         postRepository.delete(post);
+        deleteFromIndexSafely(id);
     }
 
     /**
@@ -201,6 +209,22 @@ public class PostService {
             return luceneSearchService.autocomplete(prefix, 10);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private void indexSafely(Post post) {
+        try {
+            luceneIndexService.indexPost(post);
+        } catch (IOException e) {
+            log.error("Lucene 색인 실패: postId={}", post.getId(), e);
+        }
+    }
+
+    private void deleteFromIndexSafely(Long postId) {
+        try {
+            luceneIndexService.deleteFromIndex(postId);
+        } catch (IOException e) {
+            log.error("Lucene 삭제 실패: postId={}", postId, e);
         }
     }
 }
