@@ -77,10 +77,12 @@ jobs:
     permissions:
       packages: read
     steps:
-      - name: Checkout (ansible 디렉토리만)
+      - name: Checkout (ansible + k6 스크립트)
         uses: actions/checkout@v4
         with:
-          sparse-checkout: ansible
+          sparse-checkout: |
+            ansible
+            backend/k6
           sparse-checkout-cone-mode: true
 
       - name: 레포지토리명 소문자 변환
