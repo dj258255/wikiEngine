@@ -103,8 +103,17 @@ if (!stages) {
     throw new Error(`알 수 없는 PROFILE: "${PROFILE}". smoke, load, stress, soak 중 선택하세요.`);
 }
 
+// 프로필별 최대 VU 수 — setup에서 이만큼만 계정 생성
+const MAX_VU_BY_PROFILE = {
+    smoke: 5,
+    load: 100,
+    stress: 200,
+    soak: 50,
+};
+
 export const options = {
     stages,
+    setupTimeout: '120s',
     thresholds: {
         http_req_duration: ['p(95)<500', 'p(99)<1000'],
         'search_duration': ['p(95)<300', 'p(99)<500'],
@@ -167,14 +176,28 @@ function randomInt(min, max) {
 const TEST_USER_PREFIX = 'k6user';
 const TEST_PASSWORD = 'Test1234!';
 
-// stress 프로필(200 VU)을 대비하여 계정 200개 생성
-const MAX_TEST_USERS = 200;
+const MAX_TEST_USERS = MAX_VU_BY_PROFILE[PROFILE] || 200;
 
 export function setup() {
     console.log(`\n[k6] 프로필: ${PROFILE.toUpperCase()}`);
-    console.log(`[k6] 대상 서버: ${BASE_URL}\n`);
+    console.log(`[k6] 대상 서버: ${BASE_URL}`);
+    console.log(`[k6] 생성할 계정 수: ${MAX_TEST_USERS}\n`);
 
-    // 테스트 계정 생성 (이미 존재하면 409 → 무시)
+    // 1. 서버 헬스체크 — 서버 불통이면 200개 요청 전에 빠르게 실패
+    const healthCheck = http.get(`${API_PREFIX}/posts?page=0&size=1`, {
+        timeout: '10s',
+    });
+    if (healthCheck.status === 0) {
+        throw new Error(
+            `서버 연결 실패: ${BASE_URL}\n` +
+            `  → 서버가 실행 중인지 확인하세요 (docker ps)\n` +
+            `  → 방화벽/보안그룹에서 8080 포트가 열려있는지 확인하세요\n` +
+            `  → curl ${API_PREFIX}/posts?page=0&size=1 로 직접 테스트하세요`
+        );
+    }
+    console.log(`[k6] 서버 연결 확인 완료 (${healthCheck.status})\n`);
+
+    // 2. 테스트 계정 생성 (이미 존재하면 409 → 무시)
     for (let i = 1; i <= MAX_TEST_USERS; i++) {
         http.post(`${API_PREFIX}/auth/signup`, JSON.stringify({
             username: `${TEST_USER_PREFIX}${i}`,
@@ -182,6 +205,7 @@ export function setup() {
             password: TEST_PASSWORD,
         }), { headers: { 'Content-Type': 'application/json' } });
     }
+    console.log(`[k6] 계정 생성/확인 완료: ${MAX_TEST_USERS}개\n`);
     return {};
 }
 
@@ -355,7 +379,7 @@ function testLikePost() {
 
 export function handleSummary(data) {
     const m = (metric) => data.metrics[metric] ? data.metrics[metric].values : null;
-    const fmt = (values, key) => values ? values[key].toFixed(2) : 'N/A';
+    const fmt = (values, key) => (values && values[key] != null) ? values[key].toFixed(2) : 'N/A';
 
     const httpDur = m('http_req_duration');
     const search = m('search_duration');

@@ -23,7 +23,8 @@ import java.time.Instant;
  */
 @Entity
 @Table(name = "posts", indexes = {
-        @Index(name = "idx_title_viewcount", columnList = "title, view_count DESC")
+        @Index(name = "idx_title_viewcount", columnList = "title, view_count DESC"),
+        @Index(name = "idx_posts_created_at", columnList = "created_at DESC")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
