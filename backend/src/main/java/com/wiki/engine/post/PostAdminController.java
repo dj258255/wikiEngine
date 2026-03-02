@@ -32,9 +32,10 @@ public class PostAdminController {
      * posts 테이블 전체를 Lucene에 인덱싱한다.
      */
     @PostMapping("/index-all")
-    public ResponseEntity<Map<String, String>> indexAll() throws IOException {
+    public ResponseEntity<Map<String, String>> indexAll(
+            @RequestParam(defaultValue = "0") long startId) throws IOException {
         long start = System.currentTimeMillis();
-        luceneIndexService.indexAll();
+        luceneIndexService.indexAll(startId);
         long elapsed = System.currentTimeMillis() - start;
 
         return ResponseEntity.ok(Map.of(

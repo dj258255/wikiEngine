@@ -88,6 +88,7 @@ services:
       HEALTH_SHOW_DETAILS: ${HEALTH_SHOW_DETAILS}
       LUCENE_INDEX_PATH: ${LUCENE_INDEX_PATH}
       LUCENE_BATCH_SIZE: ${LUCENE_BATCH_SIZE}
+      JAVA_OPTS: ${JAVA_OPTS}
     ports:
       - "8080:8080"  # Prometheus 스크래핑용 (nginx는 80/443)
     volumes:

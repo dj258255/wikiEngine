@@ -1,6 +1,7 @@
 package com.wiki.engine.post.internal;
 
 import com.wiki.engine.post.Post;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.document.*;
@@ -27,6 +28,7 @@ public class LuceneIndexService {
     private final IndexWriter indexWriter;
     private final SearcherManager searcherManager;
     private final PostRepository postRepository;
+    private final EntityManager entityManager;
 
     @Value("${lucene.batch-size}")
     private int batchSize;
@@ -48,13 +50,19 @@ public class LuceneIndexService {
      * 전체 배치 인덱싱: posts 테이블 전체를 Lucene에 인덱싱한다.
      * cursor 기반 페이징으로 메모리 효율적으로 처리한다.
      */
-    public void indexAll() throws IOException {
+    public void indexAll(long startId) throws IOException {
         long startTime = System.currentTimeMillis();
-        long lastId = 0;
+        long lastId = startId;
         long totalIndexed = 0;
         long skipped = 0;
 
-        log.info("=== Lucene 전체 인덱싱 시작 ===");
+        if (startId == 0) {
+            log.info("=== Lucene 전체 인덱싱 시작 (기존 인덱스 초기화) ===");
+            indexWriter.deleteAll();
+            indexWriter.commit();
+        } else {
+            log.info("=== Lucene 인덱싱 재개 (id={} 이후부터) ===", startId);
+        }
 
         while (true) {
             List<Post> batch = postRepository.findBatchAfterId(lastId, batchSize);
@@ -71,6 +79,7 @@ public class LuceneIndexService {
 
             indexWriter.commit();
             lastId = batch.getLast().getId();
+            entityManager.clear();  // Hibernate 1차 캐시 해제 → GC가 Post 객체 회수 가능
 
             long elapsed = (System.currentTimeMillis() - startTime) / 1000;
             log.info("Indexed up to id={}, total={}, skipped={}, elapsed={}s, speed={} docs/s",
