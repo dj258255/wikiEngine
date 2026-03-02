@@ -1,9 +1,27 @@
 # AMD #1 Monitoring Server ({{ monitoring_loki_host }})
-# Nginx + Loki + Grafana + Node Exporter
+# Nginx + Loki + Grafana + InfluxDB + Node Exporter
 #
 # 사용법: docker compose --env-file .env.prod up -d
 
 services:
+  influxdb:
+    image: {{ influxdb_image }}
+    container_name: wiki-influxdb-prod
+    restart: always
+    environment:
+      INFLUXDB_DB: k6
+      INFLUXDB_HTTP_AUTH_ENABLED: "false"
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+    deploy:
+      resources:
+        limits:
+          memory: {{ influxdb_memory_limit }}
+    networks:
+      - wiki-net
+
   nginx:
     image: {{ nginx_image }}
     container_name: monitoring-nginx-prod
@@ -89,6 +107,7 @@ services:
 volumes:
   loki_data:
   grafana_data:
+  influxdb_data:
 
 networks:
   wiki-net:

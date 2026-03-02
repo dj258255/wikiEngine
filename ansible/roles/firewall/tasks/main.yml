@@ -33,6 +33,7 @@
     - "80"     # Nginx HTTP
     - "443"    # Nginx HTTPS
     - "3100"   # Loki
+    - "8086"   # InfluxDB (k6 부하 테스트 결과 수신)
     - "9100"   # Node Exporter
   register: fw_result
   changed_when: "'ALREADY_ENABLED' not in fw_result.stderr"

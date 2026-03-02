@@ -307,7 +307,8 @@ function testAutocomplete() {
 
 function testPostList() {
     group('목록 조회', function () {
-        const page = randomInt(0, 100) < 70 ? randomInt(0, 10) : randomInt(100, 1000);
+        // 서버 최대 페이지 제한 200에 맞춤 (OFFSET 최대 4,000)
+        const page = randomInt(0, 100) < 70 ? randomInt(0, 10) : randomInt(100, 200);
         const url = `${API_PREFIX}/posts?page=${page}&size=20`;
 
         const res = http.get(url, { tags: { name: 'list' } });

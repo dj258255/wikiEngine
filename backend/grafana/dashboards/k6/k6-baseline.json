@@ -15,7 +15,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -48,7 +48,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -81,7 +81,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -114,7 +114,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -154,7 +154,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -200,7 +200,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -232,7 +232,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -264,7 +264,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -311,7 +311,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -364,7 +364,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -424,7 +424,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -478,7 +478,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "influxdb", "uid": "" },
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
       "fieldConfig": {
         "defaults": {
           "custom": {
