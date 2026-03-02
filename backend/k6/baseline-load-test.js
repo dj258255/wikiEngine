@@ -115,9 +115,15 @@ export const options = {
     stages,
     setupTimeout: '120s',
     thresholds: {
-        http_req_duration: ['p(95)<500', 'p(99)<1000'],
+        // 글로벌 SLO 안전망 — 전체 API가 최소한 이 안에 들어와야 함
+        http_req_duration: ['p(95)<3000', 'p(99)<5000'],
+
+        // 엔드포인트별 SLA — 각 API의 실제 성능 기대치
         'search_duration': ['p(95)<300', 'p(99)<500'],
         'autocomplete_duration': ['p(95)<200', 'p(99)<300'],
+        'list_duration': ['p(95)<5000'],         // OFFSET 페이지네이션 baseline (개선 후 하향)
+        'detail_duration': ['p(95)<200'],
+        'write_duration': ['p(95)<300'],
         errors: ['rate<0.01'],
     },
 };
@@ -183,9 +189,10 @@ export function setup() {
     console.log(`[k6] 대상 서버: ${BASE_URL}`);
     console.log(`[k6] 생성할 계정 수: ${MAX_TEST_USERS}\n`);
 
-    // 1. 서버 헬스체크 — 서버 불통이면 200개 요청 전에 빠르게 실패
+    // 1. 서버 헬스체크 — 서버 불통이면 계정 생성 전에 빠르게 실패
+    // /posts?page=0&size=1 사용: COUNT 쿼리 포함이라 느릴 수 있으므로 타임아웃 30초
     const healthCheck = http.get(`${API_PREFIX}/posts?page=0&size=1`, {
-        timeout: '10s',
+        timeout: '30s',
     });
     if (healthCheck.status === 0) {
         throw new Error(

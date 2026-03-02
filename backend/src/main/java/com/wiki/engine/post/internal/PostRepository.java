@@ -20,8 +20,23 @@ import java.util.List;
  */
 public interface PostRepository extends JpaRepository<Post, Long> {
 
-    /** 게시글 목록 (OFFSET 페이지네이션 - 의도적 비효율) */
-    Page<Post> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    /**
+     * 게시글 목록 — Deferred Join으로 OFFSET 최적화.
+     * 내부 서브쿼리가 idx_posts_created_at 인덱스만 스캔하여 PK를 추출하고,
+     * 외부 쿼리가 해당 PK로만 클러스터 인덱스를 조회한다.
+     * LONGTEXT(content)를 포함한 전체 행 읽기가 LIMIT 건수로 제한된다.
+     */
+    @Query(value = """
+        SELECT p.* FROM posts p
+        INNER JOIN (
+            SELECT id FROM posts ORDER BY created_at DESC
+            LIMIT :#{#pageable.pageSize} OFFSET :#{#pageable.offset}
+        ) AS tmp ON p.id = tmp.id
+        ORDER BY p.created_at DESC
+        """,
+        countQuery = "SELECT COUNT(*) FROM posts",
+        nativeQuery = true)
+    Page<Post> findAllWithDeferredJoin(Pageable pageable);
 
     /** 카테고리별 게시글 목록 */
     Page<Post> findByCategoryIdOrderByCreatedAtDesc(Long categoryId, Pageable pageable);

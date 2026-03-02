@@ -175,10 +175,10 @@ public class PostService {
 
     /**
      * 게시글 목록을 페이지네이션으로 조회한다.
-     * OFFSET 기반 페이지네이션 (1단계 - 의도적 비효율).
+     * Deferred Join으로 OFFSET 시 LONGTEXT 불필요 읽기를 제거.
      */
     public Page<Post> getPosts(Pageable pageable) {
-        return postRepository.findAllByOrderByCreatedAtDesc(pageable);
+        return postRepository.findAllWithDeferredJoin(pageable);
     }
 
     /**
