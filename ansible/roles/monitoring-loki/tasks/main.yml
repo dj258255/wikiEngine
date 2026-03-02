@@ -145,6 +145,37 @@
   when: not ssl_cert.stat.exists
   tags: [deploy]
 
+# --- k6 부하 테스트 도구 ---
+- name: k6 GPG 키 추가
+  rpm_key:
+    key: https://dl.k6.io/key.gpg
+    state: present
+  tags: [setup]
+
+- name: k6 리포지토리 추가
+  yum_repository:
+    name: k6
+    description: k6 load testing tool
+    baseurl: https://dl.k6.io/rpm/$basearch/
+    gpgcheck: true
+    gpgkey: https://dl.k6.io/key.gpg
+  tags: [setup]
+
+- name: k6 설치
+  dnf:
+    name: k6
+    state: present
+  tags: [setup]
+
+- name: k6 스크립트 배포
+  copy:
+    src: "{{ playbook_dir }}/../backend/k6/baseline-load-test.js"
+    dest: /home/{{ ansible_user }}/k6/baseline-load-test.js
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  tags: [deploy]
+
 # --- Certbot 자동 갱신 cron ---
 - name: Certbot 자동 갱신 cron 등록 (주 1회)
   cron:
