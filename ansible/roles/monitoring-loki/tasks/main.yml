@@ -168,12 +168,12 @@
   tags: [setup]
 
 - name: k6 스크립트 배포
-  copy:
-    src: "{{ playbook_dir }}/../backend/k6/baseline-load-test.js"
-    dest: /home/{{ ansible_user }}/k6/baseline-load-test.js
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-    mode: "0644"
+  synchronize:
+    src: "{{ playbook_dir }}/../backend/k6/"
+    dest: /home/{{ ansible_user }}/k6/
+    rsync_opts:
+      - "--exclude=*.json"
+  become: false
   tags: [deploy]
 
 # --- Certbot 자동 갱신 cron ---
