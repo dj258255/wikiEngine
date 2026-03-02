@@ -2,6 +2,7 @@ package com.wiki.engine.post;
 
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
+import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +41,9 @@ class PostServiceTest {
 
     @Mock
     private PostLikeRepository postLikeRepository;
+
+    @Mock
+    private LuceneSearchService luceneSearchService;
 
     private Post createTestPost() {
         return Post.builder()
@@ -260,10 +265,10 @@ class PostServiceTest {
 
         @Test
         @DisplayName("[해피] 검색 결과 반환")
-        void success() {
+        void success() throws IOException {
             Post post = createTestPost();
             Pageable pageable = PageRequest.of(0, 20);
-            given(postRepository.searchByKeyword("테스트", pageable))
+            given(luceneSearchService.search("테스트", pageable))
                     .willReturn(new PageImpl<>(List.of(post)));
 
             Page<Post> result = postService.search("테스트", pageable);
@@ -274,9 +279,9 @@ class PostServiceTest {
 
         @Test
         @DisplayName("[코너] 검색 결과 없음 — 빈 페이지")
-        void empty() {
+        void empty() throws IOException {
             Pageable pageable = PageRequest.of(0, 20);
-            given(postRepository.searchByKeyword("없는키워드", pageable))
+            given(luceneSearchService.search("없는키워드", pageable))
                     .willReturn(new PageImpl<>(Collections.emptyList()));
 
             Page<Post> result = postService.search("없는키워드", pageable);
@@ -294,11 +299,9 @@ class PostServiceTest {
 
         @Test
         @DisplayName("[해피] 자동완성 결과 반환 (제목만)")
-        void success() {
-            Post p1 = Post.builder().title("삼성전자").content("").authorId(1L).build();
-            Post p2 = Post.builder().title("삼성물산").content("").authorId(1L).build();
-            given(postRepository.findByTitleStartingWith(eq("삼성"), any(Pageable.class)))
-                    .willReturn(List.of(p1, p2));
+        void success() throws IOException {
+            given(luceneSearchService.autocomplete("삼성", 10))
+                    .willReturn(List.of("삼성전자", "삼성물산"));
 
             List<String> result = postService.autocomplete("삼성");
 
@@ -307,8 +310,8 @@ class PostServiceTest {
 
         @Test
         @DisplayName("[코너] 결과 없음 — 빈 리스트")
-        void empty() {
-            given(postRepository.findByTitleStartingWith(eq("zzz"), any(Pageable.class)))
+        void empty() throws IOException {
+            given(luceneSearchService.autocomplete("zzz", 10))
                     .willReturn(Collections.emptyList());
 
             List<String> result = postService.autocomplete("zzz");
