@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import UserMenu from "./components/UserMenu";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -112,6 +113,12 @@ export default function Home() {
         <h1 className="text-4xl font-bold text-zinc-900 dark:text-zinc-100">
           위키 검색
         </h1>
+        <Link
+          href="/posts"
+          className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+        >
+          게시판 바로가기
+        </Link>
         <form onSubmit={handleSearch} className="relative w-full min-w-[600px] max-w-4xl px-4">
           <div className="relative">
             <input

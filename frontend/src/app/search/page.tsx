@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import UserMenu from "../components/UserMenu";
+import { useAuth } from "../contexts/AuthContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -30,6 +31,7 @@ export default function SearchPage() {
 function SearchPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user } = useAuth();
   const query = searchParams.get("q") || "";
   const pageParam = Number(searchParams.get("page") || "0");
   const [searchQuery, setSearchQuery] = useState(query);
@@ -54,6 +56,11 @@ function SearchPageContent() {
     if (query) {
       fetchResults(query, pageParam);
       fetchAiSummary(query);
+    } else {
+      setResults([]);
+      setTotalPages(0);
+      setTotalElements(0);
+      setAiSummary("");
     }
   }, [query, pageParam]);
 
@@ -229,6 +236,20 @@ function SearchPageContent() {
               </div>
             )}
           </form>
+          <Link
+            href="/posts"
+            className="shrink-0 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            전체 보기
+          </Link>
+          {user && (
+            <Link
+              href="/posts/new"
+              className="shrink-0 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600"
+            >
+              글쓰기
+            </Link>
+          )}
           <UserMenu />
         </div>
       </header>
@@ -329,7 +350,11 @@ function SearchPageContent() {
           <p className="py-12 text-center text-zinc-500 dark:text-zinc-400">
             검색 결과가 없습니다.
           </p>
-        ) : null}
+        ) : (
+          <p className="py-12 text-center text-zinc-500 dark:text-zinc-400">
+            검색어를 입력하세요.
+          </p>
+        )}
       </main>
     </div>
   );
