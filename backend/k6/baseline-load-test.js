@@ -1,22 +1,37 @@
 /**
- * k6 Baseline 부하 테스트 스크립트.
- * 1단계(LIKE 검색, OFFSET 페이지네이션, 동기 조회수 증가)의 성능 베이스라인을 측정한다.
+ * k6 부하 테스트 — Lucene + Nori 검색엔진.
  *
- * 테스트 시나리오:
- * 1. 검색 (LIKE '%keyword%' → Full Table Scan)
- * 2. 자동완성 (LIKE 'prefix%')
- * 3. 게시글 목록 조회 (OFFSET 페이지네이션)
- * 4. 게시글 상세 조회 (조회수 동기 증가)
+ * 전체 API를 실제 커뮤니티 트래픽 비율로 시뮬레이션한다.
+ *   - 읽기 (85%): 검색, 자동완성, 목록 조회, 상세 조회
+ *   - 쓰기 (15%): 글 생성 (NRT 증분 색인), 좋아요 (Row Lock 경합)
+ *
+ * 검색어를 빈도별로 분리하여 Lucene posting list 길이에 따른 성능 차이를 측정한다.
+ *   - 희귀 토큰: posting list 짧음 → 빠름 (예: "페텔", "algorithm")
+ *   - 중빈도 토큰: 일반 사용자 검색 패턴 (예: "삼성전자", "프로그래밍")
+ *   - 고빈도 토큰: posting list 길음 → 스트레스 (예: "대한민국", "history")
+ *
+ * 프로필 (PROFILE 환경변수):
+ *   - smoke:  스크립트 검증용 (2분, 5 VU)
+ *   - load:   baseline 측정용 (20분, 최대 100 VU) ← 기본값
+ *   - stress: 한계점 탐색용 (25분, 최대 200 VU)
+ *   - soak:   장기 안정성 검증용 (4시간 10분, 50 VU)
  *
  * 실행 방법:
- *   # 콘솔 출력만
- *   k6 run k6/baseline-load-test.js
+ *   # 1단계: smoke — 스크립트가 정상 동작하는지 확인
+ *   k6 run -e PROFILE=smoke -e BASE_URL=http://<서버ip>:8080 k6/baseline-load-test.js
  *
- *   # InfluxDB + Grafana 대시보드 연동 (권장)
- *   k6 run --out influxdb=http://localhost:8086/k6 k6/baseline-load-test.js
+ *   # 2단계: load — baseline 성능 측정 (약 20분)
+ *   k6 run -e PROFILE=load -e BASE_URL=http://<서버ip>:8080 k6/baseline-load-test.js
  *
- * 환경변수로 설정 변경:
- *   k6 run --out influxdb=http://localhost:8086/k6 -e BASE_URL=http://localhost:8080 k6/baseline-load-test.js
+ *   # 3단계: stress — 시스템 한계 확인 (약 25분)
+ *   k6 run -e PROFILE=stress -e BASE_URL=http://<서버ip>:8080 k6/baseline-load-test.js
+ *
+ *   # 4단계: soak — 메모리 누수/커넥션 풀 고갈 확인 (약 4시간)
+ *   k6 run -e PROFILE=soak -e BASE_URL=http://<서버ip>:8080 k6/baseline-load-test.js
+ *
+ *   # Grafana 대시보드 연동 (권장)
+ *   k6 run --out influxdb=http://<서버ip>:8086/k6 \
+ *     -e PROFILE=load -e BASE_URL=http://<서버ip>:8080 k6/baseline-load-test.js
  */
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
@@ -28,51 +43,112 @@ const searchDuration = new Trend('search_duration', true);
 const autocompleteDuration = new Trend('autocomplete_duration', true);
 const listDuration = new Trend('list_duration', true);
 const detailDuration = new Trend('detail_duration', true);
+const writeDuration = new Trend('write_duration', true);
 const errorRate = new Rate('errors');
 
 // ─── 설정 ──────────────────────────────────────────────
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 const API_PREFIX = `${BASE_URL}/api/v1.0`;
+const PROFILE = (__ENV.PROFILE || 'load').toLowerCase();
+
+// ─── 프로필별 부하 패턴 ─────────────────────────────────
+// k6 공식 가이드 권장 패턴: smoke → load → stress → soak 순서로 실행
+//
+// | 프로필  | 총 시간   | 최대 VU | 목적                          |
+// |---------|-----------|---------|-------------------------------|
+// | smoke   | 2분       | 5       | 스크립트 정상 동작 확인        |
+// | load    | 20분      | 100     | baseline 성능 측정 (기본값)    |
+// | stress  | 25분      | 200     | 시스템 한계점·병목 탐색        |
+// | soak    | 4시간 10분 | 50     | 메모리 누수·커넥션 풀 고갈     |
+
+const PROFILES = {
+    // smoke: 스크립트 검증 — 최소 부하로 에러 없이 돌아가는지만 확인
+    smoke: [
+        { duration: '30s', target: 5 },    // 워밍업: 0 → 5 VU
+        { duration: '1m',  target: 5 },    // 유지: 5 VU
+        { duration: '30s', target: 0 },    // 쿨다운: 5 → 0 VU
+    ],
+
+    // load: baseline 측정 — 일상 트래픽 시뮬레이션 (DAU 1,000~2,000명 수준)
+    load: [
+        { duration: '2m',  target: 50 },   // 워밍업: 0 → 50 VU
+        { duration: '10m', target: 50 },   // 정상 부하 유지: 50 VU
+        { duration: '2m',  target: 100 },  // 피크 부하: 50 → 100 VU
+        { duration: '5m',  target: 100 },  // 피크 유지: 100 VU
+        { duration: '1m',  target: 0 },    // 쿨다운: 100 → 0 VU
+    ],
+
+    // stress: 한계 탐색 — 시스템이 어디서 무너지는지 확인
+    stress: [
+        { duration: '2m',  target: 100 },  // 워밍업: 0 → 100 VU
+        { duration: '5m',  target: 100 },  // 정상 부하 유지: 100 VU
+        { duration: '2m',  target: 200 },  // 과부하: 100 → 200 VU
+        { duration: '10m', target: 200 },  // 과부하 유지: 200 VU
+        { duration: '2m',  target: 100 },  // 회복: 200 → 100 VU
+        { duration: '3m',  target: 100 },  // 회복 확인: 100 VU
+        { duration: '1m',  target: 0 },    // 쿨다운: 100 → 0 VU
+    ],
+
+    // soak: 장기 안정성 — 메모리 누수, GC pause, 커넥션 풀 고갈 감지
+    soak: [
+        { duration: '5m',   target: 50 },  // 워밍업: 0 → 50 VU
+        { duration: '4h',   target: 50 },  // 장기 유지: 50 VU (4시간)
+        { duration: '5m',   target: 0 },   // 쿨다운: 50 → 0 VU
+    ],
+};
+
+const stages = PROFILES[PROFILE];
+if (!stages) {
+    throw new Error(`알 수 없는 PROFILE: "${PROFILE}". smoke, load, stress, soak 중 선택하세요.`);
+}
 
 export const options = {
-    stages: [
-        { duration: '30s', target: 10 },   // 워밍업: 10 VU까지 증가
-        { duration: '1m', target: 50 },    // 부하: 50 VU 유지
-        { duration: '1m', target: 100 },   // 고부하: 100 VU 유지
-        { duration: '30s', target: 0 },    // 쿨다운
-    ],
+    stages,
     thresholds: {
-        // 베이스라인 측정이므로 임계값은 느슨하게 설정 (실패 방지)
-        http_req_duration: ['p(99)<30000'],  // P99 30초 이내
-        errors: ['rate<0.5'],                // 에러율 50% 이내
+        http_req_duration: ['p(95)<500', 'p(99)<1000'],
+        'search_duration': ['p(95)<300', 'p(99)<500'],
+        'autocomplete_duration': ['p(95)<200', 'p(99)<300'],
+        errors: ['rate<0.01'],
     },
 };
 
-// ─── 테스트 데이터 ─────────────────────────────────────
+// ─── 테스트 데이터 (빈도별 분리) ─────────────────────────
 
-// 한국어 검색어 (위키피디아에 확실히 존재하는 키워드)
-const KO_SEARCH_QUERIES = [
-    '삼성전자', '인공지능', '대한민국', '프로그래밍', '역사',
-    '서울특별시', '축구', '수학', '물리학', '경제',
-    '컴퓨터', '과학', '음악', '영화', '문학',
+// 희귀 토큰 — posting list 짧음, 캐시 miss 위주
+const RARE_QUERIES = [
+    '페텔', '흑요석', 'algorithm', 'quaternion', '메타세쿼이아',
+    'triskelion', '갈릴레이', 'fibonacci', '디오판토스', 'holography',
 ];
 
-// 영문 검색어
-const EN_SEARCH_QUERIES = [
-    'computer', 'science', 'history', 'mathematics', 'physics',
-    'programming', 'algorithm', 'database', 'network', 'software',
-    'machine learning', 'artificial intelligence', 'United States', 'philosophy', 'biology',
+// 중빈도 토큰 — 일반 사용자 검색 패턴
+const MEDIUM_QUERIES = [
+    '삼성전자', '인공지능', '프로그래밍', '축구', '물리학',
+    'computer', 'science', 'programming', 'database', 'philosophy',
+    '서울특별시', '경제', '컴퓨터', '영화', '문학',
+];
+
+// 고빈도 토큰 — posting list 길음, Lucene 스트레스 테스트
+const HIGH_FREQ_QUERIES = [
+    '대한민국', '한국', '역사', '대한', '사람',
+    'history', 'United States', 'world', 'people', 'time',
 ];
 
 // 자동완성 prefix (한국어 + 영문)
 const AUTOCOMPLETE_PREFIXES = [
-    '삼성', '인공', '대한', '프로', '역',
+    '삼성', '인공', '대한', '프로', '역사',
     'comp', 'sci', 'hist', 'math', 'prog',
+    '서울', '경제', '과학', 'art', 'uni',
 ];
 
-// 모든 검색어를 합침
-const ALL_QUERIES = [...KO_SEARCH_QUERIES, ...EN_SEARCH_QUERIES];
+// 빈도별 가중치 — 실제 트래픽 패턴 반영
+// 커뮤니티에서 대부분의 검색은 중빈도 키워드
+function pickSearchQuery() {
+    const roll = randomInt(1, 100);
+    if (roll <= 10) return randomItem(RARE_QUERIES);       // 10%: 희귀
+    if (roll <= 70) return randomItem(MEDIUM_QUERIES);     // 60%: 중빈도
+    return randomItem(HIGH_FREQ_QUERIES);                  // 30%: 고빈도
+}
 
 // ─── 유틸 함수 ─────────────────────────────────────────
 
@@ -84,47 +160,86 @@ function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// ─── 인증 (VU 초기화 시 1회 로그인) ────────────────────
+
+// VU마다 고유 계정으로 로그인하여 쿠키를 획득한다.
+// setup()에서 테스트 계정을 미리 생성하고, 각 VU가 로그인한다.
+const TEST_USER_PREFIX = 'k6user';
+const TEST_PASSWORD = 'Test1234!';
+
+// stress 프로필(200 VU)을 대비하여 계정 200개 생성
+const MAX_TEST_USERS = 200;
+
+export function setup() {
+    console.log(`\n[k6] 프로필: ${PROFILE.toUpperCase()}`);
+    console.log(`[k6] 대상 서버: ${BASE_URL}\n`);
+
+    // 테스트 계정 생성 (이미 존재하면 409 → 무시)
+    for (let i = 1; i <= MAX_TEST_USERS; i++) {
+        http.post(`${API_PREFIX}/auth/signup`, JSON.stringify({
+            username: `${TEST_USER_PREFIX}${i}`,
+            nickname: `K6테스터${i}`,
+            password: TEST_PASSWORD,
+        }), { headers: { 'Content-Type': 'application/json' } });
+    }
+    return {};
+}
+
+// VU별 로그인 (쿠키 jar에 자동 저장)
+function ensureLoggedIn() {
+    const jar = http.cookieJar();
+    const cookies = jar.cookiesForURL(BASE_URL);
+
+    if (!cookies.token || cookies.token.length === 0) {
+        const vuId = (__VU % MAX_TEST_USERS) + 1;
+        const res = http.post(`${API_PREFIX}/auth/login`, JSON.stringify({
+            username: `${TEST_USER_PREFIX}${vuId}`,
+            password: TEST_PASSWORD,
+        }), { headers: { 'Content-Type': 'application/json' } });
+
+        check(res, { '로그인 성공': (r) => r.status === 200 });
+    }
+}
+
 // ─── 메인 시나리오 ─────────────────────────────────────
 
 export default function () {
-    // 시나리오를 랜덤하게 선택하여 실행
     const scenario = randomInt(1, 100);
 
-    if (scenario <= 40) {
-        // 40%: 검색 (가장 무거운 작업)
-        testSearch();
-    } else if (scenario <= 60) {
-        // 20%: 자동완성
-        testAutocomplete();
-    } else if (scenario <= 80) {
-        // 20%: 목록 조회
-        testPostList();
+    if (scenario <= 35) {
+        testSearch();           // 35%: 검색
+    } else if (scenario <= 55) {
+        testAutocomplete();     // 20%: 자동완성
+    } else if (scenario <= 70) {
+        testPostList();         // 15%: 목록 조회
+    } else if (scenario <= 85) {
+        testPostDetail();       // 15%: 상세 조회
+    } else if (scenario <= 93) {
+        testCreatePost();       //  8%: 글 생성 (NRT 색인 포함)
     } else {
-        // 20%: 상세 조회
-        testPostDetail();
+        testLikePost();         //  7%: 좋아요
     }
 
     sleep(randomInt(1, 3));
 }
 
-// ─── 시나리오별 테스트 함수 ─────────────────────────────
+// ─── 읽기 시나리오 ─────────────────────────────────────
 
-/** 검색 테스트: LIKE '%keyword%' → Full Table Scan 발생 */
 function testSearch() {
     group('검색', function () {
-        const query = randomItem(ALL_QUERIES);
-        const page = randomInt(0, 5);
+        const query = pickSearchQuery();
+        const page = randomInt(0, 3);
         const url = `${API_PREFIX}/posts/search?q=${encodeURIComponent(query)}&page=${page}&size=20`;
 
-        const res = http.get(url);
+        const res = http.get(url, { tags: { name: 'search' } });
         searchDuration.add(res.timings.duration);
 
         const success = check(res, {
             '검색 응답 200': (r) => r.status === 200,
-            '검색 결과 포함': (r) => {
+            '검색 결과 존재': (r) => {
                 try {
                     const body = JSON.parse(r.body);
-                    return body.content !== undefined;
+                    return body.data && body.data.content !== undefined;
                 } catch (e) {
                     return false;
                 }
@@ -135,20 +250,20 @@ function testSearch() {
     });
 }
 
-/** 자동완성 테스트: LIKE 'prefix%' */
 function testAutocomplete() {
     group('자동완성', function () {
         const prefix = randomItem(AUTOCOMPLETE_PREFIXES);
         const url = `${API_PREFIX}/posts/autocomplete?prefix=${encodeURIComponent(prefix)}`;
 
-        const res = http.get(url);
+        const res = http.get(url, { tags: { name: 'autocomplete' } });
         autocompleteDuration.add(res.timings.duration);
 
         const success = check(res, {
             '자동완성 응답 200': (r) => r.status === 200,
             '자동완성 결과 배열': (r) => {
                 try {
-                    return Array.isArray(JSON.parse(r.body));
+                    const body = JSON.parse(r.body);
+                    return Array.isArray(body.data);
                 } catch (e) {
                     return false;
                 }
@@ -159,14 +274,12 @@ function testAutocomplete() {
     });
 }
 
-/** 목록 조회 테스트: OFFSET 페이지네이션 (깊은 페이지 포함) */
 function testPostList() {
     group('목록 조회', function () {
-        // 깊은 페이지를 일부 포함하여 OFFSET 성능 저하 측정
         const page = randomInt(0, 100) < 70 ? randomInt(0, 10) : randomInt(100, 1000);
         const url = `${API_PREFIX}/posts?page=${page}&size=20`;
 
-        const res = http.get(url);
+        const res = http.get(url, { tags: { name: 'list' } });
         listDuration.add(res.timings.duration);
 
         const success = check(res, {
@@ -177,18 +290,61 @@ function testPostList() {
     });
 }
 
-/** 상세 조회 테스트: 조회수 동기 증가 (Row Lock 경합) */
 function testPostDetail() {
     group('상세 조회', function () {
-        // 인기 게시글에 동시 접근하여 Row Lock 경합 측정
         const postId = randomInt(1, 10000);
         const url = `${API_PREFIX}/posts/${postId}`;
 
-        const res = http.get(url);
+        const res = http.get(url, { tags: { name: 'detail' } });
         detailDuration.add(res.timings.duration);
 
         const success = check(res, {
-            '상세 응답 200 또는 404': (r) => r.status === 200 || r.status === 404 || r.status === 500,
+            '상세 응답 200 또는 404': (r) => r.status === 200 || r.status === 404,
+        });
+
+        errorRate.add(!success);
+    });
+}
+
+// ─── 쓰기 시나리오 ─────────────────────────────────────
+
+/** 글 생성: NRT 증분 색인이 동시 부하에서도 동작하는지 검증 */
+function testCreatePost() {
+    group('글 생성', function () {
+        ensureLoggedIn();
+
+        const res = http.post(`${API_PREFIX}/posts`, JSON.stringify({
+            title: `k6 부하테스트 게시글 ${Date.now()}`,
+            content: `부하 테스트 중 생성된 게시글입니다. VU=${__VU} ITER=${__ITER}`,
+            categoryId: randomInt(1, 10),
+        }), {
+            headers: { 'Content-Type': 'application/json' },
+            tags: { name: 'create' },
+        });
+        writeDuration.add(res.timings.duration);
+
+        const success = check(res, {
+            '글 생성 201': (r) => r.status === 201,
+        });
+
+        errorRate.add(!success);
+    });
+}
+
+/** 좋아요: Row Lock 경합 + 동시성 테스트 */
+function testLikePost() {
+    group('좋아요', function () {
+        ensureLoggedIn();
+
+        const postId = randomInt(1, 1000);
+        const res = http.post(`${API_PREFIX}/posts/${postId}/like`, null, {
+            tags: { name: 'like' },
+        });
+        writeDuration.add(res.timings.duration);
+
+        const success = check(res, {
+            // 200: 좋아요 성공, 409: 이미 좋아요함 — 둘 다 정상
+            '좋아요 200 또는 409': (r) => r.status === 200 || r.status === 409,
         });
 
         errorRate.add(!success);
@@ -198,27 +354,38 @@ function testPostDetail() {
 // ─── 테스트 종료 후 요약 ───────────────────────────────
 
 export function handleSummary(data) {
-    const summary = {
-        '테스트 일시': new Date().toISOString(),
-        '총 요청 수': data.metrics.http_reqs ? data.metrics.http_reqs.values.count : 0,
-        '평균 응답시간(ms)': data.metrics.http_req_duration ? data.metrics.http_req_duration.values.avg.toFixed(2) : 'N/A',
-        'P95 응답시간(ms)': data.metrics.http_req_duration ? data.metrics.http_req_duration.values['p(95)'].toFixed(2) : 'N/A',
-        'P99 응답시간(ms)': data.metrics.http_req_duration ? data.metrics.http_req_duration.values['p(99)'].toFixed(2) : 'N/A',
-        '검색 평균(ms)': data.metrics.search_duration ? data.metrics.search_duration.values.avg.toFixed(2) : 'N/A',
-        '자동완성 평균(ms)': data.metrics.autocomplete_duration ? data.metrics.autocomplete_duration.values.avg.toFixed(2) : 'N/A',
-        '목록 평균(ms)': data.metrics.list_duration ? data.metrics.list_duration.values.avg.toFixed(2) : 'N/A',
-        '상세 평균(ms)': data.metrics.detail_duration ? data.metrics.detail_duration.values.avg.toFixed(2) : 'N/A',
-        '에러율(%)': data.metrics.errors ? (data.metrics.errors.values.rate * 100).toFixed(2) : '0',
-    };
+    const m = (metric) => data.metrics[metric] ? data.metrics[metric].values : null;
+    const fmt = (values, key) => values ? values[key].toFixed(2) : 'N/A';
 
-    console.log('\n========== Baseline 측정 결과 ==========');
-    for (const [key, value] of Object.entries(summary)) {
-        console.log(`  ${key}: ${value}`);
-    }
-    console.log('========================================\n');
+    const httpDur = m('http_req_duration');
+    const search = m('search_duration');
+    const autocomplete = m('autocomplete_duration');
+    const list = m('list_duration');
+    const detail = m('detail_duration');
+    const write = m('write_duration');
 
-    // JSON 파일로도 저장
+    console.log(`\n========== Lucene ${PROFILE.toUpperCase()} 테스트 결과 ==========`);
+    console.log(`  프로필: ${PROFILE.toUpperCase()}`);
+    console.log(`  테스트 일시: ${new Date().toISOString()}`);
+    console.log(`  총 요청 수: ${data.metrics.http_reqs ? data.metrics.http_reqs.values.count : 0}`);
+    console.log('');
+    console.log('  ── 전체 ──');
+    console.log(`    평균: ${fmt(httpDur, 'avg')}ms  P95: ${fmt(httpDur, 'p(95)')}ms  P99: ${fmt(httpDur, 'p(99)')}ms`);
+    console.log('  ── 검색 ──');
+    console.log(`    평균: ${fmt(search, 'avg')}ms  P95: ${fmt(search, 'p(95)')}ms  P99: ${fmt(search, 'p(99)')}ms`);
+    console.log('  ── 자동완성 ──');
+    console.log(`    평균: ${fmt(autocomplete, 'avg')}ms  P95: ${fmt(autocomplete, 'p(95)')}ms  P99: ${fmt(autocomplete, 'p(99)')}ms`);
+    console.log('  ── 목록 조회 ──');
+    console.log(`    평균: ${fmt(list, 'avg')}ms  P95: ${fmt(list, 'p(95)')}ms`);
+    console.log('  ── 상세 조회 ──');
+    console.log(`    평균: ${fmt(detail, 'avg')}ms  P95: ${fmt(detail, 'p(95)')}ms`);
+    console.log('  ── 쓰기 (생성+좋아요) ──');
+    console.log(`    평균: ${fmt(write, 'avg')}ms  P95: ${fmt(write, 'p(95)')}ms`);
+    console.log('');
+    console.log(`  에러율: ${data.metrics.errors ? (data.metrics.errors.values.rate * 100).toFixed(2) : '0'}%`);
+    console.log('================================================\n');
+
     return {
-        'k6/baseline-result.json': JSON.stringify(data, null, 2),
+        [`k6/${PROFILE}-result.json`]: JSON.stringify(data, null, 2),
     };
 }
