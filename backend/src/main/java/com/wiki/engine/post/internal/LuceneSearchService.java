@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.index.StoredFields;
@@ -74,6 +75,48 @@ public class LuceneSearchService {
         } finally {
             searcherManager.release(searcher);
         }
+    }
+
+    /**
+     * 자동완성: title 필드에서 prefix 매칭으로 상위 10건 반환.
+     * Lucene PrefixQuery로 역색인에서 즉시 조회한다.
+     */
+    public List<String> autocomplete(String prefix, int limit) throws IOException {
+        IndexSearcher searcher = searcherManager.acquire();
+        try {
+            // Nori로 prefix를 분석하여 첫 번째 토큰으로 PrefixQuery 생성
+            String analyzed = analyzeFirstToken(prefix);
+            if (analyzed.isEmpty()) {
+                return List.of();
+            }
+
+            Query query = new PrefixQuery(new Term("title", analyzed));
+            TopDocs topDocs = searcher.search(query, limit);
+
+            StoredFields storedFields = searcher.storedFields();
+            List<String> titles = new ArrayList<>();
+            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+                Document doc = storedFields.document(scoreDoc.doc);
+                titles.add(doc.get("title"));
+            }
+            return titles;
+        } finally {
+            searcherManager.release(searcher);
+        }
+    }
+
+    private String analyzeFirstToken(String text) throws IOException {
+        try (var stream = analyzer.tokenStream("title", text)) {
+            var term = stream.addAttribute(org.apache.lucene.analysis.tokenattributes.CharTermAttribute.class);
+            stream.reset();
+            if (stream.incrementToken()) {
+                String result = term.toString();
+                stream.end();
+                return result;
+            }
+            stream.end();
+        }
+        return "";
     }
 
     /**

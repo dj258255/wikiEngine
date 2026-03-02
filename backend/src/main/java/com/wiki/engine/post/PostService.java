@@ -2,15 +2,17 @@ package com.wiki.engine.post;
 
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
+import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +28,7 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
+    private final LuceneSearchService luceneSearchService;
 
     /**
      * 새 게시글을 생성한다.
@@ -178,26 +181,26 @@ public class PostService {
     }
 
     /**
-     * FULLTEXT ngram 검색 (4단계).
-     * MATCH(title, content) AGAINST(:keyword IN BOOLEAN MODE)로
-     * Full Table Scan 없이 FULLTEXT 인덱스를 활용한다.
-     * 5초 타임아웃은 비정상 쿼리 보호용 안전장치로 유지한다.
+     * Lucene + Nori 검색.
+     * MySQL FULLTEXT ngram 대비: 1,425만 건 전체 검색, 형태소 단위 매칭, 즉시 응답.
      */
-    @Transactional(readOnly = true, timeout = 5)
     public Page<Post> search(String keyword, Pageable pageable) {
-        return postRepository.searchByKeyword(keyword, pageable);
+        try {
+            return luceneSearchService.search(keyword, pageable);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     /**
-     * 자동완성 v1: 제목 prefix 매칭.
-     * LIKE 'prefix%'로 최대 10건을 조회수 내림차순으로 반환한다.
-     * 5초 타임아웃으로 HikariPool 고갈을 방지한다.
+     * 자동완성: Lucene PrefixQuery로 title prefix 매칭.
+     * MySQL LIKE 'prefix%' 대비: 역색인에서 즉시 조회.
      */
-    @Transactional(readOnly = true, timeout = 5)
     public List<String> autocomplete(String prefix) {
-        return postRepository.findByTitleStartingWith(prefix, PageRequest.of(0, 10))
-                .stream()
-                .map(Post::getTitle)
-                .toList();
+        try {
+            return luceneSearchService.autocomplete(prefix, 10);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
