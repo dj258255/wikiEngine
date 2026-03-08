@@ -3,6 +3,7 @@ package com.wiki.engine.post.internal;
 import com.wiki.engine.post.Post;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -24,22 +25,23 @@ public interface PostRepository extends JpaRepository<Post, Long> {
      * 게시글 목록 — Deferred Join으로 OFFSET 최적화.
      * 내부 서브쿼리가 idx_posts_created_at 인덱스만 스캔하여 PK를 추출하고,
      * 외부 쿼리가 해당 PK로만 클러스터 인덱스를 조회한다.
-     * LONGTEXT(content)를 포함한 전체 행 읽기가 LIMIT 건수로 제한된다.
+     *
+     * List 반환 + 명시적 LIMIT/OFFSET 파라미터를 사용한다.
+     * Slice의 LIMIT+1 패턴은 서비스에서 처리한다.
+     * (nativeQuery + Slice 반환 시 Spring Data 자동 LIMIT과 서브쿼리 LIMIT이 충돌하므로 회피)
      */
     @Query(value = """
         SELECT p.* FROM posts p
         INNER JOIN (
             SELECT id FROM posts ORDER BY created_at DESC
-            LIMIT :#{#pageable.pageSize} OFFSET :#{#pageable.offset}
+            LIMIT :limit OFFSET :offset
         ) AS tmp ON p.id = tmp.id
         ORDER BY p.created_at DESC
-        """,
-        countQuery = "SELECT COUNT(*) FROM posts",
-        nativeQuery = true)
-    Page<Post> findAllWithDeferredJoin(Pageable pageable);
+        """, nativeQuery = true)
+    List<Post> findAllWithDeferredJoin(@Param("limit") int limit, @Param("offset") long offset);
 
-    /** 카테고리별 게시글 목록 */
-    Page<Post> findByCategoryIdOrderByCreatedAtDesc(Long categoryId, Pageable pageable);
+    /** 카테고리별 게시글 목록 — Slice 반환으로 COUNT(*) 제거 */
+    Slice<Post> findByCategoryIdOrderByCreatedAtDesc(Long categoryId, Pageable pageable);
 
     /**
      * FULLTEXT ngram 검색 (4단계).

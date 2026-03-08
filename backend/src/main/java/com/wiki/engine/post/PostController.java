@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,13 +31,13 @@ public class PostController {
 
     private final PostService postService;
 
-    /** 게시글 목록 조회 (OFFSET 페이지네이션) */
+    /** 최신 게시글 목록 조회 (Deferred Join + Slice, COUNT(*) 제거) */
     @GetMapping
-    public Page<PostSummaryResponse> getPosts(
+    public Slice<PostSummaryResponse> getPosts(
             @RequestParam(required = false) Long categoryId,
             @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<Post> posts = (categoryId != null)
+        Slice<Post> posts = (categoryId != null)
                 ? postService.getPostsByCategory(categoryId, pageable)
                 : postService.getPosts(pageable);
 

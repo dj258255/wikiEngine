@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,9 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PostService {
+
+    private static final int MAX_LIST_PAGE = 10;
+    private static final int MAX_SEARCH_PAGE = 10;
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
@@ -174,29 +179,51 @@ public class PostService {
     }
 
     /**
-     * 게시글 목록을 페이지네이션으로 조회한다.
-     * Deferred Join으로 OFFSET 시 LONGTEXT 불필요 읽기를 제거.
+     * 최신 게시글 목록을 페이지네이션으로 조회한다.
+     * Deferred Join + 수동 SliceImpl으로 COUNT(*) 완전 제거.
+     * LIMIT+1 패턴으로 다음 페이지 존재 여부를 판별한다.
      */
-    public Page<Post> getPosts(Pageable pageable) {
-        return postRepository.findAllWithDeferredJoin(pageable);
+    public Slice<Post> getPosts(Pageable pageable) {
+        validatePageLimit(pageable, MAX_LIST_PAGE);
+
+        int pageSize = pageable.getPageSize();
+        long offset = pageable.getOffset();
+
+        List<Post> results = postRepository.findAllWithDeferredJoin(pageSize + 1, offset);
+
+        boolean hasNext = results.size() > pageSize;
+        if (hasNext) {
+            results = results.subList(0, pageSize);
+        }
+
+        return new SliceImpl<>(results, pageable, hasNext);
     }
 
     /**
      * 카테고리별 게시글 목록을 조회한다.
+     * 파생 쿼리이므로 Slice 반환으로 COUNT(*) 자동 제거.
      */
-    public Page<Post> getPostsByCategory(Long categoryId, Pageable pageable) {
+    public Slice<Post> getPostsByCategory(Long categoryId, Pageable pageable) {
+        validatePageLimit(pageable, MAX_LIST_PAGE);
         return postRepository.findByCategoryIdOrderByCreatedAtDesc(categoryId, pageable);
     }
 
     /**
      * Lucene + Nori 검색.
-     * MySQL FULLTEXT ngram 대비: 1,425만 건 전체 검색, 형태소 단위 매칭, 즉시 응답.
+     * Lucene의 totalHits는 역색인에서 즉시 반환되므로 COUNT 문제 없음. Page 유지.
      */
     public Page<Post> search(String keyword, Pageable pageable) {
+        validatePageLimit(pageable, MAX_SEARCH_PAGE);
         try {
             return luceneSearchService.search(keyword, pageable);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private void validatePageLimit(Pageable pageable, int maxPage) {
+        if (pageable.getPageNumber() > maxPage) {
+            throw new BusinessException(ErrorCode.PAGE_LIMIT_EXCEEDED);
         }
     }
 

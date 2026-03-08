@@ -14,6 +14,7 @@ public enum ErrorCode {
 
     // 400 Bad Request
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력입니다"),
+    PAGE_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "최대 페이지 수를 초과했습니다"),
 
     // 401 Unauthorized
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다"),

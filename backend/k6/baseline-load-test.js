@@ -190,7 +190,7 @@ export function setup() {
     console.log(`[k6] 생성할 계정 수: ${MAX_TEST_USERS}\n`);
 
     // 1. 서버 헬스체크 — 서버 불통이면 계정 생성 전에 빠르게 실패
-    // /posts?page=0&size=1 사용: COUNT 쿼리 포함이라 느릴 수 있으므로 타임아웃 30초
+    // /posts?page=0&size=1 사용: Slice 전환으로 COUNT 제거됨, 타임아웃 30초
     const healthCheck = http.get(`${API_PREFIX}/posts?page=0&size=1`, {
         timeout: '30s',
     });
@@ -259,7 +259,7 @@ export default function () {
 function testSearch() {
     group('검색', function () {
         const query = pickSearchQuery();
-        const page = randomInt(0, 3);
+        const page = randomInt(0, 10);  // 서버 MAX_SEARCH_PAGE=10에 맞춤
         const url = `${API_PREFIX}/posts/search?q=${encodeURIComponent(query)}&page=${page}&size=20`;
 
         const res = http.get(url, { tags: { name: 'search' } });
@@ -306,9 +306,9 @@ function testAutocomplete() {
 }
 
 function testPostList() {
-    group('목록 조회', function () {
-        // 서버 최대 페이지 제한 200에 맞춤 (OFFSET 최대 4,000)
-        const page = randomInt(0, 100) < 70 ? randomInt(0, 10) : randomInt(100, 200);
+    group('최신 게시글 목록', function () {
+        // 서버 MAX_LIST_PAGE=10에 맞춤 (Google/네이버도 10페이지 제한)
+        const page = randomInt(0, 10);
         const url = `${API_PREFIX}/posts?page=${page}&size=20`;
 
         const res = http.get(url, { tags: { name: 'list' } });
@@ -407,7 +407,7 @@ export function handleSummary(data) {
     console.log(`    평균: ${fmt(search, 'avg')}ms  P95: ${fmt(search, 'p(95)')}ms  P99: ${fmt(search, 'p(99)')}ms`);
     console.log('  ── 자동완성 ──');
     console.log(`    평균: ${fmt(autocomplete, 'avg')}ms  P95: ${fmt(autocomplete, 'p(95)')}ms  P99: ${fmt(autocomplete, 'p(99)')}ms`);
-    console.log('  ── 목록 조회 ──');
+    console.log('  ── 최신 게시글 목록 ──');
     console.log(`    평균: ${fmt(list, 'avg')}ms  P95: ${fmt(list, 'p(95)')}ms`);
     console.log('  ── 상세 조회 ──');
     console.log(`    평균: ${fmt(detail, 'avg')}ms  P95: ${fmt(detail, 'p(95)')}ms`);
