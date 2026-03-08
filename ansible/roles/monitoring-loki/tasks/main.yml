@@ -23,6 +23,7 @@
       - "--exclude=certbot/"
       - "--exclude=.env.prod"
   become: false
+  register: files_sync
   tags: [deploy]
 
 - name: Monitoring Loki docker-compose.yml 배포
@@ -103,6 +104,11 @@
     state: present
     pull: missing
   become: false
+  tags: [deploy]
+
+- name: Grafana 재시작 (프로비저닝 파일 변경 시)
+  command: docker restart wiki-grafana-prod
+  when: files_sync.changed
   tags: [deploy]
 
 - name: Loki 헬스체크 대기
