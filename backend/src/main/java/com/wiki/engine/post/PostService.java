@@ -31,8 +31,8 @@ import java.util.Optional;
 @Transactional(readOnly = true)
 public class PostService {
 
-    private static final int MAX_LIST_PAGE = 10;
-    private static final int MAX_SEARCH_PAGE = 10;
+    private static final int MAX_LIST_PAGE = 30;
+    private static final int MAX_SEARCH_PAGE = 30;
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;

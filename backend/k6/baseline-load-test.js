@@ -259,7 +259,7 @@ export default function () {
 function testSearch() {
     group('검색', function () {
         const query = pickSearchQuery();
-        const page = randomInt(0, 10);  // 서버 MAX_SEARCH_PAGE=10에 맞춤
+        const page = randomInt(0, 30);  // 서버 MAX_SEARCH_PAGE=30에 맞춤
         const url = `${API_PREFIX}/posts/search?q=${encodeURIComponent(query)}&page=${page}&size=20`;
 
         const res = http.get(url, { tags: { name: 'search' } });
@@ -307,8 +307,8 @@ function testAutocomplete() {
 
 function testPostList() {
     group('최신 게시글 목록', function () {
-        // 서버 MAX_LIST_PAGE=10에 맞춤 (Google/네이버도 10페이지 제한)
-        const page = randomInt(0, 10);
+        // 서버 MAX_LIST_PAGE=30에 맞춤 (Google/네이버도 ~30페이지 제한)
+        const page = randomInt(0, 30);
         const url = `${API_PREFIX}/posts?page=${page}&size=20`;
 
         const res = http.get(url, { tags: { name: 'list' } });
