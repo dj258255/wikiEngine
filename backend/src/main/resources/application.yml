@@ -68,6 +68,9 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}  # 메트릭에 앱 이름 태그 추가
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true  # P95/P99 계산용 histogram bucket 활성화
 
 # 데이터 초기화 설정 (비활성화)
 # 초기 데이터 적재 완료 후 주석 처리. mysqldump로 백업/복원 방식 사용.
