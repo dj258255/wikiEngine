@@ -40,6 +40,9 @@ import { Rate, Trend } from 'k6/metrics';
 // ─── 커스텀 메트릭 ──────────────────────────────────────
 
 const searchDuration = new Trend('search_duration', true);
+const searchRareDuration = new Trend('search_rare_duration', true);
+const searchMediumDuration = new Trend('search_medium_duration', true);
+const searchHighDuration = new Trend('search_high_duration', true);
 const autocompleteDuration = new Trend('autocomplete_duration', true);
 const listDuration = new Trend('list_duration', true);
 const detailDuration = new Trend('detail_duration', true);
@@ -158,11 +161,12 @@ const AUTOCOMPLETE_PREFIXES = [
 
 // 빈도별 가중치 — 실제 트래픽 패턴 반영
 // 커뮤니티에서 대부분의 검색은 중빈도 키워드
+// 반환: { query, freq } — freq는 'rare' | 'medium' | 'high'
 function pickSearchQuery() {
     const roll = randomInt(1, 100);
-    if (roll <= 10) return randomItem(RARE_QUERIES);       // 10%: 희귀
-    if (roll <= 70) return randomItem(MEDIUM_QUERIES);     // 60%: 중빈도
-    return randomItem(HIGH_FREQ_QUERIES);                  // 30%: 고빈도
+    if (roll <= 10) return { query: randomItem(RARE_QUERIES), freq: 'rare' };        // 10%: 희귀
+    if (roll <= 70) return { query: randomItem(MEDIUM_QUERIES), freq: 'medium' };    // 60%: 중빈도
+    return { query: randomItem(HIGH_FREQ_QUERIES), freq: 'high' };                   // 30%: 고빈도
 }
 
 // ─── 유틸 함수 ─────────────────────────────────────────
@@ -258,12 +262,16 @@ export default function () {
 
 function testSearch() {
     group('검색', function () {
-        const query = pickSearchQuery();
+        const { query, freq } = pickSearchQuery();
         const page = randomInt(0, 30);  // 서버 MAX_SEARCH_PAGE=30에 맞춤
         const url = `${API_PREFIX}/posts/search?q=${encodeURIComponent(query)}&page=${page}&size=20`;
 
         const res = http.get(url, { tags: { name: 'search' } });
         searchDuration.add(res.timings.duration);
+
+        // 빈도별 메트릭 기록 — Grafana에서 빈도별 성능 비교 가능
+        const freqMetrics = { rare: searchRareDuration, medium: searchMediumDuration, high: searchHighDuration };
+        freqMetrics[freq].add(res.timings.duration);
 
         const success = check(res, {
             '검색 응답 200': (r) => r.status === 200,
@@ -391,6 +399,9 @@ export function handleSummary(data) {
 
     const httpDur = m('http_req_duration');
     const search = m('search_duration');
+    const searchRare = m('search_rare_duration');
+    const searchMedium = m('search_medium_duration');
+    const searchHigh = m('search_high_duration');
     const autocomplete = m('autocomplete_duration');
     const list = m('list_duration');
     const detail = m('detail_duration');
@@ -403,8 +414,14 @@ export function handleSummary(data) {
     console.log('');
     console.log('  ── 전체 ──');
     console.log(`    평균: ${fmt(httpDur, 'avg')}ms  P95: ${fmt(httpDur, 'p(95)')}ms  P99: ${fmt(httpDur, 'p(99)')}ms`);
-    console.log('  ── 검색 ──');
+    console.log('  ── 검색 (전체) ──');
     console.log(`    평균: ${fmt(search, 'avg')}ms  P95: ${fmt(search, 'p(95)')}ms  P99: ${fmt(search, 'p(99)')}ms`);
+    console.log('  ── 검색 (희귀 토큰 10%) ──');
+    console.log(`    평균: ${fmt(searchRare, 'avg')}ms  P95: ${fmt(searchRare, 'p(95)')}ms  P99: ${fmt(searchRare, 'p(99)')}ms`);
+    console.log('  ── 검색 (중빈도 토큰 60%) ──');
+    console.log(`    평균: ${fmt(searchMedium, 'avg')}ms  P95: ${fmt(searchMedium, 'p(95)')}ms  P99: ${fmt(searchMedium, 'p(99)')}ms`);
+    console.log('  ── 검색 (고빈도 토큰 30%) ──');
+    console.log(`    평균: ${fmt(searchHigh, 'avg')}ms  P95: ${fmt(searchHigh, 'p(95)')}ms  P99: ${fmt(searchHigh, 'p(99)')}ms`);
     console.log('  ── 자동완성 ──');
     console.log(`    평균: ${fmt(autocomplete, 'avg')}ms  P95: ${fmt(autocomplete, 'p(95)')}ms  P99: ${fmt(autocomplete, 'p(99)')}ms`);
     console.log('  ── 최신 게시글 목록 ──');
