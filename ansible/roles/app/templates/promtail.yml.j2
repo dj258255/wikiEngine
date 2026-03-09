@@ -22,3 +22,20 @@ scrape_configs:
       - multiline:
           firstline: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}'
           max_wait_time: 3s
+
+  - job_name: mysql-slow-query
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: mysql-slow-query
+          host: app-server
+          __path__: /var/log/mysql/slow.log
+    pipeline_stages:
+      - multiline:
+          firstline: '^# Time:'
+          max_wait_time: 3s
+      - regex:
+          expression: 'Query_time:\s+(?P<query_time>[\d.]+)\s+Lock_time:\s+(?P<lock_time>[\d.]+)\s+Rows_sent:\s+(?P<rows_sent>\d+)\s+Rows_examined:\s+(?P<rows_examined>\d+)'
+      - labels:
+          query_time:
+          rows_examined:

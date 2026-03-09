@@ -220,6 +220,29 @@
         }
       ]
     }
+    ,{
+      "id": 10,
+      "title": "Slow Query 로그",
+      "type": "logs",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 32 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"mysql-slow-query\"}",
+          "refId": "A"
+        }
+      ]
+    }
   ],
   "schemaVersion": 39
 }

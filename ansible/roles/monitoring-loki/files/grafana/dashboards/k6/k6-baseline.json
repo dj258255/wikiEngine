@@ -419,6 +419,105 @@
     {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+      "id": 104,
+      "title": "검색 빈도별 성능 비교",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "pointSize": 3,
+            "spanNulls": true
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 37 },
+      "id": 13,
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "p95"] }
+      },
+      "targets": [
+        {
+          "alias": "희귀 토큰 (10%)",
+          "query": "SELECT mean(\"value\") FROM \"search_rare_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "중빈도 토큰 (60%)",
+          "query": "SELECT mean(\"value\") FROM \"search_medium_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "고빈도 토큰 (30%)",
+          "query": "SELECT mean(\"value\") FROM \"search_high_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "검색 빈도별 평균 응답시간",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "influxdb", "uid": "influxdb-k6" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "pointSize": 3,
+            "spanNulls": true
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 37 },
+      "id": 14,
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+      },
+      "targets": [
+        {
+          "alias": "희귀 P95",
+          "query": "SELECT percentile(\"value\", 95) FROM \"search_rare_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "중빈도 P95",
+          "query": "SELECT percentile(\"value\", 95) FROM \"search_medium_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        },
+        {
+          "alias": "고빈도 P95",
+          "query": "SELECT percentile(\"value\", 95) FROM \"search_high_duration\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "refId": "C",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "검색 빈도별 P95 응답시간",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 47 },
       "id": 103,
       "title": "네트워크 상세",
       "type": "row"
@@ -438,7 +537,7 @@
           "unit": "ms"
         }
       },
-      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 37 },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 48 },
       "id": 11,
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
@@ -491,7 +590,7 @@
           "unit": "bytes"
         }
       },
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 37 },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 48 },
       "id": 12,
       "options": {
         "tooltip": { "mode": "multi", "sort": "desc" },
