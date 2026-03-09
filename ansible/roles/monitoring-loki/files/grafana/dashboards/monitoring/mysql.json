@@ -222,13 +222,38 @@
     }
     ,{
       "id": 10,
-      "title": "Slow Query 로그",
+      "title": "Slow Query 로그 (1초 이상)",
+      "description": "Query_time >= 1초인 쿼리만 표시. 실제 성능 병목을 찾는 용도.",
       "type": "logs",
       "gridPos": { "h": 12, "w": 24, "x": 0, "y": 32 },
       "datasource": { "type": "loki", "uid": "loki" },
       "options": {
         "showTime": true,
-        "showLabels": false,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "expr": "{job=\"mysql-slow-query\", query_time=~\"[1-9].*\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Slow Query 로그 (전체)",
+      "description": "인덱스 미사용 쿼리 포함. 전체 현황 파악용.",
+      "type": "logs",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 44 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
         "showCommonLabels": false,
         "wrapLogMessage": true,
         "prettifyLogMessage": false,
