@@ -199,22 +199,22 @@
       },
       "targets": [
         {
-          "expr": "rate(mysql_global_status_innodb_rows_read[1m])",
+          "expr": "rate(mysql_global_status_innodb_system_rows_read[1m])",
           "legendFormat": "Rows Read/s",
           "refId": "A"
         },
         {
-          "expr": "rate(mysql_global_status_innodb_rows_inserted[1m])",
+          "expr": "rate(mysql_global_status_innodb_system_rows_inserted[1m])",
           "legendFormat": "Rows Inserted/s",
           "refId": "B"
         },
         {
-          "expr": "rate(mysql_global_status_innodb_rows_updated[1m])",
+          "expr": "rate(mysql_global_status_innodb_system_rows_updated[1m])",
           "legendFormat": "Rows Updated/s",
           "refId": "C"
         },
         {
-          "expr": "rate(mysql_global_status_innodb_rows_deleted[1m])",
+          "expr": "rate(mysql_global_status_innodb_system_rows_deleted[1m])",
           "legendFormat": "Rows Deleted/s",
           "refId": "D"
         }
