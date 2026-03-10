@@ -121,10 +121,53 @@ public class LuceneSearchService {
 
     /**
      * title(가중치 3) + content(가중치 1) 멀티필드 쿼리를 생성한다.
+     * 큰따옴표로 감싼 구절은 PhraseQuery로 처리하고, 나머지는 일반 텀 쿼리로 처리한다.
+     * Nori 복합명사 분해를 감안하여 기본 phraseSlop=2를 적용한다.
      */
     private Query buildQuery(String keyword) throws ParseException {
         var boosts = java.util.Map.of("title", 3.0f, "content", 1.0f);
         var parser = new MultiFieldQueryParser(new String[]{"title", "content"}, analyzer, boosts);
-        return parser.parse(MultiFieldQueryParser.escape(keyword));
+        parser.setPhraseSlop(2);
+        return parser.parse(escapePreservingPhrases(keyword));
+    }
+
+    /**
+     * 큰따옴표 구절은 보존하고, 나머지 부분만 특수문자를 이스케이프한다.
+     * 예: '삼성전자 "반도체 기술" 투자' → '삼성전자 "반도체 기술" 투자'
+     *     (삼성전자, 투자는 escape, "반도체 기술"은 그대로)
+     */
+    static String escapePreservingPhrases(String input) {
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+
+        StringBuilder result = new StringBuilder();
+        int i = 0;
+        while (i < input.length()) {
+            if (input.charAt(i) == '"') {
+                // 닫는 따옴표 찾기
+                int close = input.indexOf('"', i + 1);
+                if (close != -1) {
+                    // 구절 전체를 그대로 보존 (따옴표 포함)
+                    result.append(input, i, close + 1);
+                    i = close + 1;
+                } else {
+                    // 닫는 따옴표 없음 — 일반 텍스트로 처리
+                    result.append(MultiFieldQueryParser.escape(input.substring(i)));
+                    break;
+                }
+            } else {
+                // 다음 여는 따옴표까지의 일반 텍스트를 escape
+                int nextQuote = input.indexOf('"', i);
+                if (nextQuote != -1) {
+                    result.append(MultiFieldQueryParser.escape(input.substring(i, nextQuote)));
+                    i = nextQuote;
+                } else {
+                    result.append(MultiFieldQueryParser.escape(input.substring(i)));
+                    break;
+                }
+            }
+        }
+        return result.toString();
     }
 }
