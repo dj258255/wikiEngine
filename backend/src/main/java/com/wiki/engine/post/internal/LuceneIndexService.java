@@ -113,7 +113,8 @@ public class LuceneIndexService {
      * - title: TextField (형태소 분석 + 검색 대상, stored)
      * - content: TextField (형태소 분석 + 검색 대상, not stored — 본문은 DB에서 조회)
      * - categoryId: LongField (필터링/범위 쿼리용)
-     * - viewCount: LongField (정렬용)
+     * - viewCount: LongField (stored, 조회용) + FeatureField (랭킹 부스트용)
+     * - likeCount: FeatureField (랭킹 부스트용)
      * - createdAt: LongField (정렬용)
      */
     private Document toDocument(Post post) {
@@ -127,6 +128,11 @@ public class LuceneIndexService {
         }
         doc.add(new LongField("viewCount", post.getViewCount(), Field.Store.YES));
         doc.add(new LongField("createdAt", post.getCreatedAt().toEpochMilli(), Field.Store.YES));
+
+        // FeatureField: 인기도 랭킹 부스트 (BlockMaxWAND 호환, saturation 함수 사용)
+        // FeatureField 값은 0보다 커야 하므로 최소 1로 보정
+        doc.add(new FeatureField("features", "viewCount", Math.max(post.getViewCount(), 1)));
+        doc.add(new FeatureField("features", "likeCount", Math.max(post.getLikeCount(), 1)));
 
         return doc;
     }

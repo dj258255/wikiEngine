@@ -56,6 +56,7 @@ dependencies {
     implementation 'org.apache.lucene:lucene-core:10.3.2'
     implementation 'org.apache.lucene:lucene-analysis-nori:10.3.2'
     implementation 'org.apache.lucene:lucene-queryparser:10.3.2'
+    implementation 'org.apache.lucene:lucene-queries:10.3.2'
 
     // Caffeine Cache: JWT 토큰 블랙리스트용 고성능 로컬 캐시
     implementation 'com.github.ben-manes.caffeine:caffeine:3.2.0'

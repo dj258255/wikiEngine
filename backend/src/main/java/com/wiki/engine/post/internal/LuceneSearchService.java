@@ -5,10 +5,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.FeatureField;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.index.StoredFields;
+import org.apache.lucene.queries.function.FunctionScoreQuery;
 import org.apache.lucene.search.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -120,15 +123,46 @@ public class LuceneSearchService {
     }
 
     /**
-     * title(가중치 3) + content(가중치 1) 멀티필드 쿼리를 생성한다.
-     * 큰따옴표로 감싼 구절은 PhraseQuery로 처리하고, 나머지는 일반 텀 쿼리로 처리한다.
-     * Nori 복합명사 분해를 감안하여 기본 phraseSlop=2를 적용한다.
+     * BM25 텍스트 관련성 + 인기도(viewCount, likeCount) + 최신성(recency decay)을 결합한 쿼리.
+     *
+     * final_score = BM25(title^3, content^1)          // MUST: 텍스트 관련성
+     *             + satu(viewCount, w=3.0, pivot=1000) // SHOULD: 조회수 부스트
+     *             + satu(likeCount, w=2.0, pivot=100)  // SHOULD: 좋아요 부스트
+     *             + recencyBoost(createdAt)             // SHOULD: 최신성 감쇠
      */
     private Query buildQuery(String keyword) throws ParseException {
+        // 1. BM25 텍스트 관련성 쿼리
         var boosts = java.util.Map.of("title", 3.0f, "content", 1.0f);
         var parser = new MultiFieldQueryParser(new String[]{"title", "content"}, analyzer, boosts);
         parser.setPhraseSlop(2);
-        return parser.parse(escapePreservingPhrases(keyword));
+        Query textQuery = parser.parse(escapePreservingPhrases(keyword));
+
+        // 2. 인기도 부스트 (FeatureField saturation — BlockMaxWAND 호환)
+        Query viewBoost = FeatureField.newSaturationQuery("features", "viewCount", 3.0f, 1000);
+        Query likeBoost = FeatureField.newSaturationQuery("features", "likeCount", 2.0f, 100);
+
+        // 3. 최신성 감쇠 (exponential decay, 반감기 30일)
+        Query recencyBoost = buildRecencyBoost(5.0f, 30);
+
+        // 4. MUST(텍스트) + SHOULD(인기도 + 최신성)
+        return new BooleanQuery.Builder()
+                .add(textQuery, BooleanClause.Occur.MUST)
+                .add(viewBoost, BooleanClause.Occur.SHOULD)
+                .add(likeBoost, BooleanClause.Occur.SHOULD)
+                .add(recencyBoost, BooleanClause.Occur.SHOULD)
+                .build();
+    }
+
+    /**
+     * Exponential decay 기반 최신성 부스트.
+     * score = weight * exp(-ln2 / halfLifeDays * ageDays)
+     * 반감기(halfLifeDays)가 지나면 가중치가 절반으로 감쇠.
+     */
+    private Query buildRecencyBoost(float weight, int halfLifeDays) {
+        long nowMillis = Instant.now().toEpochMilli();
+        double lambda = Math.log(2) / halfLifeDays;
+
+        return new FunctionScoreQuery(new MatchAllDocsQuery(), new RecencyDecaySource(nowMillis, lambda, weight));
     }
 
     /**
