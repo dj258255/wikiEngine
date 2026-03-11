@@ -82,6 +82,15 @@
     mode: "0600"
   tags: [deploy]
 
+- name: MySQL exporter init 스크립트 배포
+  template:
+    src: init-exporter-user.sh.j2
+    dest: "{{ app_dir }}/init-exporter-user.sh"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  tags: [deploy]
+
 - name: GHCR 로그인
   community.docker.docker_login:
     registry_url: ghcr.io
@@ -110,6 +119,16 @@
   until: health.status == 200
   retries: 15
   delay: 5
+  tags: [deploy]
+
+- name: mysqld_exporter 전용 유저 생성 (REPLICATION CLIENT 권한)
+  command: >
+    docker exec wiki-mysql-prod mysql -uroot -p{{ db_root_password }}
+    -e "CREATE USER IF NOT EXISTS '{{ mysql_exporter_username }}'@'%'
+    IDENTIFIED BY '{{ mysql_exporter_password }}' WITH MAX_USER_CONNECTIONS 3;
+    GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO '{{ mysql_exporter_username }}'@'%';
+    FLUSH PRIVILEGES;"
+  changed_when: false
   tags: [deploy]
 
 # --- Certbot 인증서 발급 (최초 1회) ---

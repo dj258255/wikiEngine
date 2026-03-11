@@ -55,20 +55,27 @@ public class LuceneIndexService {
         searcherManager.maybeRefresh();
     }
 
+    private static final int COMMIT_INTERVAL = 1_000_000;
+    private static final int LOG_INTERVAL = 100_000;
+
     /**
      * 전체 배치 인덱싱: posts 테이블 전체를 Lucene에 인덱싱한다.
      * cursor 기반 페이징으로 메모리 효율적으로 처리한다.
+     *
+     * 성능 최적화:
+     * - commit()을 100만 건마다 1회로 제한 (매 배치마다 하면 fsync 병목)
+     * - forceMerge(5)로 세그먼트 병합 시간 단축
      */
     public void indexAll(long startId) throws IOException {
         long startTime = System.currentTimeMillis();
         long lastId = startId;
         long totalIndexed = 0;
         long skipped = 0;
+        long lastCommitCount = 0;
 
         if (startId == 0) {
             log.info("=== Lucene 전체 인덱싱 시작 (기존 인덱스 초기화) ===");
             indexWriter.deleteAll();
-            indexWriter.commit();
         } else {
             log.info("=== Lucene 인덱싱 재개 (id={} 이후부터) ===", startId);
         }
@@ -86,18 +93,30 @@ public class LuceneIndexService {
                 totalIndexed++;
             }
 
-            indexWriter.commit();
             lastId = batch.getLast().getId();
-            entityManager.clear();  // Hibernate 1차 캐시 해제 → GC가 Post 객체 회수 가능
+            entityManager.clear();
 
-            long elapsed = (System.currentTimeMillis() - startTime) / 1000;
-            log.info("Indexed up to id={}, total={}, skipped={}, elapsed={}s, speed={} docs/s",
-                    lastId, totalIndexed, skipped, elapsed,
-                    elapsed > 0 ? totalIndexed / elapsed : totalIndexed);
+            // 100만 건마다 commit (크래시 복구용 체크포인트)
+            if (totalIndexed - lastCommitCount >= COMMIT_INTERVAL) {
+                indexWriter.commit();
+                lastCommitCount = totalIndexed;
+                log.info("Checkpoint commit at {} docs", totalIndexed);
+            }
+
+            // 10만 건마다 진행 로그
+            if (totalIndexed % LOG_INTERVAL < batchSize) {
+                long elapsed = (System.currentTimeMillis() - startTime) / 1000;
+                log.info("Indexed up to id={}, total={}, skipped={}, elapsed={}s, speed={} docs/s",
+                        lastId, totalIndexed, skipped, elapsed,
+                        elapsed > 0 ? totalIndexed / elapsed : totalIndexed);
+            }
         }
 
+        log.info("=== 최종 commit ===");
+        indexWriter.commit();
+
         log.info("=== forceMerge 시작 (세그먼트 병합) ===");
-        indexWriter.forceMerge(1);
+        indexWriter.forceMerge(5);
         indexWriter.commit();
 
         long totalElapsed = (System.currentTimeMillis() - startTime) / 1000;

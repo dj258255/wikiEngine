@@ -1,0 +1,8 @@
+#!/bin/bash
+# MySQL 최초 기동 시 mysqld_exporter 전용 유저를 생성한다.
+# docker-entrypoint-initdb.d에 마운트되어 볼륨 초기화 시 1회 실행.
+mysql -u root -p"$MYSQL_ROOT_PASSWORD" <<-EOSQL
+  CREATE USER IF NOT EXISTS '{{ mysql_exporter_username }}'@'%' IDENTIFIED BY '{{ mysql_exporter_password }}' WITH MAX_USER_CONNECTIONS 3;
+  GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO '{{ mysql_exporter_username }}'@'%';
+  FLUSH PRIVILEGES;
+EOSQL

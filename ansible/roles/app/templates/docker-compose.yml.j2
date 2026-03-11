@@ -39,6 +39,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - mysql_logs:/var/log/mysql
+      - ./init-exporter-user.sh:/docker-entrypoint-initdb.d/01-exporter-user.sh:ro
     deploy:
       resources:
         limits:
@@ -108,10 +109,10 @@ services:
     container_name: wiki-mysql-exporter-prod
     restart: always
     environment:
-      MYSQLD_EXPORTER_PASSWORD: ${DB_PASSWORD}
+      MYSQLD_EXPORTER_PASSWORD: ${MYSQL_EXPORTER_PASSWORD}
     command:
       - "--mysqld.address=mysql:3306"
-      - "--mysqld.username=${DB_USERNAME}"
+      - "--mysqld.username=${MYSQL_EXPORTER_USERNAME}"
     ports:
       - "9104:9104"
     deploy:
