@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Lucene 검색 서비스.
@@ -121,6 +122,48 @@ public class LuceneSearchService {
         }
         return "";
     }
+
+    /**
+     * 검색 품질 평가용 검색.
+     * bm25Only=true면 텍스트 관련성만, false면 인기도+최신성 부스트를 포함한 전체 랭킹.
+     * Lucene stored fields에서 직접 읽어 DB 조회 없이 빠르게 결과를 반환한다.
+     */
+    public List<EvalDoc> searchForEval(String keyword, int topN, boolean bm25Only) throws IOException {
+        IndexSearcher searcher = searcherManager.acquire();
+        try {
+            Query query;
+            if (bm25Only) {
+                var boosts = Map.of("title", 3.0f, "content", 1.0f);
+                var parser = new MultiFieldQueryParser(new String[]{"title", "content"}, analyzer, boosts);
+                parser.setPhraseSlop(2);
+                query = parser.parse(escapePreservingPhrases(keyword));
+            } else {
+                query = buildQuery(keyword);
+            }
+
+            TopDocs topDocs = searcher.search(query, topN);
+            StoredFields storedFields = searcher.storedFields();
+            List<EvalDoc> results = new ArrayList<>();
+
+            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+                Document doc = storedFields.document(scoreDoc.doc);
+                results.add(new EvalDoc(
+                        Long.parseLong(doc.get("id")),
+                        doc.get("title"),
+                        scoreDoc.score,
+                        Long.parseLong(doc.get("viewCount"))
+                ));
+            }
+            return results;
+        } catch (ParseException e) {
+            log.warn("평가 검색 파싱 실패: keyword={}", keyword, e);
+            return List.of();
+        } finally {
+            searcherManager.release(searcher);
+        }
+    }
+
+    public record EvalDoc(long id, String title, float score, long viewCount) {}
 
     /**
      * BM25 텍스트 관련성 + 인기도(viewCount, likeCount) + 최신성(recency decay)을 결합한 쿼리.
