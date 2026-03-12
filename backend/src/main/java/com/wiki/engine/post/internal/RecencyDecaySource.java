@@ -1,7 +1,7 @@
 package com.wiki.engine.post.internal;
 
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.NumericDocValues;
+import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.search.DoubleValues;
 import org.apache.lucene.search.DoubleValuesSource;
 import org.apache.lucene.search.IndexSearcher;
@@ -14,6 +14,9 @@ import java.io.IOException;
  *
  * score = weight * exp(-lambda * ageDays)
  * lambda = ln(2) / halfLifeDays → 반감기가 지나면 가중치 절반
+ *
+ * LongField은 SORTED_NUMERIC DocValues를 저장하므로
+ * getSortedNumericDocValues()로 읽어야 한다 (getNumericDocValues는 NUMERIC 전용).
  */
 final class RecencyDecaySource extends DoubleValuesSource {
 
@@ -29,11 +32,14 @@ final class RecencyDecaySource extends DoubleValuesSource {
 
     @Override
     public DoubleValues getValues(LeafReaderContext ctx, DoubleValues scores) throws IOException {
-        NumericDocValues createdAtValues = ctx.reader().getNumericDocValues("createdAt");
+        SortedNumericDocValues createdAtValues = ctx.reader().getSortedNumericDocValues("createdAt");
+        if (createdAtValues == null) {
+            return DoubleValues.EMPTY;
+        }
         return new DoubleValues() {
             @Override
             public double doubleValue() throws IOException {
-                long createdAtMillis = createdAtValues.longValue();
+                long createdAtMillis = createdAtValues.nextValue();
                 double ageDays = (nowMillis - createdAtMillis) / 86_400_000.0;
                 return weight * Math.exp(-lambda * Math.max(ageDays, 0));
             }
@@ -74,6 +80,6 @@ final class RecencyDecaySource extends DoubleValuesSource {
 
     @Override
     public boolean isCacheable(LeafReaderContext ctx) {
-        return false;  // 시간 기반이므로 캐싱 불가
+        return false;
     }
 }
