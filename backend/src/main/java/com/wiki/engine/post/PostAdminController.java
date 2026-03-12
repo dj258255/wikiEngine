@@ -1,8 +1,11 @@
 package com.wiki.engine.post;
 
+import com.wiki.engine.common.BusinessException;
+import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.dto.PostSummaryResponse;
 import com.wiki.engine.post.internal.LuceneIndexService;
 import com.wiki.engine.post.internal.LuceneSearchService;
+import com.wiki.engine.post.internal.PostRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.analysis.Analyzer;
@@ -32,6 +35,7 @@ public class PostAdminController {
 
     private final LuceneIndexService luceneIndexService;
     private final LuceneSearchService luceneSearchService;
+    private final PostRepository postRepository;
     private final Analyzer analyzer;
 
     /**
@@ -48,6 +52,32 @@ public class PostAdminController {
         return ResponseEntity.ok(Map.of(
                 "status", "completed",
                 "elapsed", elapsed + "ms"
+        ));
+    }
+
+    /**
+     * 특정 게시글만 재인덱싱.
+     * DB에서 최신 데이터를 읽어 Lucene 인덱스를 갱신한다.
+     * viewCount/likeCount 변경 후 전체 재인덱싱 없이 즉시 반영할 때 사용.
+     */
+    @PostMapping("/reindex")
+    public ResponseEntity<Map<String, Object>> reindex(@RequestParam List<Long> ids) throws IOException {
+        List<Long> indexed = new ArrayList<>();
+        List<Long> notFound = new ArrayList<>();
+
+        for (Long id : ids) {
+            Post post = postRepository.findById(id).orElse(null);
+            if (post == null) {
+                notFound.add(id);
+                continue;
+            }
+            luceneIndexService.indexPost(post);
+            indexed.add(id);
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "indexed", indexed,
+                "notFound", notFound
         ));
     }
 
