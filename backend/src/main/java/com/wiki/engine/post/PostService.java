@@ -3,6 +3,7 @@ package com.wiki.engine.post;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.internal.LuceneIndexService;
+import com.wiki.engine.post.internal.SearchLogCollector;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
@@ -40,6 +41,7 @@ public class PostService {
     private final PostLikeRepository postLikeRepository;
     private final LuceneIndexService luceneIndexService;
     private final LuceneSearchService luceneSearchService;
+    private final SearchLogCollector searchLogCollector;
 
     /**
      * 새 게시글을 생성한다.
@@ -215,6 +217,7 @@ public class PostService {
             key = "#keyword + ':' + #pageable.pageNumber + ':' + #pageable.pageSize")
     public Page<Post> search(String keyword, Pageable pageable) {
         validatePageLimit(pageable, MAX_SEARCH_PAGE);
+        searchLogCollector.record(keyword);
         try {
             return luceneSearchService.search(keyword, pageable);
         } catch (IOException e) {
