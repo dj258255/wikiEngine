@@ -94,12 +94,16 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Python 경로 해시 (venv 호환성 키)
+        id: python-path
+        run: echo "hash=$(python -c 'import sys; print(sys.executable)')" >> "$GITHUB_OUTPUT"
+
       - name: Ansible venv 캐시 복원
         id: cache-ansible
         uses: actions/cache@v4
         with:
           path: ~/.ansible-venv
-          key: ansible-venv-${{ runner.os }}-${{ hashFiles('.github/workflows/deploy.yml') }}
+          key: ansible-venv-${{ runner.os }}-py${{ steps.python-path.outputs.hash }}-${{ hashFiles('.github/workflows/deploy.yml') }}
 
       - name: Ansible 설치
         if: steps.cache-ansible.outputs.cache-hit != 'true'
