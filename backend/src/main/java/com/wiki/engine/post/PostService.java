@@ -8,6 +8,8 @@ import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -62,27 +64,22 @@ public class PostService {
         return saved;
     }
 
-    /** ID로 게시글을 조회한다. */
+    /** ID로 게시글을 조회한다 (캐시 적용). */
+    @Cacheable(value = "postDetail", key = "#id")
+    public Post findByIdCached(Long id) {
+        return postRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    /** ID로 게시글을 조회한다 (캐시 미적용, 내부용). */
     public Optional<Post> findById(Long id) {
         return postRepository.findById(id);
     }
 
-    /**
-     * 게시글을 조회하고 조회수를 1 증가시킨다.
-     * 조회수 증가는 DB 레벨에서 원자적(atomic) UPDATE로 처리하여 동시성 문제를 방지한다.
-     * (UPDATE posts SET view_count = view_count + 1 WHERE id = ?)
-     *
-     * @param id 게시글 ID
-     * @return 조회된 게시글
-     */
+    /** 조회수를 1 증가시킨다. 캐시와 무관하게 항상 DB 업데이트. */
     @Transactional
-    public Post getPostAndIncrementView(Long id) {
-        Post post = postRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-
+    public void incrementViewCount(Long id) {
         postRepository.incrementViewCount(id);
-
-        return post;
     }
 
     /**
@@ -94,6 +91,7 @@ public class PostService {
      * @param content 수정할 본문
      * @param userId 요청한 사용자 ID (작성자 검증용)
      */
+    @CacheEvict(value = "postDetail", key = "#id")
     @Transactional
     public void updatePost(Long id, String title, String content, Long userId) {
         Post post = postRepository.findById(id)
@@ -114,6 +112,7 @@ public class PostService {
      * @param id 게시글 ID
      * @param userId 요청한 사용자 ID (작성자 검증용)
      */
+    @CacheEvict(value = "postDetail", key = "#id")
     @Transactional
     public void deletePost(Long id, Long userId) {
         Post post = postRepository.findById(id)
@@ -212,6 +211,8 @@ public class PostService {
      * Lucene + Nori 검색.
      * Lucene의 totalHits는 역색인에서 즉시 반환되므로 COUNT 문제 없음. Page 유지.
      */
+    @Cacheable(value = "searchResults",
+            key = "#keyword + ':' + #pageable.pageNumber + ':' + #pageable.pageSize")
     public Page<Post> search(String keyword, Pageable pageable) {
         validatePageLimit(pageable, MAX_SEARCH_PAGE);
         try {
@@ -231,6 +232,7 @@ public class PostService {
      * 자동완성: Lucene PrefixQuery로 title prefix 매칭.
      * MySQL LIKE 'prefix%' 대비: 역색인에서 즉시 조회.
      */
+    @Cacheable(value = "autocomplete", key = "#prefix")
     public List<String> autocomplete(String prefix) {
         try {
             return luceneSearchService.autocomplete(prefix, 10);

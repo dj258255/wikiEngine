@@ -125,18 +125,20 @@ class PostControllerTest {
         @DisplayName("[해피] 정상 상세 조회 — 200 + content 포함")
         void success() throws Exception {
             Post post = createTestPost();
-            given(postService.getPostAndIncrementView(1L)).willReturn(post);
+            given(postService.findByIdCached(1L)).willReturn(post);
 
             mockMvc.perform(get(BASE + "/1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.title").value("테스트 게시글"))
                     .andExpect(jsonPath("$.data.content").value("본문 내용입니다"));
+
+            verify(postService).incrementViewCount(1L);
         }
 
         @Test
         @DisplayName("[코너] 존재하지 않는 id — 404 POST_NOT_FOUND")
         void notFound() throws Exception {
-            given(postService.getPostAndIncrementView(999L))
+            given(postService.findByIdCached(999L))
                     .willThrow(new BusinessException(ErrorCode.POST_NOT_FOUND));
 
             mockMvc.perform(get(BASE + "/999"))

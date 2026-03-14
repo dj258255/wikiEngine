@@ -9,10 +9,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -44,10 +46,11 @@ public class PostController {
         return posts.map(PostSummaryResponse::from);
     }
 
-    /** 게시글 상세 조회 (조회수 동기 증가) */
+    /** 게시글 상세 조회 (캐시 히트 가능) + 조회수 증가 (항상 DB) */
     @GetMapping("/{id}")
     public PostDetailResponse getPost(@PathVariable Long id) {
-        Post post = postService.getPostAndIncrementView(id);
+        Post post = postService.findByIdCached(id);
+        postService.incrementViewCount(id);
         return PostDetailResponse.from(post);
     }
 
@@ -126,7 +129,11 @@ public class PostController {
      * 제목 prefix 매칭으로 최대 10건을 조회수 내림차순으로 반환한다.
      */
     @GetMapping("/autocomplete")
-    public List<String> autocomplete(@RequestParam String prefix) {
-        return postService.autocomplete(prefix);
+    public ResponseEntity<List<String>> autocomplete(@RequestParam String prefix) {
+        List<String> suggestions = postService.autocomplete(prefix);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5))
+                        .staleWhileRevalidate(Duration.ofSeconds(60)))
+                .body(suggestions);
     }
 }

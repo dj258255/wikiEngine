@@ -252,6 +252,105 @@
           "refId": "C"
         }
       ]
+    },
+    {
+      "id": 14,
+      "title": "Caffeine Cache",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "collapsed": false
+    },
+    {
+      "id": 15,
+      "title": "Cache Hit Rate (%)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.5 },
+              { "color": "yellow", "value": 0.8 },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "expr": "sum by (cache) (rate(cache_gets_total{application=\"wiki-engine\", result=\"hit\"}[5m])) / sum by (cache) (rate(cache_gets_total{application=\"wiki-engine\"}[5m]))",
+          "legendFormat": "{{cache}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Cache Gets (hit / miss per sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (cache, result) (rate(cache_gets_total{application=\"wiki-engine\"}[1m]))",
+          "legendFormat": "{{cache}} - {{result}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Cache Size (현재 엔트리 수)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "cache_size{application=\"wiki-engine\"}",
+          "legendFormat": "{{cache}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Cache Evictions (per sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (cache) (rate(cache_evictions_total{application=\"wiki-engine\"}[1m]))",
+          "legendFormat": "{{cache}}",
+          "refId": "A"
+        }
+      ]
     }
   ],
   "schemaVersion": 39

@@ -109,27 +109,34 @@ class PostServiceTest {
     // ========== getPostAndIncrementView ==========
 
     @Nested
-    @DisplayName("getPostAndIncrementView")
-    class GetPostAndIncrementView {
+    @DisplayName("findByIdCached + incrementViewCount")
+    class FindByIdCachedAndIncrementView {
 
         @Test
-        @DisplayName("[해피] 게시글 조회 + 조회수 증가")
-        void success() {
+        @DisplayName("[해피] 게시글 조회 (캐시 대상)")
+        void findByIdCached_success() {
             Post post = createTestPost();
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
 
-            Post result = postService.getPostAndIncrementView(1L);
+            Post result = postService.findByIdCached(1L);
 
             assertThat(result.getTitle()).isEqualTo("테스트 게시글");
+        }
+
+        @Test
+        @DisplayName("[해피] 조회수 증가")
+        void incrementViewCount_success() {
+            postService.incrementViewCount(1L);
+
             verify(postRepository).incrementViewCount(1L);
         }
 
         @Test
         @DisplayName("[코너] 존재하지 않는 게시글 — POST_NOT_FOUND")
-        void notFound() {
+        void findByIdCached_notFound() {
             given(postRepository.findById(999L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> postService.getPostAndIncrementView(999L))
+            assertThatThrownBy(() -> postService.findByIdCached(999L))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
         }
