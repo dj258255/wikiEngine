@@ -108,7 +108,15 @@ jobs:
           source ~/.ansible-venv/bin/activate
           pip install ansible-core
 
+      - name: Ansible 컬렉션 캐시 복원
+        id: cache-collections
+        uses: actions/cache@v4
+        with:
+          path: ~/.ansible/collections
+          key: ansible-collections-${{ hashFiles('.github/workflows/deploy.yml') }}
+
       - name: Ansible 컬렉션 설치
+        if: steps.cache-collections.outputs.cache-hit != 'true'
         run: |
           source ~/.ansible-venv/bin/activate
           ansible-galaxy collection install community.docker ansible.posix
@@ -122,13 +130,29 @@ jobs:
           echo "${{ secrets.OCI_SSH_KEY }}" > ~/.ssh/oci_key
           chmod 600 ~/.ssh/oci_key
 
-      - name: Ansible 배포 실행
+      - name: Ansible 배포 실행 (App + Monitoring 병렬)
         env:
           ANSIBLE_HOST_KEY_CHECKING: "false"
+          APP_IMAGE: "ghcr.io/${{ steps.repo.outputs.name }}:${{ github.sha }}"
+          GHCR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          GHCR_USER: "${{ github.actor }}"
         run: |
           source ~/.ansible-venv/bin/activate
           cd ansible
+
           ansible-playbook -i inventory.yml site.yml --tags setup,deploy \
-            -e "app_image=ghcr.io/${{ steps.repo.outputs.name }}:${{ github.sha }}" \
-            -e "ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
-            -e "ghcr_user=${{ github.actor }}"
+            --limit app \
+            -e "app_image=$APP_IMAGE" \
+            -e "ghcr_token=$GHCR_TOKEN" \
+            -e "ghcr_user=$GHCR_USER" &
+          PID_APP=$!
+
+          ansible-playbook -i inventory.yml site.yml --tags setup,deploy \
+            --limit monitoring \
+            -e "app_image=unused" \
+            -e "ghcr_token=$GHCR_TOKEN" \
+            -e "ghcr_user=$GHCR_USER" &
+          PID_MON=$!
+
+          wait $PID_APP || exit 1
+          wait $PID_MON || exit 1

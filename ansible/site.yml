@@ -17,6 +17,7 @@
 - name: App Server 배포 (ARM)
   hosts: app
   become: true
+  gather_facts: false
   vars:
     app_dir: /home/{{ ansible_user }}/wiki-engine/backend
   roles:
@@ -26,6 +27,7 @@
 - name: Monitoring Loki 배포 (AMD #1)
   hosts: monitoring-loki
   become: true
+  gather_facts: false
   vars:
     deploy_dir: /home/{{ ansible_user }}/wiki-engine
   roles:
@@ -35,6 +37,7 @@
 - name: Monitoring Prometheus 배포 (AMD #2)
   hosts: monitoring-prometheus
   become: true
+  gather_facts: false
   vars:
     deploy_dir: /home/{{ ansible_user }}/wiki-engine
   roles:
@@ -44,6 +47,7 @@
 - name: Docker 이미지 정리
   hosts: all
   become: false
+  gather_facts: false
   tasks:
     - name: 미사용 Docker 이미지 정리
       community.docker.docker_prune:

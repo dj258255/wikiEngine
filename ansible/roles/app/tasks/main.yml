@@ -118,7 +118,7 @@
   register: health
   until: health.status == 200
   retries: 15
-  delay: 5
+  delay: 2
   tags: [deploy]
 
 - name: mysqld_exporter 전용 유저 생성 (REPLICATION CLIENT 권한)
