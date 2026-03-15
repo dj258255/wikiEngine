@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
@@ -34,8 +35,8 @@ import java.util.Optional;
 @Transactional(readOnly = true)
 public class PostService {
 
-    private static final int MAX_LIST_PAGE = 30;
-    private static final int MAX_SEARCH_PAGE = 30;
+    private static final int MAX_LIST_PAGE = 15;
+    private static final int MAX_SEARCH_PAGE = 15;
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
@@ -212,6 +213,8 @@ public class PostService {
     /**
      * Lucene + Nori 검색.
      * Lucene의 totalHits는 역색인에서 즉시 반환되므로 COUNT 문제 없음. Page 유지.
+     * totalHits를 MAX_SEARCH_PAGE 분량으로 cap하여, 접근 불가한 페이지가 표시되지 않게 한다.
+     * (Google도 "약 X건"을 보여주지만 실제 접근 가능한 페이지는 30~50페이지로 제한)
      */
     @Cacheable(value = "searchResults",
             key = "#keyword + ':' + #pageable.pageNumber + ':' + #pageable.pageSize")
@@ -219,7 +222,12 @@ public class PostService {
         validatePageLimit(pageable, MAX_SEARCH_PAGE);
         searchLogCollector.record(keyword);
         try {
-            return luceneSearchService.search(keyword, pageable);
+            Page<Post> result = luceneSearchService.search(keyword, pageable);
+            long maxAccessible = (long) MAX_SEARCH_PAGE * pageable.getPageSize();
+            if (result.getTotalElements() > maxAccessible) {
+                return new PageImpl<>(result.getContent(), pageable, maxAccessible);
+            }
+            return result;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
