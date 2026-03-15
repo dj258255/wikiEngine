@@ -258,7 +258,6 @@ function SearchPageContent() {
         {query && (
           <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
             &quot;{query}&quot; 검색 결과
-            {totalElements > 0 && <span className="ml-1">({totalElements.toLocaleString()}건)</span>}
           </p>
         )}
 
