@@ -325,12 +325,14 @@ function SearchPageContent() {
               ))}
             </ul>
 
-            {/* 페이지네이션 — 슬라이딩 윈도우 (Google 방식) */}
+            {/* 페이지네이션 — 슬라이딩 윈도우 (Google 방식, 최대 15페이지) */}
             {(currentPage > 0 || hasNext) && (() => {
+              const MAX_PAGE = 15;           // 백엔드 MAX_SEARCH_PAGE와 동기화
               const windowSize = 10;
-              const maxPage = hasNext ? currentPage + windowSize : currentPage;
-              const startPage = Math.max(0, currentPage - Math.floor(windowSize / 2));
-              const endPage = Math.min(maxPage, startPage + windowSize - 1);
+              const canGoNext = hasNext && currentPage < MAX_PAGE - 1;
+              const lastPage = canGoNext ? Math.min(currentPage + windowSize, MAX_PAGE - 1) : currentPage;
+              const startPage = Math.max(0, Math.min(currentPage - Math.floor(windowSize / 2), lastPage - windowSize + 1));
+              const endPage = Math.min(lastPage, startPage + windowSize - 1);
               const pages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
 
               return (
@@ -357,7 +359,7 @@ function SearchPageContent() {
                   ))}
                   <button
                     onClick={() => navigateSearch(query, currentPage + 1)}
-                    disabled={!hasNext}
+                    disabled={!canGoNext}
                     className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
                   >
                     다음
