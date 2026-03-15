@@ -13,7 +13,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import com.wiki.engine.post.dto.PostSearchResponse;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -426,9 +428,9 @@ class PostControllerTest {
         @Test
         @DisplayName("[해피] 정상 검색 — 200 + 결과 반환")
         void success() throws Exception {
-            Post post = createTestPost();
+            PostSearchResponse response = new PostSearchResponse(1L, "테스트 게시글", "테스트 본문...", 0L, 0L, java.time.Instant.now());
             given(postService.search(eq("테스트"), any(Pageable.class)))
-                    .willReturn(new PageImpl<>(List.of(post)));
+                    .willReturn(new SliceImpl<>(List.of(response)));
 
             mockMvc.perform(get(BASE + "/search").param("q", "테스트"))
                     .andExpect(status().isOk())
@@ -436,10 +438,10 @@ class PostControllerTest {
         }
 
         @Test
-        @DisplayName("[코너] 결과 없음 — 200 + 빈 페이지")
+        @DisplayName("[코너] 결과 없음 — 200 + 빈 Slice")
         void empty() throws Exception {
             given(postService.search(eq("없는키워드"), any(Pageable.class)))
-                    .willReturn(new PageImpl<>(Collections.emptyList()));
+                    .willReturn(new SliceImpl<>(Collections.emptyList()));
 
             mockMvc.perform(get(BASE + "/search").param("q", "없는키워드"))
                     .andExpect(status().isOk())

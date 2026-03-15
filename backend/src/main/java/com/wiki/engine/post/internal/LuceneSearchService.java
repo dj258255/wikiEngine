@@ -12,9 +12,9 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.index.StoredFields;
 import org.apache.lucene.queries.function.FunctionScoreQuery;
 import org.apache.lucene.search.*;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -39,23 +39,22 @@ public class LuceneSearchService {
     private final PostRepository postRepository;
 
     /**
-     * 키워드 검색.
+     * 키워드 검색 — Slice 반환.
      * title과 content 필드를 동시에 검색하며, title에 더 높은 가중치를 부여한다.
-     *
-     * @return DB에서 조회한 Post 엔티티 Page (Lucene은 ID만 반환, 상세는 DB 조회)
+     * totalHits 불필요 — hasNext()만으로 "다음" 버튼 활성화 판단.
+     * limit + 1 조회하여 hasNext 판단 (Slice 패턴).
      */
-    public Page<Post> search(String keyword, Pageable pageable) throws IOException {
+    public Slice<Post> search(String keyword, Pageable pageable) throws IOException {
         IndexSearcher searcher = searcherManager.acquire();
         try {
             Query query = buildQuery(keyword);
             int offset = (int) pageable.getOffset();
             int limit = pageable.getPageSize();
 
-            // 전체 매칭 수 파악을 위해 offset + limit 만큼 검색
-            TopDocs topDocs = searcher.search(query, offset + limit);
-            long totalHits = topDocs.totalHits.value();
+            // limit + 1 조회하여 hasNext 판단
+            TopDocs topDocs = searcher.search(query, offset + limit + 1);
 
-            // offset 이후의 결과에서 ID 추출
+            // offset 이후의 결과에서 ID 추출 (limit개까지만)
             StoredFields storedFields = searcher.storedFields();
             List<Long> postIds = new ArrayList<>();
             for (int i = offset; i < Math.min(topDocs.scoreDocs.length, offset + limit); i++) {
@@ -64,18 +63,19 @@ public class LuceneSearchService {
             }
 
             if (postIds.isEmpty()) {
-                return new PageImpl<>(List.of(), pageable, totalHits);
+                return new SliceImpl<>(List.of(), pageable, false);
             }
 
             // Lucene 결과 순서를 유지하며 DB에서 엔티티 조회
             List<Post> posts = postRepository.findAllById(postIds);
             posts.sort((a, b) -> postIds.indexOf(a.getId()) - postIds.indexOf(b.getId()));
 
-            return new PageImpl<>(posts, pageable, totalHits);
+            boolean hasNext = topDocs.scoreDocs.length > offset + limit;
+            return new SliceImpl<>(posts, pageable, hasNext);
 
         } catch (ParseException e) {
             log.warn("검색어 파싱 실패: keyword={}, error={}", keyword, e.getMessage());
-            return new PageImpl<>(List.of(), pageable, 0);
+            return new SliceImpl<>(List.of(), pageable, false);
         } finally {
             searcherManager.release(searcher);
         }

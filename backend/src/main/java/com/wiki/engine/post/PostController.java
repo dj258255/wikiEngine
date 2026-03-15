@@ -113,15 +113,16 @@ public class PostController {
     }
 
     /**
-     * 검색 (LIKE '%keyword%' - 의도적 비효율).
-     * Full Table Scan이 발생하며, Baseline 측정 대상이다.
+     * 검색 — Slice + PostSearchResponse(snippet 포함).
+     * Page → Slice 전환: totalHits 불필요, hasNext()만으로 페이지네이션.
+     * content(LONGTEXT) 대신 snippet(150자)만 반환하여 응답 크기 ~99% 절감.
      */
     @GetMapping("/search")
-    public Page<PostSummaryResponse> search(
+    public Slice<PostSearchResponse> search(
             @RequestParam String q,
             @PageableDefault(size = 20) Pageable pageable) {
 
-        return postService.search(q, pageable).map(PostSummaryResponse::from);
+        return postService.search(q, pageable);
     }
 
     /**

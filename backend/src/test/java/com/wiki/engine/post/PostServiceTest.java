@@ -2,6 +2,7 @@ package com.wiki.engine.post;
 
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
+import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.post.internal.LuceneIndexService;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
@@ -15,9 +16,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.io.IOException;
@@ -329,25 +330,25 @@ class PostServiceTest {
             Post post = createTestPost();
             Pageable pageable = PageRequest.of(0, 20);
             given(luceneSearchService.search("테스트", pageable))
-                    .willReturn(new PageImpl<>(List.of(post)));
+                    .willReturn(new SliceImpl<>(List.of(post), pageable, false));
 
-            Page<Post> result = postService.search("테스트", pageable);
+            Slice<PostSearchResponse> result = postService.search("테스트", pageable);
 
             assertThat(result.getContent()).hasSize(1);
-            assertThat(result.getContent().getFirst().getTitle()).isEqualTo("테스트 게시글");
+            assertThat(result.getContent().getFirst().title()).isEqualTo("테스트 게시글");
         }
 
         @Test
-        @DisplayName("[코너] 검색 결과 없음 — 빈 페이지")
+        @DisplayName("[코너] 검색 결과 없음 — 빈 Slice")
         void empty() throws IOException {
             Pageable pageable = PageRequest.of(0, 20);
             given(luceneSearchService.search("없는키워드", pageable))
-                    .willReturn(new PageImpl<>(Collections.emptyList()));
+                    .willReturn(new SliceImpl<>(Collections.emptyList(), pageable, false));
 
-            Page<Post> result = postService.search("없는키워드", pageable);
+            Slice<PostSearchResponse> result = postService.search("없는키워드", pageable);
 
             assertThat(result.getContent()).isEmpty();
-            assertThat(result.getTotalElements()).isZero();
+            assertThat(result.hasNext()).isFalse();
         }
     }
 

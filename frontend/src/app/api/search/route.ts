@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const size = searchParams.get("size") || "20";
 
   if (!query.trim()) {
-    return NextResponse.json({ results: [], totalPages: 0, totalElements: 0 });
+    return NextResponse.json({ results: [], hasNext: false });
   }
 
   try {
@@ -22,16 +22,17 @@ export async function GET(request: NextRequest) {
     clearTimeout(timeout);
 
     if (!res.ok) {
-      return NextResponse.json({ results: [], totalPages: 0, totalElements: 0 });
+      return NextResponse.json({ results: [], hasNext: false });
     }
 
     const json = await res.json();
-    const pageData = json.data;
+    const sliceData = json.data;
 
-    const results = (pageData.content || []).map(
-      (post: { id: number; title: string; viewCount: number; likeCount: number; createdAt: string }) => ({
+    const results = (sliceData.content || []).map(
+      (post: { id: number; title: string; snippet?: string; viewCount: number; likeCount: number; createdAt: string }) => ({
         id: String(post.id),
         title: post.title,
+        snippet: post.snippet || '',
         viewCount: post.viewCount,
         likeCount: post.likeCount,
         createdAt: post.createdAt,
@@ -40,11 +41,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       results,
-      totalPages: pageData.totalPages || 0,
-      totalElements: pageData.totalElements || 0,
-      currentPage: pageData.number || 0,
+      hasNext: sliceData.last === false,
+      currentPage: sliceData.number || 0,
     });
   } catch {
-    return NextResponse.json({ results: [], totalPages: 0, totalElements: 0 });
+    return NextResponse.json({ results: [], hasNext: false });
   }
 }

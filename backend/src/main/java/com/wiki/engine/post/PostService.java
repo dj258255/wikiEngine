@@ -1,5 +1,6 @@
 package com.wiki.engine.post;
 
+import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.internal.LuceneIndexService;
@@ -13,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
@@ -213,23 +213,21 @@ public class PostService {
     }
 
     /**
-     * Lucene + Nori 검색.
-     * Lucene의 totalHits는 역색인에서 즉시 반환되므로 COUNT 문제 없음. Page 유지.
-     * totalHits를 MAX_SEARCH_PAGE 분량으로 cap하여, 접근 불가한 페이지가 표시되지 않게 한다.
-     * (Google도 "약 X건"을 보여주지만 실제 접근 가능한 페이지는 30~50페이지로 제한)
+     * Lucene + Nori 검색 — Slice + PostSearchResponse 반환.
+     * Page → Slice 전환: totalHits 계산 제거, hasNext()만으로 "다음" 버튼 판단.
+     * Post → PostSearchResponse 변환: content(LONGTEXT) 대신 snippet(150자)만 반환.
      */
     @Cacheable(value = "searchResults",
             key = "#keyword + ':' + #pageable.pageNumber + ':' + #pageable.pageSize")
-    public Page<Post> search(String keyword, Pageable pageable) {
+    public Slice<PostSearchResponse> search(String keyword, Pageable pageable) {
         validatePageLimit(pageable, MAX_SEARCH_PAGE);
         searchLogCollector.record(keyword);
         try {
-            Page<Post> result = luceneSearchService.search(keyword, pageable);
-            long maxAccessible = (long) MAX_SEARCH_PAGE * pageable.getPageSize();
-            if (result.getTotalElements() > maxAccessible) {
-                return new PageImpl<>(result.getContent(), pageable, maxAccessible);
-            }
-            return result;
+            Slice<Post> result = luceneSearchService.search(keyword, pageable);
+            List<PostSearchResponse> responses = result.getContent().stream()
+                    .map(PostSearchResponse::from)
+                    .toList();
+            return new SliceImpl<>(responses, pageable, result.hasNext());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

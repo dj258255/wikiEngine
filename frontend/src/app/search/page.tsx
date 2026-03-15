@@ -11,6 +11,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 interface SearchResult {
   id: string;
   title: string;
+  snippet?: string;
   viewCount: number;
   likeCount: number;
   createdAt: string;
@@ -36,8 +37,7 @@ function SearchPageContent() {
   const pageParam = Number(searchParams.get("page") || "0");
   const [searchQuery, setSearchQuery] = useState(query);
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
   const [currentPage, setCurrentPage] = useState(pageParam);
   const [aiSummary, setAiSummary] = useState("");
   const [loading, setLoading] = useState(false);
@@ -58,8 +58,7 @@ function SearchPageContent() {
       fetchAiSummary(query);
     } else {
       setResults([]);
-      setTotalPages(0);
-      setTotalElements(0);
+      setHasNext(false);
       setAiSummary("");
     }
   }, [query, pageParam]);
@@ -113,8 +112,7 @@ function SearchPageContent() {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
       const data = await res.json();
       setResults(data.results || []);
-      setTotalPages(data.totalPages || 0);
-      setTotalElements(data.totalElements || 0);
+      setHasNext(data.hasNext || false);
       setCurrentPage(data.currentPage || 0);
     } catch {
       setResults([]);
@@ -301,6 +299,11 @@ function SearchPageContent() {
                     <h2 className="text-base font-medium text-blue-600 dark:text-blue-400">
                       {result.title}
                     </h2>
+                    {result.snippet && (
+                      <p className="mt-1 text-sm text-zinc-600 line-clamp-2 dark:text-zinc-400">
+                        {result.snippet}
+                      </p>
+                    )}
                     <div className="mt-1.5 flex items-center gap-4 text-xs text-zinc-400 dark:text-zinc-500">
                       <span className="flex items-center gap-1">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-3.5 w-3.5">
@@ -322,8 +325,8 @@ function SearchPageContent() {
               ))}
             </ul>
 
-            {/* 페이지네이션 */}
-            {totalPages > 1 && (
+            {/* 페이지네이션 — hasNext 기반 (Google 방식) */}
+            {(currentPage > 0 || hasNext) && (
               <div className="mt-8 flex items-center justify-center gap-2">
                 <button
                   onClick={() => navigateSearch(query, currentPage - 1)}
@@ -333,11 +336,11 @@ function SearchPageContent() {
                   이전
                 </button>
                 <span className="px-3 text-sm text-zinc-500 dark:text-zinc-400">
-                  {currentPage + 1} / {totalPages}
+                  {currentPage + 1}
                 </span>
                 <button
                   onClick={() => navigateSearch(query, currentPage + 1)}
-                  disabled={currentPage >= totalPages - 1}
+                  disabled={!hasNext}
                   className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
                 >
                   다음

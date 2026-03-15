@@ -13,6 +13,7 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -87,7 +88,7 @@ public class PostAdminController {
      * 기존 FULLTEXT 검색과 별도로 Lucene 검색 결과를 확인한다.
      */
     @GetMapping("/search")
-    public Page<PostSummaryResponse> search(
+    public Slice<PostSummaryResponse> search(
             @RequestParam String q,
             @PageableDefault(size = 20) Pageable pageable) throws IOException {
 
