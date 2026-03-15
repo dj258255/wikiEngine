@@ -51,18 +51,19 @@ public class TrieInitializer {
                 LocalDateTime.now().minusDays(7), TRIE_MAX_ENTRIES);
 
         TrieNode newRoot = new TrieNode();
+        TrieNode newJamoRoot = new TrieNode();
         int loaded = 0;
 
         for (Object[] row : topQueries) {
             String query = (String) row[0];
             long totalCount = ((Number) row[1]).longValue();
             if (query != null && !query.isBlank()) {
-                trie.insert(newRoot, query.toLowerCase(), totalCount);
+                trie.insertWithJamo(newRoot, newJamoRoot, query.toLowerCase(), totalCount);
                 loaded++;
             }
         }
 
-        trie.swapRoot(newRoot);
+        trie.swapRoots(newRoot, newJamoRoot);
 
         long elapsed = (System.nanoTime() - start) / 1_000_000;
         if (loaded > 0) {

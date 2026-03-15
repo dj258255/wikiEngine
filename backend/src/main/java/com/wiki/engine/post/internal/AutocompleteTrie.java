@@ -5,18 +5,25 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 
 /**
- * 인메모리 Trie 자료구조.
+ * 인메모리 Trie 자료구조 (원본 + 자모 분해).
  * Copy-on-Write 패턴: 새 Trie를 별도로 빌드한 뒤 volatile 참조를 교체한다.
  * 읽기는 락 없이 volatile read로 수행.
+ *
+ * 두 개의 Trie를 관리:
+ * - 원본 Trie: 완성된 음절 기반 검색 ("삼성" → "삼성전자")
+ * - 자모 Trie: 자모 분해 기반 검색 ("ㅅㅏㅁㅅ" → "삼성전자")
+ *
+ * 검색 시 입력에 자모(ㄱ~ㅎ, ㅏ~ㅣ)가 포함되면 자모 Trie에서,
+ * 완성된 음절이면 원본 Trie에서 검색한다.
  */
 @Component
 public class AutocompleteTrie {
 
     private volatile TrieNode root = new TrieNode();
+    private volatile TrieNode jamoRoot = new TrieNode();
 
     /**
-     * 단어 삽입 — O(m). 배치 빌드 전용.
-     * 새 TrieNode root에 삽입한 뒤 swapRoot()로 교체해야 한다.
+     * 원본 Trie에 삽입 — O(m).
      */
     void insert(TrieNode root, String word, double score) {
         TrieNode current = root;
@@ -29,12 +36,59 @@ public class AutocompleteTrie {
     }
 
     /**
-     * Prefix로 시작하는 단어 검색 — O(m + k).
-     * m = prefix 길이, k = 결과 수.
-     * 읽기 전용 — volatile reference로 안전.
+     * 원본 + 자모 분해 + 초성을 한 번에 삽입.
+     * word = 원본 단어 (예: "삼성전자")
+     * score = 인기도 점수
+     *
+     * 삽입되는 것:
+     * 1. 원본 Trie: "삼성전자" → word="삼성전자"
+     * 2. 자모 Trie: "ㅅㅏㅁㅅㅓㅇㅈㅓㄴㅈㅏ" → word="삼성전자" (원본으로 매핑)
+     * 3. 자모 Trie: "ㅅㅅㅈㅈ" (초성) → word="삼성전자" (2자 이상만)
+     */
+    void insertWithJamo(TrieNode originalRoot, TrieNode jamoRoot, String word, double score) {
+        // 1. 원본 삽입
+        insert(originalRoot, word, score);
+
+        // 2. 자모 분해 삽입 (원본 단어로 매핑)
+        String decomposed = JamoDecomposer.decompose(word);
+        insertMapped(jamoRoot, decomposed, word, score);
+
+        // 3. 초성 삽입 (2자 이상)
+        String choseong = JamoDecomposer.extractChoseong(word);
+        if (choseong.length() >= 2) {
+            insertMapped(jamoRoot, choseong, word, score);
+        }
+    }
+
+    /**
+     * Prefix로 시작하는 단어 검색.
+     * 입력에 자모가 포함되면 자모 Trie, 아니면 원본 Trie에서 검색.
      */
     public List<String> search(String prefix, int limit) {
-        TrieNode current = root;
+        if (JamoDecomposer.containsJamo(prefix)) {
+            return searchInTrie(jamoRoot, prefix, limit);
+        }
+        // 원본 Trie 검색 후, 결과 없으면 자모 분해하여 자모 Trie 검색
+        List<String> results = searchInTrie(root, prefix, limit);
+        if (!results.isEmpty()) {
+            return results;
+        }
+        String decomposed = JamoDecomposer.decompose(prefix);
+        return searchInTrie(jamoRoot, decomposed, limit);
+    }
+
+    void swapRoots(TrieNode newRoot, TrieNode newJamoRoot) {
+        this.root = newRoot;
+        this.jamoRoot = newJamoRoot;
+    }
+
+    // 하위 호환 (Phase 2 코드 유지)
+    void swapRoot(TrieNode newRoot) {
+        this.root = newRoot;
+    }
+
+    private List<String> searchInTrie(TrieNode trieRoot, String prefix, int limit) {
+        TrieNode current = trieRoot;
 
         for (char c : prefix.toCharArray()) {
             current = current.getChild(c);
@@ -54,15 +108,20 @@ public class AutocompleteTrie {
     }
 
     /**
-     * 배치 빌드 완료 후 새 root로 교체.
-     * volatile write로 모든 읽기 스레드에 즉시 가시.
+     * 자모 Trie 전용 삽입: key로 탐색하되 word(원본)를 저장.
+     * "ㅅㅏㅁㅅㅓㅇ" 경로로 내려가지만, 노드에는 "삼성" 원본을 저장.
      */
-    void swapRoot(TrieNode newRoot) {
-        this.root = newRoot;
-    }
-
-    int size() {
-        return countWords(root);
+    private void insertMapped(TrieNode root, String key, String originalWord, double score) {
+        TrieNode current = root;
+        for (char c : key.toCharArray()) {
+            current = current.addChild(c);
+        }
+        // 점수가 더 높은 것만 갱신 (같은 자모 경로에 여러 단어가 매핑될 수 있음)
+        if (!current.isEndOfWord() || score > current.getScore()) {
+            current.setEndOfWord(true);
+            current.setWord(originalWord);
+            current.setScore(score);
+        }
     }
 
     private void collectWords(TrieNode node, PriorityQueue<ScoredWord> heap, int limit) {
@@ -77,14 +136,6 @@ public class AutocompleteTrie {
         for (TrieNode child : node.getChildren().values()) {
             collectWords(child, heap, limit);
         }
-    }
-
-    private int countWords(TrieNode node) {
-        int count = node.isEndOfWord() ? 1 : 0;
-        for (TrieNode child : node.getChildren().values()) {
-            count += countWords(child);
-        }
-        return count;
     }
 
     private record ScoredWord(String word, double score) {}
