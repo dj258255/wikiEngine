@@ -64,15 +64,29 @@ public class AutocompleteTrie {
      * Prefix로 시작하는 단어 검색.
      * 입력에 자모가 포함되면 자모 Trie, 아니면 원본 Trie에서 검색.
      */
+    /**
+     * Prefix로 시작하는 단어 검색.
+     *
+     * 검색 전략:
+     * 1. 입력에 자모(ㄱ~ㅎ, ㅏ~ㅣ)가 포함 → 전체를 자모 분해 → 자모 Trie 검색
+     *    예: "삼ㅅ" → "ㅅㅏㅁㅅ" → 자모 Trie에서 "삼성전자" 매칭
+     *    예: "ㅅㅅ" → 그대로 → 자모 Trie에서 초성 매칭
+     * 2. 완성된 음절만 → 원본 Trie 검색 → 없으면 자모 분해 → 자모 Trie fallback
+     *    예: "삼성" → 원본 Trie에서 "삼성전자" 매칭
+     */
     public List<String> search(String prefix, int limit) {
         if (JamoDecomposer.containsJamo(prefix)) {
-            return searchInTrie(jamoRoot, prefix, limit);
+            // 자모 포함: 전체를 분해하여 자모 Trie 검색
+            // "삼ㅅ" → "ㅅㅏㅁㅅ", "ㅅㅅ" → "ㅅㅅ" (이미 자모)
+            String decomposed = JamoDecomposer.decompose(prefix);
+            return searchInTrie(jamoRoot, decomposed, limit);
         }
-        // 원본 Trie 검색 후, 결과 없으면 자모 분해하여 자모 Trie 검색
+        // 완성 음절만: 원본 Trie 우선
         List<String> results = searchInTrie(root, prefix, limit);
         if (!results.isEmpty()) {
             return results;
         }
+        // 원본에 없으면 자모 분해 후 자모 Trie fallback
         String decomposed = JamoDecomposer.decompose(prefix);
         return searchInTrie(jamoRoot, decomposed, limit);
     }
