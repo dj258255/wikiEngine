@@ -79,15 +79,15 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     List<Post> findBatchAfterId(@Param("lastId") long lastId, @Param("batchSize") int batchSize);
 
     /**
-     * 인기도(viewCount + likeCount) 상위 N개 제목 조회.
-     * Trie 초기화에 사용. title만 필요하므로 projection으로 최적화.
+     * Trie 초기화용 제목 조회. title만 필요하므로 projection.
+     * PK 인덱스(ORDER BY id DESC)를 사용하여 filesort 없이 빠르게 반환.
+     *
+     * 위키 덤프 데이터는 viewCount/likeCount가 대부분 0이므로
+     * ORDER BY (view_count + like_count)는 인덱스가 없어 Full Table Scan 발생.
+     * 검색 로그가 충분히 쌓이면 인기도 기반으로 전환 가능.
      */
-    @Query(value = """
-            SELECT title FROM posts
-            ORDER BY (view_count + like_count) DESC, id DESC
-            LIMIT :limit
-            """, nativeQuery = true)
-    List<String> findTopTitlesByPopularity(@Param("limit") int limit);
+    @Query(value = "SELECT title FROM posts ORDER BY id DESC LIMIT :limit", nativeQuery = true)
+    List<String> findTopTitles(@Param("limit") int limit);
 
     /** 조회수를 원자적으로 1 증가시킨다. */
     @Modifying
