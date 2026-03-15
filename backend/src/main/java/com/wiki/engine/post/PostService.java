@@ -3,6 +3,7 @@ package com.wiki.engine.post;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.internal.LuceneIndexService;
+import com.wiki.engine.post.internal.AutocompleteTrie;
 import com.wiki.engine.post.internal.SearchLogCollector;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
@@ -43,6 +44,7 @@ public class PostService {
     private final LuceneIndexService luceneIndexService;
     private final LuceneSearchService luceneSearchService;
     private final SearchLogCollector searchLogCollector;
+    private final AutocompleteTrie autocompleteTrie;
 
     /**
      * 새 게시글을 생성한다.
@@ -240,11 +242,16 @@ public class PostService {
     }
 
     /**
-     * 자동완성: Lucene PrefixQuery로 title prefix 매칭.
-     * MySQL LIKE 'prefix%' 대비: 역색인에서 즉시 조회.
+     * 자동완성: Trie 우선 → Lucene PrefixQuery fallback.
+     * Trie에 인기 제목 1만 건이 적재되어 있으므로 대부분 Trie에서 반환된다.
+     * Trie에 결과가 없으면 (희귀 prefix) Lucene PrefixQuery로 fallback.
      */
     @Cacheable(value = "autocomplete", key = "#prefix")
     public List<String> autocomplete(String prefix) {
+        List<String> results = autocompleteTrie.search(prefix.toLowerCase(), 10);
+        if (!results.isEmpty()) {
+            return results;
+        }
         try {
             return luceneSearchService.autocomplete(prefix, 10);
         } catch (IOException e) {

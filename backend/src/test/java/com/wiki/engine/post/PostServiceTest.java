@@ -6,6 +6,7 @@ import com.wiki.engine.post.internal.LuceneIndexService;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
+import com.wiki.engine.post.internal.AutocompleteTrie;
 import com.wiki.engine.post.internal.SearchLogCollector;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,6 +54,9 @@ class PostServiceTest {
 
     @Mock
     private SearchLogCollector searchLogCollector;
+
+    @Mock
+    private AutocompleteTrie autocompleteTrie;
 
     private Post createTestPost() {
         return Post.builder()

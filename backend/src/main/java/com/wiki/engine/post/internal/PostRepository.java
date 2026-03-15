@@ -78,6 +78,17 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query(value = "SELECT * FROM posts WHERE id > :lastId ORDER BY id ASC LIMIT :batchSize", nativeQuery = true)
     List<Post> findBatchAfterId(@Param("lastId") long lastId, @Param("batchSize") int batchSize);
 
+    /**
+     * 인기도(viewCount + likeCount) 상위 N개 제목 조회.
+     * Trie 초기화에 사용. title만 필요하므로 projection으로 최적화.
+     */
+    @Query(value = """
+            SELECT title FROM posts
+            ORDER BY (view_count + like_count) DESC, id DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<String> findTopTitlesByPopularity(@Param("limit") int limit);
+
     /** 조회수를 원자적으로 1 증가시킨다. */
     @Modifying
     @Query("UPDATE Post p SET p.viewCount = p.viewCount + 1 WHERE p.id = :id")
