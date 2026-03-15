@@ -325,28 +325,46 @@ function SearchPageContent() {
               ))}
             </ul>
 
-            {/* 페이지네이션 — hasNext 기반 (Google 방식) */}
-            {(currentPage > 0 || hasNext) && (
-              <div className="mt-8 flex items-center justify-center gap-2">
-                <button
-                  onClick={() => navigateSearch(query, currentPage - 1)}
-                  disabled={currentPage <= 0}
-                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                >
-                  이전
-                </button>
-                <span className="px-3 text-sm text-zinc-500 dark:text-zinc-400">
-                  {currentPage + 1}
-                </span>
-                <button
-                  onClick={() => navigateSearch(query, currentPage + 1)}
-                  disabled={!hasNext}
-                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                >
-                  다음
-                </button>
-              </div>
-            )}
+            {/* 페이지네이션 — 슬라이딩 윈도우 (Google 방식) */}
+            {(currentPage > 0 || hasNext) && (() => {
+              const windowSize = 10;
+              const maxPage = hasNext ? currentPage + windowSize : currentPage;
+              const startPage = Math.max(0, currentPage - Math.floor(windowSize / 2));
+              const endPage = Math.min(maxPage, startPage + windowSize - 1);
+              const pages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+
+              return (
+                <div className="mt-8 flex items-center justify-center gap-1">
+                  <button
+                    onClick={() => navigateSearch(query, currentPage - 1)}
+                    disabled={currentPage <= 0}
+                    className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  >
+                    이전
+                  </button>
+                  {pages.map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => navigateSearch(query, page)}
+                      className={`min-w-[36px] rounded-lg px-2 py-1.5 text-sm transition-colors ${
+                        page === currentPage
+                          ? "bg-blue-500 font-bold text-white"
+                          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      {page + 1}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => navigateSearch(query, currentPage + 1)}
+                    disabled={!hasNext}
+                    className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  >
+                    다음
+                  </button>
+                </div>
+              );
+            })()}
           </>
         ) : query ? (
           <p className="py-12 text-center text-zinc-500 dark:text-zinc-400">
