@@ -38,9 +38,14 @@ spring:
         order_inserts: true  # INSERT 문 순서 정렬 (배치 최적화)
         generate_statistics: ${HIBERNATE_STATISTICS}  # Hibernate 쿼리 통계 수집 (Actuator 메트릭 노출용)
 
-# 서버 포트
+# 서버 설정
 server:
   port: ${SERVER_PORT}
+  tomcat:
+    threads:
+      max: ${TOMCAT_MAX_THREADS:200}       # 최대 스레드 수 (기본 200)
+      min-spare: ${TOMCAT_MIN_THREADS:10}  # 최소 유휴 스레드
+    accept-count: ${TOMCAT_ACCEPT_COUNT:100}  # 큐 대기 최대 수
 
 # JWT 설정
 jwt:
