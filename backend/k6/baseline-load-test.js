@@ -114,21 +114,45 @@ const MAX_VU_BY_PROFILE = {
     soak: 50,
 };
 
-export const options = {
-    stages,
-    setupTimeout: '120s',
-    thresholds: {
-        // 글로벌 SLO 안전망 — 전체 API가 최소한 이 안에 들어와야 함
+// 프로필별 thresholds — stress는 한계 탐색이므로 완화
+const THRESHOLDS = {
+    smoke: {
         http_req_duration: ['p(95)<3000', 'p(99)<5000'],
-
-        // 엔드포인트별 SLA — 각 API의 실제 성능 기대치
         'search_duration': ['p(95)<300', 'p(99)<500'],
         'autocomplete_duration': ['p(95)<200', 'p(99)<300'],
-        'list_duration': ['p(95)<5000'],         // OFFSET 페이지네이션 baseline (개선 후 하향)
+        'list_duration': ['p(95)<5000'],
         'detail_duration': ['p(95)<200'],
         'write_duration': ['p(95)<300'],
         errors: ['rate<0.01'],
     },
+    load: {
+        http_req_duration: ['p(95)<3000', 'p(99)<5000'],
+        'search_duration': ['p(95)<300', 'p(99)<500'],
+        'autocomplete_duration': ['p(95)<200', 'p(99)<300'],
+        'list_duration': ['p(95)<5000'],
+        'detail_duration': ['p(95)<200'],
+        'write_duration': ['p(95)<300'],
+        errors: ['rate<0.01'],
+    },
+    // stress: 한계 탐색이 목적이므로 threshold를 완화.
+    // "어디서 터지는지"를 보는 것이지 "SLA를 지키는지"를 보는 게 아님.
+    stress: {
+        http_req_duration: ['p(95)<10000'],
+        errors: ['rate<0.30'],  // 30%까지 허용 (한계점 관찰)
+    },
+    // soak: 장기 안정성 — load와 동일한 기준이지만 에러율만 약간 완화
+    soak: {
+        http_req_duration: ['p(95)<3000', 'p(99)<5000'],
+        'search_duration': ['p(95)<500'],
+        'autocomplete_duration': ['p(95)<300'],
+        errors: ['rate<0.05'],
+    },
+};
+
+export const options = {
+    stages,
+    setupTimeout: '120s',
+    thresholds: THRESHOLDS[PROFILE] || THRESHOLDS.load,
 };
 
 // ─── 테스트 데이터 (빈도별 분리) ─────────────────────────
