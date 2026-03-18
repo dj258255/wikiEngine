@@ -17,6 +17,16 @@ spring:
       connection-timeout: 5000  # 커넥션 대기 최대 5초 (기본 30초 → 빠른 실패)
       leak-detection-threshold: 10000  # 10초 이상 반환 안 된 커넥션 경고 로깅
 
+  # Redis (Phase 11: L2 캐시 + 자동완성 flat KV)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        shutdown-timeout: 200ms
+
   # Flyway: DB 스키마 버전 관리 및 마이그레이션
   flyway:
     enabled: ${FLYWAY_ENABLED}
