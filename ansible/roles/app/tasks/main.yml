@@ -110,6 +110,11 @@
   become: false
   tags: [deploy]
 
+- name: Nginx reload (컨테이너 추가/제거 시 upstream DNS 갱신)
+  command: docker exec wiki-nginx-prod nginx -s reload
+  failed_when: false
+  tags: [deploy]
+
 - name: 앱 헬스체크 대기
   uri:
     url: http://localhost:8080/actuator/health
