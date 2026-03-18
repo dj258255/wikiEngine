@@ -23,6 +23,18 @@
   roles:
     - app
 
+# --- ARM App Server 2 (Phase 11: 기반 준비만) ---
+# Phase 12: MySQL Replica 역할 추가 예정
+# Phase 13: App2 역할 추가 예정
+- name: App Server 2 기반 세팅 (ARM)
+  hosts: app2
+  become: true
+  gather_facts: false
+  tags: [setup]
+  roles:
+    - docker
+    - firewall
+
 # --- AMD #1: Loki + Grafana ---
 - name: Monitoring Loki 배포 (AMD #1)
   hosts: monitoring-loki

@@ -21,7 +21,17 @@
     - "8080"   # Spring Boot (Prometheus 스크래핑)
     - "9100"   # Node Exporter
     - "9104"   # MySQL Exporter
+    - "9121"   # Redis Exporter (Phase 11)
     - "8081"   # cAdvisor
+  register: fw_result
+  changed_when: "'ALREADY_ENABLED' not in fw_result.stderr"
+  tags: [setup]
+
+- name: ARM App Server 2 포트 오픈 (Phase 11 기반 준비)
+  when: server_role == 'app2'
+  command: "firewall-cmd --permanent --add-port={{ item }}/tcp"
+  loop:
+    - "9100"   # Node Exporter
   register: fw_result
   changed_when: "'ALREADY_ENABLED' not in fw_result.stderr"
   tags: [setup]

@@ -1,5 +1,5 @@
 # ARM App Server ({{ app_server_host }})
-# Nginx + App + MySQL + Promtail + cAdvisor + Node Exporter + MySQL Exporter
+# Nginx + App + MySQL + Redis + Promtail + cAdvisor + Node Exporter + MySQL Exporter + Redis Exporter
 #
 # 사용법: docker compose --env-file .env.prod up -d
 
@@ -90,6 +90,9 @@ services:
       LUCENE_INDEX_PATH: ${LUCENE_INDEX_PATH}
       LUCENE_BATCH_SIZE: ${LUCENE_BATCH_SIZE}
       JAVA_OPTS: ${JAVA_OPTS}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
       - "8080:8080"  # Prometheus 스크래핑용 (nginx는 80/443)
     volumes:
@@ -100,6 +103,52 @@ services:
           memory: {{ app_memory_limit }}
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - wiki-net
+
+  redis:
+    image: {{ redis_image }}
+    container_name: wiki-redis-prod
+    restart: always
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --maxmemory {{ redis_maxmemory }}
+      --maxmemory-policy volatile-lru
+      --requirepass ${REDIS_PASSWORD}
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 128
+    deploy:
+      resources:
+        limits:
+          memory: {{ redis_memory_limit }}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wiki-net
+
+  redis-exporter:
+    image: {{ redis_exporter_image }}
+    container_name: wiki-redis-exporter-prod
+    restart: always
+    environment:
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - "9121:9121"
+    deploy:
+      resources:
+        limits:
+          memory: {{ redis_exporter_memory_limit }}
+    depends_on:
+      redis:
         condition: service_healthy
     networks:
       - wiki-net
@@ -184,6 +233,7 @@ volumes:
   mysql_data:
   mysql_logs:
   lucene_index:
+  redis_data:
 
 networks:
   wiki-net:

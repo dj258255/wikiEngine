@@ -20,12 +20,20 @@ scrape_configs:
     static_configs:
       - targets: ['{{ hostvars["app-arm"].private_ip }}:8081']
 
-  # Node Exporter (all 3 servers)
+  # Redis Exporter (ARM - Phase 11)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['{{ hostvars["app-arm"].private_ip }}:9121']
+
+  # Node Exporter (all servers)
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['{{ hostvars["app-arm"].private_ip }}:9100']
         labels:
           server: 'app-arm'
+      - targets: ['{{ hostvars["app-arm-2"].private_ip }}:9100']
+        labels:
+          server: 'app-arm-2'
       - targets: ['{{ hostvars["monitoring-loki"].private_ip }}:9100']
         labels:
           server: 'monitoring-loki'

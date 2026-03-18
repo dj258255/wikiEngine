@@ -144,6 +144,7 @@ jobs:
           source ~/.ansible-venv/bin/activate
           cd ansible
 
+          # 서버 1 (App + Redis)
           ansible-playbook -i inventory.yml site.yml --tags setup,deploy \
             --limit app \
             -e "app_image=$APP_IMAGE" \
@@ -151,6 +152,15 @@ jobs:
             -e "ghcr_user=$GHCR_USER" &
           PID_APP=$!
 
+          # 서버 2 (Phase 11: 기반 세팅만)
+          ansible-playbook -i inventory.yml site.yml --tags setup \
+            --limit app2 \
+            -e "app_image=unused" \
+            -e "ghcr_token=$GHCR_TOKEN" \
+            -e "ghcr_user=$GHCR_USER" &
+          PID_APP2=$!
+
+          # 모니터링 (Prometheus + Loki/Grafana)
           ansible-playbook -i inventory.yml site.yml --tags setup,deploy \
             --limit monitoring \
             -e "app_image=unused" \
@@ -159,4 +169,5 @@ jobs:
           PID_MON=$!
 
           wait $PID_APP || exit 1
+          wait $PID_APP2 || exit 1
           wait $PID_MON || exit 1

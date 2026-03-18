@@ -3,6 +3,7 @@
 #
 # 사용법:
 #   ansible-playbook -i inventory.yml site.yml --ask-vault-pass
+#   서버 2만:  ansible-playbook site.yml --limit app2 --tags setup
 all:
   children:
     app:
@@ -12,6 +13,16 @@ all:
           private_ip: "{{ app_server_private_ip }}"
           ansible_user: "{{ ssh_user_arm }}"
           server_role: app-server
+
+    # Phase 11: 서버 2 기반 준비 (Docker + 방화벽 + Node Exporter)
+    # Phase 12~13에서 MySQL Replica + App2 추가 예정
+    app2:
+      hosts:
+        app-arm-2:
+          ansible_host: "{{ app2_server_host }}"
+          private_ip: "{{ app2_server_private_ip }}"
+          ansible_user: "{{ ssh_user_arm }}"
+          server_role: app2
 
     monitoring:
       hosts:
