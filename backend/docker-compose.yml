@@ -39,6 +39,29 @@ services:
     networks:
       - wiki-net
 
+  redis:
+    image: redis:7.4-alpine
+    container_name: wiki-redis-dev
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --maxmemory 128mb
+      --maxmemory-policy volatile-lru
+      --requirepass ${REDIS_PASSWORD}
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 128
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wiki-net
+
   influxdb:
     image: influxdb:1.8
     container_name: wiki-influxdb-dev
@@ -157,6 +180,7 @@ services:
 volumes:
   mysql_data:
   mysql_logs:
+  redis_data:
   influxdb_data:
   grafana_data:
   prometheus_data:

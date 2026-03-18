@@ -17,6 +17,7 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time={{ prometheus_retention_time }}"
       - "--storage.tsdb.retention.size={{ prometheus_retention_size }}"
+      - "--web.enable-lifecycle"
     deploy:
       resources:
         limits:
