@@ -1,19 +1,19 @@
 package com.wiki.engine.post;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.wiki.engine.config.TieredCacheService;
+import com.wiki.engine.post.dto.CachedSearchResult;
 import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.internal.LuceneIndexService;
-import com.wiki.engine.post.internal.AutocompleteTrie;
+import com.wiki.engine.post.internal.RedisAutocompleteService;
 import com.wiki.engine.post.internal.SearchLogCollector;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,22 +30,49 @@ import java.util.Optional;
  * 게시글 비즈니스 로직 서비스.
  * 게시글 CRUD, 조회수 증가, 좋아요/좋아요취소 기능을 제공한다.
  * 기본적으로 읽기 전용 트랜잭션이며, 쓰기 작업은 별도 @Transactional로 관리한다.
+ *
+ * <p>Phase 11: @Cacheable/@CacheEvict 제거 → TieredCacheService(L1+L2) 직접 호출.
+ * 자동완성: Trie → RedisAutocompleteService(Redis flat KV) 전환.
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PostService {
 
     private static final int MAX_LIST_PAGE = 15;
     private static final int MAX_SEARCH_PAGE = 15;
+    private static final Duration SEARCH_L2_TTL = Duration.ofMinutes(10);
+    private static final Duration POST_DETAIL_L2_TTL = Duration.ofMinutes(30);
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
     private final LuceneIndexService luceneIndexService;
     private final LuceneSearchService luceneSearchService;
     private final SearchLogCollector searchLogCollector;
-    private final AutocompleteTrie autocompleteTrie;
+    private final RedisAutocompleteService redisAutocompleteService;
+    private final TieredCacheService tieredCacheService;
+    private final Cache<String, Object> searchResultsL1Cache;
+    private final Cache<String, Object> postDetailL1Cache;
+
+    public PostService(PostRepository postRepository,
+                       PostLikeRepository postLikeRepository,
+                       LuceneIndexService luceneIndexService,
+                       LuceneSearchService luceneSearchService,
+                       SearchLogCollector searchLogCollector,
+                       RedisAutocompleteService redisAutocompleteService,
+                       TieredCacheService tieredCacheService,
+                       @Qualifier("searchResultsL1Cache") Cache<String, Object> searchResultsL1Cache,
+                       @Qualifier("postDetailL1Cache") Cache<String, Object> postDetailL1Cache) {
+        this.postRepository = postRepository;
+        this.postLikeRepository = postLikeRepository;
+        this.luceneIndexService = luceneIndexService;
+        this.luceneSearchService = luceneSearchService;
+        this.searchLogCollector = searchLogCollector;
+        this.redisAutocompleteService = redisAutocompleteService;
+        this.tieredCacheService = tieredCacheService;
+        this.searchResultsL1Cache = searchResultsL1Cache;
+        this.postDetailL1Cache = postDetailL1Cache;
+    }
 
     /**
      * 새 게시글을 생성한다.
@@ -69,11 +97,13 @@ public class PostService {
         return saved;
     }
 
-    /** ID로 게시글을 조회한다 (캐시 적용). */
-    @Cacheable(value = "postDetail", key = "#id")
+    /** ID로 게시글을 조회한다 (L1+L2 2계층 캐시). */
     public Post findByIdCached(Long id) {
-        return postRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        String redisKey = "post:" + id;
+        return tieredCacheService.get("postDetail", postDetailL1Cache, redisKey,
+                Post.class, POST_DETAIL_L2_TTL,
+                () -> postRepository.findById(id)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND)));
     }
 
     /** ID로 게시글을 조회한다 (캐시 미적용, 내부용). */
@@ -96,7 +126,6 @@ public class PostService {
      * @param content 수정할 본문
      * @param userId 요청한 사용자 ID (작성자 검증용)
      */
-    @CacheEvict(value = "postDetail", key = "#id")
     @Transactional
     public void updatePost(Long id, String title, String content, Long userId) {
         Post post = postRepository.findById(id)
@@ -108,6 +137,7 @@ public class PostService {
 
         post.update(title, content);
         indexSafely(post);
+        tieredCacheService.evict(postDetailL1Cache, "post:" + id);
     }
 
     /**
@@ -117,7 +147,6 @@ public class PostService {
      * @param id 게시글 ID
      * @param userId 요청한 사용자 ID (작성자 검증용)
      */
-    @CacheEvict(value = "postDetail", key = "#id")
     @Transactional
     public void deletePost(Long id, Long userId) {
         Post post = postRepository.findById(id)
@@ -131,6 +160,7 @@ public class PostService {
         postLikeRepository.deleteByPostId(id);
         postRepository.delete(post);
         deleteFromIndexSafely(id);
+        tieredCacheService.evict(postDetailL1Cache, "post:" + id);
     }
 
     /**
@@ -214,23 +244,28 @@ public class PostService {
 
     /**
      * Lucene + Nori 검색 — Slice + PostSearchResponse 반환.
-     * Page → Slice 전환: totalHits 계산 제거, hasNext()만으로 "다음" 버튼 판단.
-     * Post → PostSearchResponse 변환: content(LONGTEXT) 대신 snippet(150자)만 반환.
+     * L1(Caffeine) + L2(Redis) 2계층 캐시.
+     * 검색 로그는 캐시 히트/미스와 무관하게 항상 기록한다.
      */
-    @Cacheable(value = "searchResults",
-            key = "#keyword + ':' + #pageable.pageNumber + ':' + #pageable.pageSize")
     public Slice<PostSearchResponse> search(String keyword, Pageable pageable) {
         validatePageLimit(pageable, MAX_SEARCH_PAGE);
         searchLogCollector.record(keyword);
-        try {
-            Slice<Post> result = luceneSearchService.search(keyword, pageable);
-            List<PostSearchResponse> responses = result.getContent().stream()
-                    .map(PostSearchResponse::from)
-                    .toList();
-            return new SliceImpl<>(responses, pageable, result.hasNext());
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+
+        String redisKey = "search:" + keyword + ":" + pageable.getPageNumber() + ":" + pageable.getPageSize();
+        CachedSearchResult cached = tieredCacheService.get("searchResults", searchResultsL1Cache,
+                redisKey, CachedSearchResult.class, SEARCH_L2_TTL,
+                () -> {
+                    try {
+                        Slice<Post> result = luceneSearchService.search(keyword, pageable);
+                        List<PostSearchResponse> responses = result.getContent().stream()
+                                .map(PostSearchResponse::from)
+                                .toList();
+                        return new CachedSearchResult(responses, result.hasNext());
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                });
+        return new SliceImpl<>(cached.content(), pageable, cached.hasNext());
     }
 
     private void validatePageLimit(Pageable pageable, int maxPage) {
@@ -240,21 +275,11 @@ public class PostService {
     }
 
     /**
-     * 자동완성: Trie 우선 → Lucene PrefixQuery fallback.
-     * Trie에 인기 제목 1만 건이 적재되어 있으므로 대부분 Trie에서 반환된다.
-     * Trie에 결과가 없으면 (희귀 prefix) Lucene PrefixQuery로 fallback.
+     * 자동완성: Redis flat KV → Lucene PrefixQuery fallback.
+     * Phase 11: Trie 퇴역, Redis prefix_topk O(1) GET으로 전환.
      */
-    @Cacheable(value = "autocomplete", key = "#prefix")
     public List<String> autocomplete(String prefix) {
-        List<String> results = autocompleteTrie.search(prefix.toLowerCase(), 10);
-        if (!results.isEmpty()) {
-            return results;
-        }
-        try {
-            return luceneSearchService.autocomplete(prefix, 10);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return redisAutocompleteService.search(prefix, 10);
     }
 
     private void indexSafely(Post post) {

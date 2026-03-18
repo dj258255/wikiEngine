@@ -25,13 +25,7 @@ public class CacheConfig {
                         .recordStats()
                         .build());
 
-        // autocomplete 캐시 유지 — Trie fallback용 (Phase 11 이후 Redis flat KV로 대체)
-        manager.registerCustomCache("autocomplete",
-                Caffeine.newBuilder()
-                        .maximumSize(10_000)
-                        .expireAfterWrite(Duration.ofMinutes(10))
-                        .recordStats()
-                        .build());
+        // autocomplete: Phase 11에서 Redis flat KV로 전환, Caffeine 캐시 불필요
 
         manager.registerCustomCache("postDetail",
                 Caffeine.newBuilder()

@@ -1,19 +1,22 @@
 package com.wiki.engine.post;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
+import com.wiki.engine.config.TieredCacheService;
+import com.wiki.engine.post.dto.CachedSearchResult;
 import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.post.internal.LuceneIndexService;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
-import com.wiki.engine.post.internal.AutocompleteTrie;
+import com.wiki.engine.post.internal.RedisAutocompleteService;
 import com.wiki.engine.post.internal.SearchLogCollector;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -22,9 +25,11 @@ import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,32 +37,39 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PostServiceTest {
 
-    @InjectMocks
     private PostService postService;
 
-    @Mock
-    private PostRepository postRepository;
+    @Mock private PostRepository postRepository;
+    @Mock private PostLikeRepository postLikeRepository;
+    @Mock private LuceneIndexService luceneIndexService;
+    @Mock private LuceneSearchService luceneSearchService;
+    @Mock private SearchLogCollector searchLogCollector;
+    @Mock private RedisAutocompleteService redisAutocompleteService;
+    @Mock private TieredCacheService tieredCacheService;
+    @Mock private Cache<String, Object> searchResultsL1Cache;
+    @Mock private Cache<String, Object> postDetailL1Cache;
 
-    @Mock
-    private PostLikeRepository postLikeRepository;
+    @BeforeEach
+    void setUp() {
+        postService = new PostService(
+                postRepository, postLikeRepository, luceneIndexService,
+                luceneSearchService, searchLogCollector, redisAutocompleteService,
+                tieredCacheService, searchResultsL1Cache, postDetailL1Cache);
 
-    @Mock
-    private LuceneIndexService luceneIndexService;
-
-    @Mock
-    private LuceneSearchService luceneSearchService;
-
-    @Mock
-    private SearchLogCollector searchLogCollector;
-
-    @Mock
-    private AutocompleteTrie autocompleteTrie;
+        // TieredCacheService: pass-through (항상 origin loader 호출)
+        lenient().when(tieredCacheService.get(
+                        any(String.class), any(Cache.class), any(String.class),
+                        any(Class.class), any(Duration.class), any(Supplier.class)))
+                .thenAnswer(invocation -> {
+                    Supplier<?> loader = invocation.getArgument(5);
+                    return loader.get();
+                });
+    }
 
     private Post createTestPost() {
         return Post.builder()
@@ -158,7 +170,7 @@ class PostServiceTest {
     class UpdatePost {
 
         @Test
-        @DisplayName("[해피] 작성자가 정상적으로 수정한다 + Lucene 재색인")
+        @DisplayName("[해피] 작성자가 정상적으로 수정한다 + Lucene 재색인 + 캐시 무효화")
         void success() throws IOException {
             Post post = createTestPost();
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
@@ -169,6 +181,7 @@ class PostServiceTest {
             assertThat(post.getContent()).isEqualTo("수정 본문");
             assertThat(post.getUpdatedAt()).isNotNull();
             verify(luceneIndexService).indexPost(post);
+            verify(tieredCacheService).evict(postDetailL1Cache, "post:1");
         }
 
         @Test
@@ -212,7 +225,7 @@ class PostServiceTest {
     class DeletePost {
 
         @Test
-        @DisplayName("[해피] 작성자가 정상적으로 삭제한다 (좋아요 + Lucene 인덱스 함께 삭제)")
+        @DisplayName("[해피] 작성자가 정상적으로 삭제한다 (좋아요 + Lucene 인덱스 함께 삭제 + 캐시 무효화)")
         void success() throws IOException {
             Post post = createTestPost();
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
@@ -222,6 +235,7 @@ class PostServiceTest {
             verify(postLikeRepository).deleteByPostId(1L);
             verify(postRepository).delete(post);
             verify(luceneIndexService).deleteFromIndex(1L);
+            verify(tieredCacheService).evict(postDetailL1Cache, "post:1");
         }
 
         @Test
@@ -325,7 +339,7 @@ class PostServiceTest {
     class Search {
 
         @Test
-        @DisplayName("[해피] 검색 결과 반환")
+        @DisplayName("[해피] 검색 결과 반환 + 검색 로그 기록")
         void success() throws IOException {
             Post post = createTestPost();
             Pageable pageable = PageRequest.of(0, 20);
@@ -336,6 +350,7 @@ class PostServiceTest {
 
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().getFirst().title()).isEqualTo("테스트 게시글");
+            verify(searchLogCollector).record("테스트");
         }
 
         @Test
@@ -359,9 +374,9 @@ class PostServiceTest {
     class Autocomplete {
 
         @Test
-        @DisplayName("[해피] 자동완성 결과 반환 (제목만)")
-        void success() throws IOException {
-            given(luceneSearchService.autocomplete("삼성", 10))
+        @DisplayName("[해피] Redis flat KV에서 자동완성 결과 반환")
+        void success() {
+            given(redisAutocompleteService.search("삼성", 10))
                     .willReturn(List.of("삼성전자", "삼성물산"));
 
             List<String> result = postService.autocomplete("삼성");
@@ -371,8 +386,8 @@ class PostServiceTest {
 
         @Test
         @DisplayName("[코너] 결과 없음 — 빈 리스트")
-        void empty() throws IOException {
-            given(luceneSearchService.autocomplete("zzz", 10))
+        void empty() {
+            given(redisAutocompleteService.search("zzz", 10))
                     .willReturn(Collections.emptyList());
 
             List<String> result = postService.autocomplete("zzz");
