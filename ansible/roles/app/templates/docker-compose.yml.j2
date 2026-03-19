@@ -33,9 +33,9 @@ services:
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
-    # MySQL 포트: private IP에서 접근 허용 (Replica 연결용, Phase 12)
-    # 변경 전: 127.0.0.1:3306 (localhost만) → 변경 후: private IP (서버 2 Replica 접근 가능)
+    # MySQL 포트: localhost(SSH 터널) + private IP(Replica 연결) 양쪽 허용
     ports:
+      - "127.0.0.1:3306:3306"
       - "{{ hostvars['app-arm'].private_ip }}:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
