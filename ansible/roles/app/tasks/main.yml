@@ -136,6 +136,16 @@
   changed_when: false
   tags: [deploy]
 
+- name: Replication 전용 유저 생성 (Phase 12)
+  command: >
+    docker exec wiki-mysql-prod mysql -uroot -p{{ db_root_password }}
+    -e "CREATE USER IF NOT EXISTS 'repl'@'%'
+    IDENTIFIED WITH caching_sha2_password BY '{{ mysql_repl_password }}';
+    GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
+    FLUSH PRIVILEGES;"
+  changed_when: false
+  tags: [deploy]
+
 # --- Certbot 인증서 발급 (최초 1회) ---
 - name: "Certbot 인증서 발급 (최초)"
   command: >

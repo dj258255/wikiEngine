@@ -33,9 +33,10 @@ services:
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USERNAME}
       MYSQL_PASSWORD: ${DB_PASSWORD}
-    # MySQL 포트는 localhost에서만 접근 가능 (SSH 터널용)
+    # MySQL 포트: private IP에서 접근 허용 (Replica 연결용, Phase 12)
+    # 변경 전: 127.0.0.1:3306 (localhost만) → 변경 후: private IP (서버 2 Replica 접근 가능)
     ports:
-      - "127.0.0.1:3306:3306"
+      - "{{ hostvars['app-arm'].private_ip }}:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - mysql_logs:/var/log/mysql
@@ -54,6 +55,12 @@ services:
       --long-query-time=${MYSQL_SLOW_QUERY_TIME}
       --log-queries-not-using-indexes=ON
       --performance-schema=ON
+      --server-id=1
+      --log-bin=mysql-bin
+      --binlog-format=ROW
+      --binlog-expire-logs-seconds=604800
+      --gtid-mode=ON
+      --enforce-gtid-consistency=ON
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
