@@ -134,8 +134,8 @@
           "refId": "A"
         },
         {
-          "expr": "redis_db_keys{job=\"redis\"}",
-          "legendFormat": "Keys",
+          "expr": "sum(redis_db_keys{job=\"redis\"})",
+          "legendFormat": "Keys (전체)",
           "refId": "B"
         },
         {
