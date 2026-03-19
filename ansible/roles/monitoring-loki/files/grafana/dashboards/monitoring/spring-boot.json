@@ -254,17 +254,136 @@
       ]
     },
     {
+      "id": 20,
+      "title": "Phase 11: Tiered Cache (L1/L2/Origin)",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "collapsed": false
+    },
+    {
+      "id": 21,
+      "title": "L1 / L2 / Origin 히트 비율",
+      "description": "TieredCacheService 3계층 캐시 히트 분포. Origin이 높으면 캐시 효과 부족.",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+        "pieType": "donut"
+      },
+      "targets": [
+        {
+          "expr": "sum by (level) (rate(tiered_cache_total{application=\"wiki-engine\"}[5m]))",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "캐시 리전별 히트 추이",
+      "description": "searchResults / postDetail 별 L1/L2/Origin 추이",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (region, level) (rate(tiered_cache_total{application=\"wiki-engine\"}[1m]))",
+          "legendFormat": "{{region}} - {{level}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "Origin 도달률 (Lucene/MySQL 접근)",
+      "description": "L1+L2 미스 → Lucene/MySQL 직접 접근 빈도. CPU 부하와 상관관계.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum by (region) (rate(tiered_cache_total{application=\"wiki-engine\", level=\"origin\"}[1m]))",
+          "legendFormat": "{{region}} → origin",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "title": "Phase 11: Lettuce (Redis 클라이언트 레이턴시)",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 52 },
+      "collapsed": false
+    },
+    {
+      "id": 31,
+      "title": "Lettuce 커맨드 P95 레이턴시 (ms)",
+      "description": "앱→Redis 왕복 P95. SLA 5ms 이내 목표.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 53 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(lettuce_seconds_bucket{application=\"wiki-engine\"}[5m])) by (le)) * 1000",
+          "legendFormat": "P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(lettuce_seconds_bucket{application=\"wiki-engine\"}[5m])) by (le)) * 1000",
+          "legendFormat": "P99",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "title": "Lettuce 커맨드별 레이턴시 (ms)",
+      "description": "GET vs SET 비교. 특정 커맨드가 느리면 키 크기 또는 네트워크 문제.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 53 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(lettuce_seconds_bucket{application=\"wiki-engine\"}[5m])) by (le, db_operation)) * 1000",
+          "legendFormat": "{{db_operation}} P95",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 14,
       "title": "Caffeine Cache",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 61 },
       "collapsed": false
     },
     {
       "id": 15,
       "title": "Cache Hit Rate (%)",
       "type": "gauge",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 62 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": {
@@ -302,7 +421,7 @@
       "id": 16,
       "title": "Cache Gets (hit / miss per sec)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 62 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } },
@@ -320,7 +439,7 @@
       "id": 17,
       "title": "Cache Size (현재 엔트리 수)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 70 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
@@ -338,7 +457,7 @@
       "id": 18,
       "title": "Cache Evictions (per sec)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 70 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
         "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } },

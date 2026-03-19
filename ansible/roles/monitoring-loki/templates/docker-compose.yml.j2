@@ -75,6 +75,7 @@ services:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:Z
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:Z
+      - ./grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:Z
       - ./grafana/dashboards/k6:/var/lib/grafana/dashboards/k6:Z
       - ./grafana/dashboards/monitoring:/var/lib/grafana/dashboards/monitoring:Z
     deploy:

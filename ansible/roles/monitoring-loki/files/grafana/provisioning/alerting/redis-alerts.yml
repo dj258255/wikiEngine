@@ -1,0 +1,172 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Redis Alerts (Phase 11)
+    folder: Monitoring
+    interval: 1m
+    rules:
+      - uid: redis-memory-critical
+        title: "Redis 메모리 위험 (>90%)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: redis_memory_used_bytes{job="redis"} / redis_memory_max_bytes{job="redis"}
+              refId: A
+          - refId: B
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.9] }
+              refId: C
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis 메모리 사용률이 90%를 초과했습니다. Eviction 급증 → TokenBlacklist 유실 위험."
+
+      - uid: redis-eviction-warning
+        title: "Redis Eviction 급증 (>10/s)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: rate(redis_evicted_keys_total{job="redis"}[5m])
+              refId: A
+          - refId: B
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [10] }
+              refId: C
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis eviction이 초당 10건 이상. 메모리 증설 또는 캐시 TTL 조정 필요."
+
+      - uid: redis-slowlog-warning
+        title: "Redis Slowlog 누적 (>5)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: redis_slowlog_length{job="redis"}
+              refId: A
+          - refId: B
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [5] }
+              refId: C
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis slowlog에 느린 명령이 5건 이상 누적. Lua Script 블로킹 또는 큰 키 조회 의심."
+
+      - uid: redis-down-critical
+        title: "Redis 연결 불가"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: up{job="redis"}
+              refId: A
+          - refId: B
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis 다운. Graceful Degradation 동작 중이지만 성능 저하 상태."
+
+      - uid: redis-hitrate-warning
+        title: "Redis L2 히트율 급락 (<50%)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: redis_keyspace_hits_total{job="redis"} / (redis_keyspace_hits_total{job="redis"} + redis_keyspace_misses_total{job="redis"})
+              refId: A
+          - refId: B
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [0.5] }
+              refId: C
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis L2 캐시 히트율이 50% 미만. 캐시 TTL 또는 키 패턴 점검 필요."

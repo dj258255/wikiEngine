@@ -8,6 +8,7 @@
   loop:
     - ""
     - grafana/provisioning/datasources
+    - grafana/provisioning/alerting
     - nginx
     - certbot/www
     - certbot/certs
