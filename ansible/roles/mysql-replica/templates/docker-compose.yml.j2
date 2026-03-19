@@ -16,14 +16,14 @@ services:
       resources:
         limits:
           memory: {{ mysql_replica_memory_limit | default('4G') }}
+    # Note: read-only/super-read-only는 초기화 완료 후 START REPLICA 시점에 SET GLOBAL로 활성화.
+    # Docker entrypoint 초기화(root 비밀번호 설정)가 super-read-only와 충돌하므로 command에서 제외.
     command: >
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
       --innodb-buffer-pool-size=2G
       --performance-schema=ON
       --server-id=2
-      --read-only=ON
-      --super-read-only=ON
       --relay-log=relay-bin
       --log-replica-updates=ON
       --gtid-mode=ON
