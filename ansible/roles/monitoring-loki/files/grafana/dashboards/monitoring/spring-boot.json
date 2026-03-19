@@ -255,7 +255,7 @@
     },
     {
       "id": 20,
-      "title": "Phase 11: Tiered Cache (L1/L2/Origin)",
+      "title": "Tiered Cache (L1/L2/Origin)",
       "type": "row",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
       "collapsed": false
@@ -324,7 +324,7 @@
     },
     {
       "id": 30,
-      "title": "Phase 11: Lettuce (Redis 클라이언트 레이턴시)",
+      "title": "Lettuce (Redis 클라이언트 레이턴시)",
       "type": "row",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 52 },
       "collapsed": false
