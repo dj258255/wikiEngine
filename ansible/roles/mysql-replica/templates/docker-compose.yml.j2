@@ -1,0 +1,65 @@
+# MySQL Replica (서버 2, Phase 12)
+# Primary(서버 1)의 읽기 부하를 분산한다.
+
+services:
+  mysql-replica:
+    image: {{ mysql_image }}
+    container_name: wiki-mysql-replica
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_replica_data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          memory: {{ mysql_replica_memory_limit | default('4G') }}
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --innodb-buffer-pool-size=2G
+      --performance-schema=ON
+      --server-id=2
+      --read-only=ON
+      --super-read-only=ON
+      --relay-log=relay-bin
+      --log-replica-updates=ON
+      --gtid-mode=ON
+      --enforce-gtid-consistency=ON
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wiki-net
+
+  mysql-exporter:
+    image: {{ mysqld_exporter_image }}
+    container_name: wiki-mysql-exporter-replica
+    restart: always
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: ${MYSQL_EXPORTER_PASSWORD}
+    command:
+      - "--mysqld.address=mysql-replica:3306"
+      - "--mysqld.username=${MYSQL_EXPORTER_USERNAME}"
+    ports:
+      - "9104:9104"
+    deploy:
+      resources:
+        limits:
+          memory: {{ mysqld_exporter_memory_limit }}
+    depends_on:
+      mysql-replica:
+        condition: service_healthy
+    networks:
+      - wiki-net
+
+volumes:
+  mysql_replica_data:
+
+networks:
+  wiki-net:
+    driver: bridge

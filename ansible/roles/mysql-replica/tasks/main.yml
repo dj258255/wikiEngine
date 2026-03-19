@@ -1,0 +1,55 @@
+# MySQL Replica 배포 (서버 2, Phase 12)
+- name: Replica 프로젝트 디렉토리 생성
+  file:
+    path: "{{ replica_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: [deploy]
+
+- name: Replica docker-compose.yml 배포
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ replica_dir }}/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  tags: [deploy]
+
+- name: Replica .env.prod 생성
+  template:
+    src: env.prod.j2
+    dest: "{{ replica_dir }}/.env.prod"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+  tags: [deploy]
+
+- name: Replica MySQL 서비스 시작
+  community.docker.docker_compose_v2:
+    project_src: "{{ replica_dir }}"
+    env_files: [".env.prod"]
+    state: present
+    pull: missing
+    wait: true
+    wait_timeout: 120
+  become: false
+  tags: [deploy]
+
+- name: Replica MySQL 헬스체크 대기
+  command: docker exec wiki-mysql-replica mysqladmin ping -h localhost
+  register: replica_health
+  until: replica_health.rc == 0
+  retries: 15
+  delay: 3
+  tags: [deploy]
+
+- name: mysqld_exporter 유저 생성 (Replica)
+  command: >
+    docker exec wiki-mysql-replica mysql -uroot -p{{ db_root_password }}
+    -e "CREATE USER IF NOT EXISTS '{{ mysql_exporter_username }}'@'%'
+    IDENTIFIED BY '{{ mysql_exporter_password }}' WITH MAX_USER_CONNECTIONS 3;
+    GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO '{{ mysql_exporter_username }}'@'%';
+    FLUSH PRIVILEGES;"
+  changed_when: false
+  tags: [deploy]

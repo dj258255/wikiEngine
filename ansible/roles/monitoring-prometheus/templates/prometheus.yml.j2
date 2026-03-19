@@ -20,6 +20,11 @@ scrape_configs:
     static_configs:
       - targets: ['{{ hostvars["app-arm"].private_ip }}:8081']
 
+  # MySQL Exporter — Replica (ARM Server 2, Phase 12)
+  - job_name: 'mysql-replica'
+    static_configs:
+      - targets: ['{{ hostvars["app-arm-2"].private_ip }}:9104']
+
   # Redis Exporter (ARM - Phase 11)
   - job_name: 'redis'
     static_configs:
