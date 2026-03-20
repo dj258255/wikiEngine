@@ -157,22 +157,22 @@
       "targets": [
         {
           "expr": "hikaricp_connections_active{application=\"wiki-engine\"}",
-          "legendFormat": "Active",
+          "legendFormat": "{{pool}} Active",
           "refId": "A"
         },
         {
           "expr": "hikaricp_connections_idle{application=\"wiki-engine\"}",
-          "legendFormat": "Idle",
+          "legendFormat": "{{pool}} Idle",
           "refId": "B"
         },
         {
           "expr": "hikaricp_connections_pending{application=\"wiki-engine\"}",
-          "legendFormat": "Pending",
+          "legendFormat": "{{pool}} Pending",
           "refId": "C"
         },
         {
           "expr": "hikaricp_connections_max{application=\"wiki-engine\"}",
-          "legendFormat": "Max",
+          "legendFormat": "{{pool}} Max",
           "refId": "D"
         }
       ]
@@ -190,7 +190,7 @@
       "targets": [
         {
           "expr": "rate(hikaricp_connections_acquire_seconds_sum{application=\"wiki-engine\"}[1m]) / rate(hikaricp_connections_acquire_seconds_count{application=\"wiki-engine\"}[1m]) * 1000",
-          "legendFormat": "Avg Acquire Time",
+          "legendFormat": "{{pool}} Avg Acquire",
           "refId": "A"
         }
       ]

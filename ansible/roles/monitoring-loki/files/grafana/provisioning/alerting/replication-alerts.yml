@@ -1,0 +1,106 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: MySQL Replication Alerts (Phase 12)
+    folder: Monitoring
+    interval: 1m
+    rules:
+      - uid: replication-lag-warning
+        title: "Replication Lag 경고 (>10초)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: mysql_slave_status_seconds_behind_master{job="mysql-replica"}
+              refId: A
+          - refId: B
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [10] }
+              refId: C
+        for: 5m
+        annotations:
+          summary: "Replication Lag이 10초를 초과했습니다. Replica 읽기 데이터가 오래되었을 수 있습니다."
+        labels:
+          severity: warning
+
+      - uid: replication-io-thread-critical
+        title: "Replication IO Thread 중단"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: mysql_slave_status_slave_io_running{job="mysql-replica"}
+              refId: A
+          - refId: B
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        for: 1m
+        annotations:
+          summary: "Replica IO Thread가 중단되었습니다. Binlog 수신이 불가능합니다. Primary 연결 또는 네트워크를 확인하세요."
+        labels:
+          severity: critical
+
+      - uid: replication-sql-thread-critical
+        title: "Replication SQL Thread 중단"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: mysql_slave_status_slave_sql_running{job="mysql-replica"}
+              refId: A
+          - refId: B
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+              refId: C
+        for: 1m
+        annotations:
+          summary: "Replica SQL Thread가 중단되었습니다. Binlog 적용이 불가능합니다. 스키마 충돌 또는 디스크 공간을 확인하세요."
+        labels:
+          severity: critical

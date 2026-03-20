@@ -18,9 +18,14 @@
       },
       "targets": [
         {
-          "expr": "rate(mysql_global_status_queries[1m])",
-          "legendFormat": "Queries/s",
+          "expr": "rate(mysql_global_status_queries{job=\"mysql-exporter\"}[1m])",
+          "legendFormat": "Primary QPS",
           "refId": "A"
+        },
+        {
+          "expr": "rate(mysql_global_status_queries{job=\"mysql-replica\"}[1m])",
+          "legendFormat": "Replica QPS",
+          "refId": "B"
         }
       ]
     },
@@ -36,19 +41,24 @@
       },
       "targets": [
         {
-          "expr": "mysql_global_status_threads_connected",
-          "legendFormat": "Connected",
+          "expr": "mysql_global_status_threads_connected{job=\"mysql-exporter\"}",
+          "legendFormat": "Primary Connected",
           "refId": "A"
         },
         {
-          "expr": "mysql_global_status_threads_running",
-          "legendFormat": "Running",
+          "expr": "mysql_global_status_threads_connected{job=\"mysql-replica\"}",
+          "legendFormat": "Replica Connected",
           "refId": "B"
         },
         {
-          "expr": "mysql_global_variables_max_connections",
-          "legendFormat": "Max Connections",
+          "expr": "mysql_global_status_threads_running{job=\"mysql-exporter\"}",
+          "legendFormat": "Primary Running",
           "refId": "C"
+        },
+        {
+          "expr": "mysql_global_status_threads_running{job=\"mysql-replica\"}",
+          "legendFormat": "Replica Running",
+          "refId": "D"
         }
       ]
     },
@@ -221,6 +231,108 @@
       ]
     }
     ,{
+      "id": 20,
+      "title": "Replication (Phase 12)",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "collapsed": false
+    },
+    {
+      "id": 21,
+      "title": "Replication Lag (초)",
+      "description": "Replica가 Primary 대비 얼마나 뒤처져 있는지. 10초 이상 시 경고.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "palette-classic" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          },
+          "custom": { "thresholdsStyle": { "mode": "line+area" } }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "mysql_slave_status_seconds_behind_master{job=\"mysql-replica\"}",
+          "legendFormat": "Seconds Behind Primary",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Replication Thread 상태",
+      "description": "IO/SQL Thread 동작 여부. 1=Running, 0=Stopped.",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 33 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "STOPPED", "color": "red" }, "1": { "text": "Running", "color": "green" } } }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "mysql_slave_status_slave_io_running{job=\"mysql-replica\"}",
+          "legendFormat": "IO Thread",
+          "refId": "A"
+        },
+        {
+          "expr": "mysql_slave_status_slave_sql_running{job=\"mysql-replica\"}",
+          "legendFormat": "SQL Thread",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "Primary vs Replica 명령 유형별 비교",
+      "description": "Primary에는 INSERT/UPDATE/DELETE, Replica에는 SELECT가 집중되어야 정상.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 33 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(mysql_global_status_commands_total{job=\"mysql-exporter\", command=\"select\"}[1m])",
+          "legendFormat": "Primary SELECT/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(mysql_global_status_commands_total{job=\"mysql-replica\", command=\"select\"}[1m])",
+          "legendFormat": "Replica SELECT/s",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(mysql_global_status_commands_total{job=\"mysql-exporter\", command=~\"insert|update|delete\"}[1m])",
+          "legendFormat": "Primary Write/s",
+          "refId": "C"
+        }
+      ]
+    },
+    {
       "id": 10,
       "title": "Slow Query 로그 (1초 이상)",
       "description": "Query_time >= 1초인 쿼리만 표시. 실제 성능 병목을 찾는 용도.",
