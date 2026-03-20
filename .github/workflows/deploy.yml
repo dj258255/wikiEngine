@@ -85,8 +85,10 @@ jobs:
             name: "App Server (서버 1)"
           - target: app2
             name: "App Server 2 (서버 2)"
-          - target: monitoring
-            name: "Monitoring"
+          - target: monitoring-loki
+            name: "Loki + Grafana (AMD #1)"
+          - target: monitoring-prometheus
+            name: "Prometheus (AMD #2)"
 
     name: "Deploy ${{ matrix.name }}"
 

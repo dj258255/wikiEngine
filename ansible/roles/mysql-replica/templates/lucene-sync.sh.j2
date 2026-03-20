@@ -6,8 +6,9 @@
 
 set -euo pipefail
 
-PRIMARY_HOST="${PRIMARY_HOST:-__PRIMARY_IP__}"
-LUCENE_PATH="/data/lucene"
+PRIMARY_HOST="{{ hostvars['app-arm'].private_ip }}"
+LUCENE_SRC="/var/lib/docker/volumes/backend_lucene_index/_data/"
+LUCENE_DST="/data/lucene/"
 APP2_LOCAL="http://localhost:8080"
 PRIMARY_APP="http://${PRIMARY_HOST}:8080"
 
@@ -25,10 +26,12 @@ if [ -z "$SNAPSHOT_GEN" ]; then
 fi
 log "INFO: snapshot created (gen=${SNAPSHOT_GEN})"
 
-# 3. rsync (SSH 키 인증)
+# 3. rsync (SSH 키 인증, sudo로 Docker 볼륨 읽기)
 rsync -az --delete \
   --exclude='write.lock' \
-  ${PRIMARY_HOST}:${LUCENE_PATH}/ ${LUCENE_PATH}/
+  --rsync-path="sudo rsync" \
+  -e "ssh -o StrictHostKeyChecking=no" \
+  {{ ansible_user }}@${PRIMARY_HOST}:${LUCENE_SRC} ${LUCENE_DST}
 RSYNC_EXIT=$?
 
 # 4. App 1 snapshot 해제

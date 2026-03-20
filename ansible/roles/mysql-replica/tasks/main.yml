@@ -75,6 +75,33 @@
   delay: 5
   tags: [deploy]
 
+# Phase 13: Lucene 인덱스 동기화 스크립트 + cron
+- name: 스크립트 디렉토리 생성
+  file:
+    path: /opt/scripts
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  tags: [deploy]
+
+- name: lucene-sync.sh 스크립트 배포
+  template:
+    src: lucene-sync.sh.j2
+    dest: /opt/scripts/lucene-sync.sh
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  tags: [deploy]
+
+- name: lucene-sync cron 등록 (5분 주기)
+  cron:
+    name: "lucene-sync"
+    minute: "*/5"
+    job: "/opt/scripts/lucene-sync.sh >> /var/log/lucene-sync.log 2>&1"
+    user: "{{ ansible_user }}"
+  tags: [deploy]
+
 - name: mysqld_exporter 유저 생성 (Replica — super_read_only 일시 해제)
   command: >
     docker exec wiki-mysql-replica mysql -uroot -p{{ db_root_password }}
