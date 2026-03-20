@@ -1,4 +1,4 @@
-# MySQL Replica 배포 (서버 2, Phase 12)
+# 서버 2 배포 (Phase 12: MySQL Replica + Phase 13: App 2)
 - name: Replica 프로젝트 디렉토리 생성
   file:
     path: "{{ replica_dir }}"
@@ -25,7 +25,26 @@
     mode: "0600"
   tags: [deploy]
 
-- name: Replica MySQL 서비스 시작
+# Phase 13: GHCR 로그인 (App 2 이미지 pull용)
+- name: GHCR 로그인
+  community.docker.docker_login:
+    registry_url: ghcr.io
+    username: "{{ ghcr_user }}"
+    password: "{{ ghcr_token }}"
+  become: false
+  tags: [deploy]
+
+# Phase 13: Lucene 인덱스 디렉토리 생성 (bind mount 대상)
+- name: Lucene 인덱스 디렉토리 생성
+  file:
+    path: /data/lucene
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  tags: [deploy]
+
+- name: Replica + App 2 서비스 시작
   community.docker.docker_compose_v2:
     project_src: "{{ replica_dir }}"
     env_files: [".env.prod"]

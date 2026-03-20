@@ -152,10 +152,10 @@ jobs:
             -e "ghcr_user=$GHCR_USER" &
           PID_APP=$!
 
-          # 서버 2 (Phase 12: MySQL Replica)
+          # 서버 2 (Phase 12: MySQL Replica + Phase 13: App 2)
           ansible-playbook -i inventory.yml site.yml --tags setup,deploy \
             --limit app2 \
-            -e "app_image=unused" \
+            -e "app_image=$APP_IMAGE" \
             -e "ghcr_token=$GHCR_TOKEN" \
             -e "ghcr_user=$GHCR_USER" &
           PID_APP2=$!
