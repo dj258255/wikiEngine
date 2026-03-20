@@ -2,6 +2,7 @@ package com.wiki.engine.post.internal;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.ko.KoreanAnalyzer;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
@@ -78,13 +79,22 @@ class LuceneConfig {
      * SearcherManager:
      * - Primary: IndexWriter 기반 NRT reader (uncommitted 변경도 즉시 반영)
      * - Replica: Directory 기반 reader (committed 변경만 감지, rsync 후 maybeRefresh로 갱신)
+     *
+     * Replica 모드에서 디렉토리가 비어있으면 (첫 배포, rsync 전) 빈 인덱스를 초기화한다.
+     * rsync로 실제 인덱스가 복사되면 maybeRefresh()가 자동으로 감지하여 전환한다.
      */
     @Bean(destroyMethod = "close")
     SearcherManager luceneSearcherManager(
             @Autowired(required = false) IndexWriter writer,
-            Directory directory) throws IOException {
+            Directory directory, Analyzer analyzer) throws IOException {
         if (writer != null) {
             return new SearcherManager(writer, null);
+        }
+        // Replica: 디렉토리가 비어있으면 빈 인덱스 초기화 (기동 실패 방지)
+        if (!DirectoryReader.indexExists(directory)) {
+            try (IndexWriter tempWriter = new IndexWriter(directory, new IndexWriterConfig(analyzer))) {
+                tempWriter.commit();
+            }
         }
         return new SearcherManager(directory, null);
     }
