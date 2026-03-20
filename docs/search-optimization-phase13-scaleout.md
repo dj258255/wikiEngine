@@ -1009,15 +1009,24 @@ Nginx max_fails=3, fail_timeout=30s:
 
 ---
 
-### Step 6. Lucene 인덱스 동기화 (rsync)
+### Step 6. Lucene 인덱스 동기화 (rsync) — 완료
 
 | # | 작업 | 확인 방법 | 상태 |
 |---|------|----------|------|
-| 1 | 초기 인덱스 복사 (서버 1 → 서버 2, 20GB) | 서버 2 `/data/lucene/` 파일 확인 | |
-| 2 | `lucene-sync.sh` 작성 + 실행 권한 | 스크립트 테스트 | |
-| 3 | Lucene commit/refresh/snapshot 내부 API 추가 | curl 테스트 | |
-| 4 | cron 등록 (5분 주기) | `crontab -l` | |
-| 5 | 동기화 후 App 2 검색 결과 확인 | API 호출 비교 | |
+| 1 | 초기 인덱스 복사 (서버 1 → 서버 2, 29GB) | `du -sh /data/lucene/` → 29G | **완료** |
+| 2 | `lucene-sync.sh` Jinja2 템플릿 + Ansible 배포 | `/opt/scripts/lucene-sync.sh` 존재 | **완료** |
+| 3 | Lucene commit/refresh/snapshot 내부 API | Step 3에서 구현 완료 | **완료** |
+| 4 | cron 등록 (5분 주기) | `crontab -l` → `*/5 * * * *` 확인 | **완료** |
+| 5 | 동기화 후 App 2 검색 결과 확인 | "대한민국" 검색 정상 (Step 4에서 확인) | **완료** |
+
+**구현 내역:**
+
+- `lucene-sync.sh` → Jinja2 템플릿(`lucene-sync.sh.j2`)으로 전환, 서버 1 private IP 자동 주입
+- rsync 경로: Docker 볼륨 호스트 경로(`/var/lib/docker/volumes/backend_lucene_index/_data/`) 직접 참조 + `--rsync-path="sudo rsync"`
+- Ansible 태스크: `/opt/scripts/` 디렉토리 생성 + 스크립트 배포 + cron 등록 자동화
+- CI/CD: GitHub Actions matrix 전략으로 자동 배포 (서버 2 job에서 처리)
+
+![서버 2 crontab + lucene-sync.sh 배포 확인](../images/phase13/step6-cron-lucene-sync.png)
 
 **초기 인덱스 복사:**
 
@@ -1151,15 +1160,16 @@ location /internal {
 
 ---
 
-### Step 7. 모니터링 추가
+### Step 7. 모니터링 추가 — 완료
 
-| # | 작업 | 확인 방법 |
-|---|------|----------|
-| 1 | Prometheus scrape target에 App 2 추가 | `up{job="spring-boot-2"}` |
-| 2 | Grafana Spring Boot 대시보드에 인스턴스 비교 추가 | 인스턴스별 CPU/메모리/GC |
-| 3 | Grafana HikariCP 대시보드에 App 2 풀 추가 | 인스턴스별 primary-pool/replica-pool |
-| 4 | Grafana Nginx 업스트림 메트릭 (선택) | 인스턴스별 요청 수/응답시간 |
-| 5 | Loki에 App 2 로그 수집 확인 | App 2 라벨로 필터 |
+| # | 작업 | 확인 방법 | 상태 |
+|---|------|----------|------|
+| 1 | Prometheus scrape target에 App 2 추가 | `up{job="spring-boot-2"} = 1` | **완료** |
+| 2 | Grafana Spring Boot 대시보드에 인스턴스 비교 | 인스턴스별 CPU/메모리/GC | After 측정 시 확인 |
+| 3 | Grafana HikariCP 대시보드에 App 2 풀 | 인스턴스별 primary-pool/replica-pool | After 측정 시 확인 |
+| 4 | Loki에 App 2 로그 수집 | Alloy 임시 비활성화로 보류 | **보류** |
+
+![Prometheus App 2 scrape 정상 — up=1](../images/phase13/step7-prometheus-app2-up.png)
 
 **Prometheus 추가 scrape target:**
 

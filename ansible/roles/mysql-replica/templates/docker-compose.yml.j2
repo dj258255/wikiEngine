@@ -64,23 +64,23 @@ services:
     networks:
       - wiki-net
 
-  # Phase 13: Alloy (App 2 로그 → Loki) — TODO: alloy-config.alloy 템플릿 추가 후 활성화
-  # alloy:
-  #   image: {{ alloy_image | default('grafana/alloy:latest') }}
-  #   container_name: wiki-alloy-prod-2
-  #   restart: always
-  #   volumes:
-  #     - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
-  #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #   command:
-  #     - run
-  #     - /etc/alloy/config.alloy
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: {{ alloy_memory_limit | default('128M') }}
-  #   networks:
-  #     - wiki-net
+  # Phase 13: Alloy (App 2 로그 → Loki)
+  alloy:
+    image: {{ alloy_image | default('grafana/alloy:latest') }}
+    container_name: wiki-alloy-prod-2
+    restart: always
+    volumes:
+      - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - run
+      - /etc/alloy/config.alloy
+    deploy:
+      resources:
+        limits:
+          memory: {{ alloy_memory_limit | default('128M') }}
+    networks:
+      - wiki-net
 
   mysql-exporter:
     image: {{ mysqld_exporter_image }}

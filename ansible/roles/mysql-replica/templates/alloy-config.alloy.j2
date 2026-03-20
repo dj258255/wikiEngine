@@ -1,0 +1,52 @@
+// Grafana Alloy - App Server 2 → Loki
+// Docker 컨테이너 로그 수집 (App 2 + MySQL Replica)
+
+// ============================================================
+// 1. Docker 컨테이너 로그 수집
+// ============================================================
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // 서버 2 식별 라벨
+  rule {
+    target_label = "server"
+    replacement  = "app-arm-2"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.multiline_docker.receiver]
+}
+
+loki.process "multiline_docker" {
+  stage.multiline {
+    firstline = "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}"
+    max_wait_time = "3s"
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// ============================================================
+// 2. Loki 전송 엔드포인트
+// ============================================================
+
+loki.write "default" {
+  endpoint {
+    url = "http://{{ hostvars['monitoring-loki'].private_ip }}:3100/loki/api/v1/push"
+  }
+}
