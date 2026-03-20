@@ -116,9 +116,8 @@
   become: false
   tags: [deploy]
 
-- name: Nginx reload (컨테이너 추가/제거 시 upstream DNS 갱신)
-  command: docker exec wiki-nginx-prod nginx -s reload
-  failed_when: false
+- name: Nginx 재시작 (bind mount inode 변경 시 reload만으로 부족 → restart)
+  command: docker restart wiki-nginx-prod
   tags: [deploy]
 
 - name: 앱 헬스체크 대기
