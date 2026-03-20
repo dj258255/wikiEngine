@@ -2,8 +2,8 @@ package com.wiki.engine.post.internal;
 
 import com.wiki.engine.post.Post;
 import jakarta.persistence.EntityManager;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
@@ -22,10 +22,9 @@ import java.util.List;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class LuceneIndexService {
 
-    private final IndexWriter indexWriter;
+    private final IndexWriter indexWriter;  // null in replica mode
     private final SearcherManager searcherManager;
     private final PostRepository postRepository;
     private final EntityManager entityManager;
@@ -33,11 +32,26 @@ public class LuceneIndexService {
     @Value("${lucene.batch-size}")
     private int batchSize;
 
+    public LuceneIndexService(
+            @Autowired(required = false) IndexWriter indexWriter,
+            SearcherManager searcherManager,
+            PostRepository postRepository,
+            EntityManager entityManager) {
+        this.indexWriter = indexWriter;
+        this.searcherManager = searcherManager;
+        this.postRepository = postRepository;
+        this.entityManager = entityManager;
+    }
+
     /**
      * 단건 인덱싱: 게시글 생성/수정 시 호출.
      * updateDocument는 기존 문서가 있으면 삭제 후 추가한다.
      */
     public void indexPost(Post post) throws IOException {
+        if (indexWriter == null) {
+            log.debug("Lucene replica mode — skipping index for post {}", post.getId());
+            return;
+        }
         if (post.getContent() == null || post.getContent().isBlank()) {
             log.warn("Skipping empty content: postId={}", post.getId());
             return;
@@ -51,6 +65,10 @@ public class LuceneIndexService {
      * Term("id", postId)로 해당 문서를 삭제한 뒤 NRT reader를 갱신한다.
      */
     public void deleteFromIndex(Long postId) throws IOException {
+        if (indexWriter == null) {
+            log.debug("Lucene replica mode — skipping delete for post {}", postId);
+            return;
+        }
         indexWriter.deleteDocuments(new Term("id", postId.toString()));
         searcherManager.maybeRefresh();
     }
@@ -67,6 +85,10 @@ public class LuceneIndexService {
      * - forceMerge(5)로 세그먼트 병합 시간 단축
      */
     public void indexAll(long startId) throws IOException {
+        if (indexWriter == null) {
+            log.warn("Lucene replica mode — indexAll is not available");
+            return;
+        }
         long startTime = System.currentTimeMillis();
         long lastId = startId;
         long totalIndexed = 0;

@@ -1,0 +1,44 @@
+#!/bin/bash
+# lucene-sync.sh — App 1 → App 2 Lucene 인덱스 동기화
+# SnapshotDeletionPolicy (세그먼트 삭제 방지) + Refresh Pause (LUCENE-628 레이스 컨디션 방지)
+#
+# cron: */5 * * * * /opt/scripts/lucene-sync.sh >> /var/log/lucene-sync.log 2>&1
+
+set -euo pipefail
+
+PRIMARY_HOST="${PRIMARY_HOST:-__PRIMARY_IP__}"
+LUCENE_PATH="/data/lucene"
+APP2_LOCAL="http://localhost:8080"
+PRIMARY_APP="http://${PRIMARY_HOST}:8080"
+
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $1"; }
+
+# 1. App 2 refresh 일시 중단 (rsync 중 maybeRefresh 차단)
+curl -sf -X POST ${APP2_LOCAL}/internal/lucene/pause-refresh || true
+
+# 2. App 1에 Lucene commit + snapshot 요청
+SNAPSHOT_GEN=$(curl -sf -X POST ${PRIMARY_APP}/internal/lucene/snapshot)
+if [ -z "$SNAPSHOT_GEN" ]; then
+  log "ERROR: snapshot 요청 실패"
+  curl -sf -X POST ${APP2_LOCAL}/internal/lucene/resume-refresh || true
+  exit 1
+fi
+log "INFO: snapshot created (gen=${SNAPSHOT_GEN})"
+
+# 3. rsync (SSH 키 인증)
+rsync -az --delete \
+  --exclude='write.lock' \
+  ${PRIMARY_HOST}:${LUCENE_PATH}/ ${LUCENE_PATH}/
+RSYNC_EXIT=$?
+
+# 4. App 1 snapshot 해제
+curl -sf -X DELETE "${PRIMARY_APP}/internal/lucene/snapshot/${SNAPSHOT_GEN}" || true
+
+# 5. App 2 refresh 재개 + 즉시 refresh
+curl -sf -X POST ${APP2_LOCAL}/internal/lucene/resume-refresh || true
+
+if [ $RSYNC_EXIT -eq 0 ]; then
+  log "OK: sync completed (gen=${SNAPSHOT_GEN})"
+else
+  log "WARN: rsync exited with code ${RSYNC_EXIT}"
+fi

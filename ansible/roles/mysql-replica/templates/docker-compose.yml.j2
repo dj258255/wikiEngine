@@ -1,5 +1,6 @@
-# MySQL Replica (서버 2, Phase 12)
-# Primary(서버 1)의 읽기 부하를 분산한다.
+# 서버 2: MySQL Replica + App 2 + Alloy (Phase 12~13)
+# Phase 12: MySQL Replica (읽기 부하 분산)
+# Phase 13: App 2 (CPU 부하 분산) + Alloy (로그 수집)
 
 services:
   mysql-replica:
@@ -36,6 +37,51 @@ services:
     networks:
       - wiki-net
 
+  # Phase 13: App 2 (Lucene Replica 모드)
+  app:
+    image: {{ app_image }}
+    container_name: wiki-app-prod-2
+    restart: always
+    env_file:
+      - .env.prod
+    ports:
+      - "8080:8080"
+    volumes:
+      - lucene_index:/data/lucene
+    deploy:
+      resources:
+        limits:
+          memory: {{ app_memory_limit | default('2G') }}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      mysql-replica:
+        condition: service_healthy
+    networks:
+      - wiki-net
+
+  # Phase 13: Alloy (App 2 로그 → Loki)
+  alloy:
+    image: {{ alloy_image | default('grafana/alloy:latest') }}
+    container_name: wiki-alloy-prod-2
+    restart: always
+    volumes:
+      - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - run
+      - /etc/alloy/config.alloy
+    deploy:
+      resources:
+        limits:
+          memory: {{ alloy_memory_limit | default('128M') }}
+    networks:
+      - wiki-net
+
   mysql-exporter:
     image: {{ mysqld_exporter_image }}
     container_name: wiki-mysql-exporter-replica
@@ -59,6 +105,12 @@ services:
 
 volumes:
   mysql_replica_data:
+  lucene_index:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/lucene
 
 networks:
   wiki-net:

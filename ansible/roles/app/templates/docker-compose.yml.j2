@@ -99,6 +99,7 @@ services:
       HEALTH_SHOW_DETAILS: ${HEALTH_SHOW_DETAILS}
       LUCENE_INDEX_PATH: ${LUCENE_INDEX_PATH}
       LUCENE_BATCH_SIZE: ${LUCENE_BATCH_SIZE}
+      LUCENE_MODE: ${LUCENE_MODE}
       JAVA_OPTS: ${JAVA_OPTS}
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -123,10 +124,13 @@ services:
     image: {{ redis_image }}
     container_name: wiki-redis-prod
     restart: always
+    ports:
+      - "{{ private_ip }}:6379:6379"  # Phase 13: 서버 2 App에서 접근 가능 (private network만)
     volumes:
       - redis_data:/data
     command: >
       redis-server
+      --bind 0.0.0.0
       --maxmemory {{ redis_maxmemory }}
       --maxmemory-policy volatile-lru
       --requirepass ${REDIS_PASSWORD}
