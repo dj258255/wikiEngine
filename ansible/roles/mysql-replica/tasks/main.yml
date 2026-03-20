@@ -35,6 +35,13 @@
   tags: [deploy]
 
 # Phase 13: Alloy 설정 배포 (App 2 로그 → Loki)
+# Docker가 bind mount 경로를 디렉토리로 자동 생성하는 문제 방지
+- name: Alloy 설정 경로 정리 (디렉토리가 잘못 생성된 경우)
+  file:
+    path: "{{ replica_dir }}/alloy-config.alloy"
+    state: absent
+  tags: [deploy]
+
 - name: Alloy 설정 배포
   template:
     src: alloy-config.alloy.j2
