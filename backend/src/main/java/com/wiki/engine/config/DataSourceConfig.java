@@ -1,6 +1,7 @@
 package com.wiki.engine.config;
 
 import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,13 +37,15 @@ public class DataSourceConfig {
 
     @Bean
     @Primary
-    public DataSource dataSource() {
+    public DataSource dataSource(
+            @Qualifier("primaryDataSource") HikariDataSource primaryDataSource,
+            @Qualifier("replicaDataSource") HikariDataSource replicaDataSource) {
         ReadWriteRoutingDataSource routingDS = new ReadWriteRoutingDataSource();
         routingDS.setTargetDataSources(Map.of(
-                "primary", primaryDataSource(),
-                "replica", replicaDataSource()
+                "primary", primaryDataSource,
+                "replica", replicaDataSource
         ));
-        routingDS.setDefaultTargetDataSource(primaryDataSource());
+        routingDS.setDefaultTargetDataSource(primaryDataSource);
         routingDS.afterPropertiesSet();
 
         return new LazyConnectionDataSourceProxy(routingDS);
