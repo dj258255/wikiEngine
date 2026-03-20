@@ -20,14 +20,14 @@
       "targets": [
         {
           "expr": "rate(http_server_requests_seconds_sum{application=\"wiki-engine\"}[1m]) / rate(http_server_requests_seconds_count{application=\"wiki-engine\"}[1m]) * 1000",
-          "legendFormat": "{{method}} {{uri}} [{{status}}]",
+          "legendFormat": "{{instance}} {{method}} {{uri}} [{{status}}]",
           "refId": "A"
         }
       ]
     },
     {
       "id": 2,
-      "title": "HTTP 요청 처리량 (req/s)",
+      "title": "HTTP 요청 처리량 - 인스턴스별 (req/s)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -37,15 +37,15 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"wiki-engine\"}[1m])) by (uri)",
-          "legendFormat": "{{uri}}",
+          "expr": "sum by (instance) (rate(http_server_requests_seconds_count{application=\"wiki-engine\"}[1m]))",
+          "legendFormat": "{{instance}}",
           "refId": "A"
         }
       ]
     },
     {
       "id": 3,
-      "title": "HTTP 응답시간 P95 / P99 (ms)",
+      "title": "HTTP 응답시간 P95 / P99 - 인스턴스별 (ms)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -55,20 +55,20 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"wiki-engine\"}[1m])) by (le)) * 1000",
-          "legendFormat": "P95",
+          "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(http_server_requests_seconds_bucket{application=\"wiki-engine\"}[1m]))) * 1000",
+          "legendFormat": "{{instance}} P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=\"wiki-engine\"}[1m])) by (le)) * 1000",
-          "legendFormat": "P99",
+          "expr": "histogram_quantile(0.99, sum by (le, instance) (rate(http_server_requests_seconds_bucket{application=\"wiki-engine\"}[1m]))) * 1000",
+          "legendFormat": "{{instance}} P99",
           "refId": "B"
         }
       ]
     },
     {
       "id": 4,
-      "title": "HTTP 에러율 (4xx / 5xx)",
+      "title": "HTTP 에러율 - 인스턴스별 (4xx / 5xx)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -78,13 +78,13 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"wiki-engine\", status=~\"4..\"}[1m])) / sum(rate(http_server_requests_seconds_count{application=\"wiki-engine\"}[1m]))",
-          "legendFormat": "4xx",
+          "expr": "sum by (instance) (rate(http_server_requests_seconds_count{application=\"wiki-engine\", status=~\"4..\"}[1m])) / sum by (instance) (rate(http_server_requests_seconds_count{application=\"wiki-engine\"}[1m]))",
+          "legendFormat": "{{instance}} 4xx",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"wiki-engine\", status=~\"5..\"}[1m])) / sum(rate(http_server_requests_seconds_count{application=\"wiki-engine\"}[1m]))",
-          "legendFormat": "5xx",
+          "expr": "sum by (instance) (rate(http_server_requests_seconds_count{application=\"wiki-engine\", status=~\"5..\"}[1m])) / sum by (instance) (rate(http_server_requests_seconds_count{application=\"wiki-engine\"}[1m]))",
+          "legendFormat": "{{instance}} 5xx",
           "refId": "B"
         }
       ]
@@ -98,7 +98,7 @@
     },
     {
       "id": 5,
-      "title": "JVM Heap 메모리 사용량",
+      "title": "JVM Heap 메모리 사용량 - 인스턴스별",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -108,20 +108,20 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_used_bytes{application=\"wiki-engine\", area=\"heap\"}",
-          "legendFormat": "Used - {{id}}",
+          "expr": "sum by (instance) (jvm_memory_used_bytes{application=\"wiki-engine\", area=\"heap\"})",
+          "legendFormat": "{{instance}} Used",
           "refId": "A"
         },
         {
-          "expr": "jvm_memory_max_bytes{application=\"wiki-engine\", area=\"heap\"}",
-          "legendFormat": "Max - {{id}}",
+          "expr": "sum by (instance) (jvm_memory_max_bytes{application=\"wiki-engine\", area=\"heap\"})",
+          "legendFormat": "{{instance}} Max",
           "refId": "B"
         }
       ]
     },
     {
       "id": 6,
-      "title": "GC 일시정지 시간",
+      "title": "GC 일시정지 시간 - 인스턴스별",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -132,7 +132,7 @@
       "targets": [
         {
           "expr": "rate(jvm_gc_pause_seconds_sum{application=\"wiki-engine\"}[1m])",
-          "legendFormat": "{{action}} - {{cause}}",
+          "legendFormat": "{{instance}} {{action}} - {{cause}}",
           "refId": "A"
         }
       ]
@@ -146,7 +146,7 @@
     },
     {
       "id": 7,
-      "title": "HikariCP 커넥션 풀 상태",
+      "title": "HikariCP 커넥션 풀 상태 - 인스턴스별",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -157,29 +157,29 @@
       "targets": [
         {
           "expr": "hikaricp_connections_active{application=\"wiki-engine\"}",
-          "legendFormat": "{{pool}} Active",
+          "legendFormat": "{{instance}} {{pool}} Active",
           "refId": "A"
         },
         {
           "expr": "hikaricp_connections_idle{application=\"wiki-engine\"}",
-          "legendFormat": "{{pool}} Idle",
+          "legendFormat": "{{instance}} {{pool}} Idle",
           "refId": "B"
         },
         {
           "expr": "hikaricp_connections_pending{application=\"wiki-engine\"}",
-          "legendFormat": "{{pool}} Pending",
+          "legendFormat": "{{instance}} {{pool}} Pending",
           "refId": "C"
         },
         {
           "expr": "hikaricp_connections_max{application=\"wiki-engine\"}",
-          "legendFormat": "{{pool}} Max",
+          "legendFormat": "{{instance}} {{pool}} Max",
           "refId": "D"
         }
       ]
     },
     {
       "id": 8,
-      "title": "HikariCP 커넥션 획득 시간 (ms)",
+      "title": "HikariCP 커넥션 획득 시간 - 인스턴스별 (ms)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -190,7 +190,7 @@
       "targets": [
         {
           "expr": "rate(hikaricp_connections_acquire_seconds_sum{application=\"wiki-engine\"}[1m]) / rate(hikaricp_connections_acquire_seconds_count{application=\"wiki-engine\"}[1m]) * 1000",
-          "legendFormat": "{{pool}} Avg Acquire",
+          "legendFormat": "{{instance}} {{pool}} Avg Acquire",
           "refId": "A"
         }
       ]
@@ -204,7 +204,8 @@
     },
     {
       "id": 9,
-      "title": "프로세스 CPU 사용률",
+      "title": "★ 프로세스 CPU 사용률 - 인스턴스별 (Phase 13 핵심)",
+      "description": "App 1 vs App 2 CPU 사용률 비교. Phase 13 스케일아웃의 핵심 지표.",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -215,19 +216,19 @@
       "targets": [
         {
           "expr": "process_cpu_usage{application=\"wiki-engine\"}",
-          "legendFormat": "App CPU",
+          "legendFormat": "{{instance}} App CPU",
           "refId": "A"
         },
         {
           "expr": "system_cpu_usage{application=\"wiki-engine\"}",
-          "legendFormat": "System CPU",
+          "legendFormat": "{{instance}} System CPU",
           "refId": "B"
         }
       ]
     },
     {
       "id": 13,
-      "title": "JVM 스레드 수",
+      "title": "JVM 스레드 수 - 인스턴스별",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -238,17 +239,17 @@
       "targets": [
         {
           "expr": "jvm_threads_live_threads{application=\"wiki-engine\"}",
-          "legendFormat": "Live",
+          "legendFormat": "{{instance}} Live",
           "refId": "A"
         },
         {
           "expr": "jvm_threads_peak_threads{application=\"wiki-engine\"}",
-          "legendFormat": "Peak",
+          "legendFormat": "{{instance}} Peak",
           "refId": "B"
         },
         {
           "expr": "jvm_threads_daemon_threads{application=\"wiki-engine\"}",
-          "legendFormat": "Daemon",
+          "legendFormat": "{{instance}} Daemon",
           "refId": "C"
         }
       ]
@@ -286,7 +287,7 @@
     },
     {
       "id": 22,
-      "title": "캐시 리전별 히트 추이",
+      "title": "캐시 리전별 히트 추이 - 인스턴스별",
       "description": "searchResults / postDetail 별 L1/L2/Origin 추이",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 44 },
@@ -297,15 +298,15 @@
       },
       "targets": [
         {
-          "expr": "sum by (region, level) (rate(tiered_cache_total{application=\"wiki-engine\"}[1m]))",
-          "legendFormat": "{{region}} - {{level}}",
+          "expr": "sum by (instance, region, level) (rate(tiered_cache_total{application=\"wiki-engine\"}[1m]))",
+          "legendFormat": "{{instance}} {{region}} - {{level}}",
           "refId": "A"
         }
       ]
     },
     {
       "id": 23,
-      "title": "Origin 도달률 (Lucene/MySQL 접근)",
+      "title": "Origin 도달률 - 인스턴스별 (Lucene/MySQL 접근)",
       "description": "L1+L2 미스 → Lucene/MySQL 직접 접근 빈도. CPU 부하와 상관관계.",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 44 },
@@ -316,8 +317,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (region) (rate(tiered_cache_total{application=\"wiki-engine\", level=\"origin\"}[1m]))",
-          "legendFormat": "{{region}} → origin",
+          "expr": "sum by (instance, region) (rate(tiered_cache_total{application=\"wiki-engine\", level=\"origin\"}[1m]))",
+          "legendFormat": "{{instance}} {{region}} → origin",
           "refId": "A"
         }
       ]
@@ -331,8 +332,8 @@
     },
     {
       "id": 31,
-      "title": "Lettuce 커맨드 P95 레이턴시 (ms)",
-      "description": "앱→Redis 왕복 P95. SLA 5ms 이내 목표.",
+      "title": "Lettuce 커맨드 P95 레이턴시 - 인스턴스별 (ms)",
+      "description": "앱→Redis 왕복 P95. App 1(로컬 Redis) vs App 2(원격 Redis) 비교.",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 53 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -342,13 +343,13 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(lettuce_seconds_bucket{application=\"wiki-engine\"}[5m])) by (le)) * 1000",
-          "legendFormat": "P95",
+          "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(lettuce_seconds_bucket{application=\"wiki-engine\"}[5m]))) * 1000",
+          "legendFormat": "{{instance}} P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(lettuce_seconds_bucket{application=\"wiki-engine\"}[5m])) by (le)) * 1000",
-          "legendFormat": "P99",
+          "expr": "histogram_quantile(0.99, sum by (le, instance) (rate(lettuce_seconds_bucket{application=\"wiki-engine\"}[5m]))) * 1000",
+          "legendFormat": "{{instance}} P99",
           "refId": "B"
         }
       ]
@@ -366,8 +367,8 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(lettuce_seconds_bucket{application=\"wiki-engine\"}[5m])) by (le, db_operation)) * 1000",
-          "legendFormat": "{{db_operation}} P95",
+          "expr": "histogram_quantile(0.95, sum by (le, instance, db_operation) (rate(lettuce_seconds_bucket{application=\"wiki-engine\"}[5m]))) * 1000",
+          "legendFormat": "{{instance}} {{db_operation}} P95",
           "refId": "A"
         }
       ]
