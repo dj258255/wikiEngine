@@ -43,6 +43,7 @@ public class DataSourceConfig {
                 "replica", replicaDataSource()
         ));
         routingDS.setDefaultTargetDataSource(primaryDataSource());
+        routingDS.afterPropertiesSet();
 
         return new LazyConnectionDataSourceProxy(routingDS);
     }
