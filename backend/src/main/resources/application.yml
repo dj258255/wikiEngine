@@ -13,19 +13,19 @@ spring:
   datasource:
     primary:
       hikari:
-        jdbc-url: jdbc:mysql://${DB_PRIMARY_HOST:${DB_HOST}}:${DB_PORT:3306}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
+        jdbc-url: jdbc:mysql://${DB_PRIMARY_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
         username: ${DB_USERNAME}
         password: ${DB_PASSWORD}
-        maximum-pool-size: ${DB_PRIMARY_POOL_SIZE:5}
+        maximum-pool-size: ${DB_PRIMARY_POOL_SIZE}
         pool-name: primary-pool
         connection-timeout: 5000
         leak-detection-threshold: 10000
     replica:
       hikari:
-        jdbc-url: jdbc:mysql://${DB_REPLICA_HOST:${DB_HOST}}:${DB_PORT:3306}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
+        jdbc-url: jdbc:mysql://${DB_REPLICA_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
         username: ${DB_USERNAME}
         password: ${DB_PASSWORD}
-        maximum-pool-size: ${DB_REPLICA_POOL_SIZE:15}
+        maximum-pool-size: ${DB_REPLICA_POOL_SIZE}
         pool-name: replica-pool
         connection-timeout: 5000
         leak-detection-threshold: 10000

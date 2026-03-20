@@ -44,12 +44,14 @@
   delay: 3
   tags: [deploy]
 
-- name: mysqld_exporter 유저 생성 (Replica)
+- name: mysqld_exporter 유저 생성 (Replica — super_read_only 일시 해제)
   command: >
     docker exec wiki-mysql-replica mysql -uroot -p{{ db_root_password }}
-    -e "CREATE USER IF NOT EXISTS '{{ mysql_exporter_username }}'@'%'
+    -e "SET GLOBAL super_read_only=OFF; SET GLOBAL read_only=OFF;
+    CREATE USER IF NOT EXISTS '{{ mysql_exporter_username }}'@'%'
     IDENTIFIED BY '{{ mysql_exporter_password }}' WITH MAX_USER_CONNECTIONS 3;
     GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO '{{ mysql_exporter_username }}'@'%';
-    FLUSH PRIVILEGES;"
+    FLUSH PRIVILEGES;
+    SET GLOBAL read_only=ON; SET GLOBAL super_read_only=ON;"
   changed_when: false
   tags: [deploy]
