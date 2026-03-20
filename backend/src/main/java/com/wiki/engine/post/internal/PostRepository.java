@@ -94,6 +94,11 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("UPDATE Post p SET p.viewCount = p.viewCount + 1 WHERE p.id = :id")
     void incrementViewCount(@Param("id") Long id);
 
+    /** 조회수를 지정된 값만큼 증가시킨다 (Redis 배치 flush용). */
+    @Modifying
+    @Query("UPDATE Post p SET p.viewCount = p.viewCount + :delta WHERE p.id = :id")
+    void incrementViewCountBy(@Param("id") Long id, @Param("delta") long delta);
+
     /** 좋아요 수를 원자적으로 1 증가시킨다. */
     @Modifying
     @Query("UPDATE Post p SET p.likeCount = p.likeCount + 1 WHERE p.id = :id")

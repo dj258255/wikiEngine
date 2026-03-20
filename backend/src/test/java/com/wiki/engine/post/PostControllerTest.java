@@ -2,6 +2,7 @@ package com.wiki.engine.post;
 
 import com.wiki.engine.auth.JwtTokenProvider;
 import com.wiki.engine.auth.TokenBlacklist;
+import com.wiki.engine.post.internal.ViewCountService;
 import com.wiki.engine.auth.UserPrincipal;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
@@ -45,6 +46,9 @@ class PostControllerTest {
 
     @MockitoBean
     private PostService postService;
+
+    @MockitoBean
+    private ViewCountService viewCountService;
 
     // Security 필터 체인 의존성
     @MockitoBean
@@ -134,7 +138,7 @@ class PostControllerTest {
                     .andExpect(jsonPath("$.data.title").value("테스트 게시글"))
                     .andExpect(jsonPath("$.data.content").value("본문 내용입니다"));
 
-            verify(postService).incrementViewCount(1L);
+            verify(viewCountService).increment(1L);
         }
 
         @Test

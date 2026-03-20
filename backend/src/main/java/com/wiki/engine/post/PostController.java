@@ -3,6 +3,7 @@ package com.wiki.engine.post;
 import com.wiki.engine.auth.CurrentUser;
 import com.wiki.engine.auth.UserPrincipal;
 import com.wiki.engine.post.dto.*;
+import com.wiki.engine.post.internal.ViewCountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
+    private final ViewCountService viewCountService;
 
     /** 최신 게시글 목록 조회 (Deferred Join + Slice, COUNT(*) 제거) */
     @GetMapping
@@ -48,16 +50,15 @@ public class PostController {
         return posts.map(PostSummaryResponse::from);
     }
 
-    /** 게시글 상세 조회 (캐시 히트 가능) + 조회수 증가 (best-effort) */
+    /**
+     * 게시글 상세 조회 + 조회수 증가 (Redis INCR).
+     * DB UPDATE 대신 Redis INCR → 30초 주기 배치 flush.
+     * GET 요청에서 DB 쓰기를 제거하여 R/W 분리 라우팅 문제 해결.
+     */
     @GetMapping("/{id}")
     public PostDetailResponse getPost(@PathVariable Long id) {
         Post post = postService.findByIdCached(id);
-        try {
-            postService.incrementViewCount(id);
-        } catch (Exception e) {
-            // 조회수 증가 실패가 게시글 조회를 실패시키면 안 됨 (best-effort)
-            log.warn("조회수 증가 실패 (무시): postId={}, error={}", id, e.getMessage());
-        }
+        viewCountService.increment(id);
         return PostDetailResponse.from(post);
     }
 
