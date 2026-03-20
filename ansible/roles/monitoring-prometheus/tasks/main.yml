@@ -34,11 +34,8 @@
   become: false
   tags: [deploy]
 
-- name: Prometheus 설정 reload (설정 변경 시)
-  uri:
-    url: http://localhost:9090/-/reload
-    method: POST
-    status_code: 200
+- name: Prometheus 재시작 (설정 변경 시 — bind mount inode 갱신)
+  command: docker restart wiki-prometheus-prod
   when: prometheus_config.changed
   tags: [deploy]
 
