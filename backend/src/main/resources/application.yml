@@ -7,9 +7,8 @@ spring:
     name: wiki-engine
 
   # MySQL DataSource — Primary/Replica 분리 (Phase 12)
-  # DataSourceConfig에서 HikariDataSource 빈을 직접 생성하므로 Boot 자동설정 제외
-  autoconfigure:
-    exclude: org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+  # DataSourceConfig에서 @Primary DataSource 빈을 정의하므로 Boot 자동설정 DataSource는 백오프.
+  # DataSourceAutoConfiguration은 exclude하지 않음 — Flyway가 DataSourceProperties에 의존하기 때문.
   datasource:
     primary:
       hikari:
