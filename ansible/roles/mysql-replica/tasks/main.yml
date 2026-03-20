@@ -52,6 +52,7 @@
     pull: missing
     wait: true
     wait_timeout: 300
+    remove_orphans: true
   become: false
   tags: [deploy]
 
