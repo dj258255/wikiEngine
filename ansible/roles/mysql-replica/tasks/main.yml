@@ -50,8 +50,7 @@
     env_files: [".env.prod"]
     state: present
     pull: missing
-    wait: true
-    wait_timeout: 300
+    wait: false
     remove_orphans: true
   become: false
   tags: [deploy]
@@ -62,6 +61,18 @@
   until: replica_health.rc == 0
   retries: 15
   delay: 3
+  tags: [deploy]
+
+# Phase 13: App 2 헬스체크 대기 (docker compose --wait 대신 Ansible uri로 직접 확인)
+- name: App 2 헬스체크 대기
+  uri:
+    url: http://localhost:8080/actuator/health
+    status_code: 200
+    timeout: 5
+  register: app2_health
+  until: app2_health.status == 200
+  retries: 20
+  delay: 5
   tags: [deploy]
 
 - name: mysqld_exporter 유저 생성 (Replica — super_read_only 일시 해제)

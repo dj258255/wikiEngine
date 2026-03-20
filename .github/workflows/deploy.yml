@@ -1,5 +1,5 @@
 # OCI 멀티서버 배포 워크플로우 (Ansible + Vault)
-# main 브랜치 push 시: GHCR 이미지 빌드 → Ansible 배포
+# main 브랜치 push 시: GHCR 이미지 빌드 → 서버별 독립 배포 (matrix)
 #
 # 필요한 GitHub Secrets:
 #   OCI_SSH_KEY      - SSH 개인키 (PEM, 3대 서버 공통)
@@ -76,6 +76,20 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: read
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - target: app
+            name: "App Server (서버 1)"
+          - target: app2
+            name: "App Server 2 (서버 2)"
+          - target: monitoring
+            name: "Monitoring"
+
+    name: "Deploy ${{ matrix.name }}"
+
     steps:
       - name: Checkout (ansible + k6 스크립트)
         uses: actions/checkout@v4
@@ -134,7 +148,7 @@ jobs:
           echo "${{ secrets.OCI_SSH_KEY }}" > ~/.ssh/oci_key
           chmod 600 ~/.ssh/oci_key
 
-      - name: Ansible 배포 실행 (App + Monitoring 병렬)
+      - name: "Ansible 배포: ${{ matrix.name }}"
         env:
           ANSIBLE_HOST_KEY_CHECKING: "false"
           APP_IMAGE: "ghcr.io/${{ steps.repo.outputs.name }}:${{ github.sha }}"
@@ -143,31 +157,8 @@ jobs:
         run: |
           source ~/.ansible-venv/bin/activate
           cd ansible
-
-          # 서버 1 (App + Redis)
           ansible-playbook -i inventory.yml site.yml --tags setup,deploy \
-            --limit app \
+            --limit ${{ matrix.target }} \
             -e "app_image=$APP_IMAGE" \
             -e "ghcr_token=$GHCR_TOKEN" \
-            -e "ghcr_user=$GHCR_USER" &
-          PID_APP=$!
-
-          # 서버 2 (Phase 12: MySQL Replica + Phase 13: App 2)
-          ansible-playbook -i inventory.yml site.yml --tags setup,deploy \
-            --limit app2 \
-            -e "app_image=$APP_IMAGE" \
-            -e "ghcr_token=$GHCR_TOKEN" \
-            -e "ghcr_user=$GHCR_USER" &
-          PID_APP2=$!
-
-          # 모니터링 (Prometheus + Loki/Grafana)
-          ansible-playbook -i inventory.yml site.yml --tags setup,deploy \
-            --limit monitoring \
-            -e "app_image=unused" \
-            -e "ghcr_token=$GHCR_TOKEN" \
-            -e "ghcr_user=$GHCR_USER" &
-          PID_MON=$!
-
-          wait $PID_APP || exit 1
-          wait $PID_APP2 || exit 1
-          wait $PID_MON || exit 1
+            -e "ghcr_user=$GHCR_USER"
