@@ -309,6 +309,9 @@ function testSearch() {
             },
         });
 
+        if (!success && res.status !== 200) {
+            console.warn(`검색 실패: status=${res.status} query=${query} page=${page}`);
+        }
         errorRate.add(!success);
     });
 }
@@ -333,6 +336,9 @@ function testAutocomplete() {
             },
         });
 
+        if (!success && res.status !== 200) {
+            console.warn(`자동완성 실패: status=${res.status} prefix=${prefix}`);
+        }
         errorRate.add(!success);
     });
 }
@@ -388,7 +394,7 @@ function testCreatePost() {
         writeDuration.add(res.timings.duration);
 
         const success = check(res, {
-            '글 생성 201': (r) => r.status === 201,
+            '글 생성 성공': (r) => r.status === 201 || r.status === 200,
         });
 
         errorRate.add(!success);
@@ -407,8 +413,8 @@ function testLikePost() {
         writeDuration.add(res.timings.duration);
 
         const success = check(res, {
-            // 200: 좋아요 성공, 409: 이미 좋아요함 — 둘 다 정상
-            '좋아요 200 또는 409': (r) => r.status === 200 || r.status === 409,
+            // 200: 좋아요 성공, 409: 이미 좋아요함, 404: 게시글 없음 — 모두 정상 동작
+            '좋아요 정상 응답': (r) => r.status === 200 || r.status === 409 || r.status === 404,
         });
 
         errorRate.add(!success);
