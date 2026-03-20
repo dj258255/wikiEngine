@@ -7,9 +7,13 @@ spring:
     name: wiki-engine
 
   # MySQL DataSource — Primary/Replica 분리 (Phase 12)
-  # DataSourceConfig에서 @Primary DataSource 빈을 정의하므로 Boot 자동설정 DataSource는 백오프.
-  # DataSourceAutoConfiguration은 exclude하지 않음 — Flyway가 DataSourceProperties에 의존하기 때문.
   datasource:
+    # Spring Boot 기본 DataSource 설정 (Flyway + DataSourceAutoConfiguration이 참조)
+    url: jdbc:mysql://${DB_PRIMARY_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # Primary/Replica HikariCP 풀 (DataSourceConfig에서 사용)
     primary:
       hikari:
         jdbc-url: jdbc:mysql://${DB_PRIMARY_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
@@ -40,12 +44,10 @@ spring:
       lettuce:
         shutdown-timeout: 200ms
 
-  # Flyway: DB 스키마 버전 관리 및 마이그레이션 (Primary에서만 실행)
+  # Flyway: DB 스키마 버전 관리 및 마이그레이션
+  # spring.datasource.url (Primary)을 자동으로 사용하므로 별도 URL 불필요
   flyway:
     enabled: ${FLYWAY_ENABLED}
-    url: jdbc:mysql://${DB_PRIMARY_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
-    user: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
     locations: classpath:db/migration
     baseline-on-migrate: true
     baseline-version: 0
