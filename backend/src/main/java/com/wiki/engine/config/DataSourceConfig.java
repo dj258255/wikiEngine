@@ -2,7 +2,6 @@ package com.wiki.engine.config;
 
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.flyway.autoconfigure.FlywayDataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -48,14 +47,6 @@ public class DataSourceConfig {
         return new LazyConnectionDataSourceProxy(routingDS);
     }
 
-    /**
-     * Flyway는 반드시 Primary에서만 실행.
-     * Routing DataSource를 받으면 마이그레이션 시점에 라우팅이 불확실하므로
-     * Primary DataSource를 직접 지정한다.
-     */
-    @Bean
-    @FlywayDataSource
-    public DataSource flywayDataSource() {
-        return primaryDataSource();
-    }
+    // Flyway는 application.yml에서 직접 url/user/password를 지정하여 Primary에서만 실행.
+    // @FlywayDataSource 빈 방식은 Spring Boot 4에서 자동설정과 충돌하므로 설정 기반으로 전환.
 }
