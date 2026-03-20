@@ -1,7 +1,15 @@
 spring:
+  autoconfigure:
+    exclude: org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
   datasource:
-    url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
+    primary:
+      hikari:
+        jdbc-url: jdbc:h2:mem:testdb
+        driver-class-name: org.h2.Driver
+    replica:
+      hikari:
+        jdbc-url: jdbc:h2:mem:testdb
+        driver-class-name: org.h2.Driver
   jpa:
     hibernate:
       ddl-auto: create-drop
