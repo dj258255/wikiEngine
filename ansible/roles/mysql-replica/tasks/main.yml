@@ -51,7 +51,7 @@
     state: present
     pull: missing
     wait: true
-    wait_timeout: 120
+    wait_timeout: 300
   become: false
   tags: [deploy]
 
