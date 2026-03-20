@@ -1,0 +1,43 @@
+// Grafana Alloy - 로컬 개발 환경
+// Docker 컨테이너 로그를 Loki로 전송
+
+// Docker daemon에서 컨테이너 목록 디스커버리
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+// 컨테이너 이름 라벨 정리
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+// Docker 컨테이너 로그 수집
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.multiline_docker.receiver]
+}
+
+// Java 스택트레이스 multiline 처리
+loki.process "multiline_docker" {
+  stage.multiline {
+    firstline = "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}"
+    max_wait_time = "3s"
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// Loki 전송
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

@@ -1,0 +1,96 @@
+// Grafana Alloy - App Server → Loki
+// Promtail에서 마이그레이션: Docker 컨테이너 로그 + MySQL Slow Query 로그 수집
+
+// ============================================================
+// 1. Docker 컨테이너 로그 수집
+// ============================================================
+
+// Docker daemon에서 컨테이너 목록 디스커버리
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+// 컨테이너 이름 라벨 정리 (Promtail의 relabel_configs 대응)
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+// Docker 컨테이너 로그 수집 → multiline 처리 → Loki 전송
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.multiline_docker.receiver]
+}
+
+// Java 스택트레이스 multiline 처리 (Promtail의 pipeline_stages.multiline 대응)
+loki.process "multiline_docker" {
+  stage.multiline {
+    firstline = "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}"
+    max_wait_time = "3s"
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// ============================================================
+// 2. MySQL Slow Query 로그 수집
+// ============================================================
+
+local.file_match "mysql_slow" {
+  path_targets = [{
+    __path__ = "/var/log/mysql/slow.log",
+    job      = "mysql-slow-query",
+    host     = "app-server",
+    level    = "warning",
+  }]
+}
+
+loki.source.file "mysql_slow" {
+  targets    = local.file_match.mysql_slow.targets
+  forward_to = [loki.process.mysql_slow.receiver]
+}
+
+// Slow Query 파이프라인 (Promtail의 pipeline_stages 대응)
+//   - multiline: "# Time:" 패턴으로 엔트리 경계 인식
+//   - drop: mysql-exporter 내부 쿼리(information_schema, performance_schema) 제거
+//   - regex + labels: Query_time, Rows_examined 추출 → Grafana 필터용
+loki.process "mysql_slow" {
+  stage.multiline {
+    firstline = "^# Time:"
+    max_wait_time = "3s"
+  }
+
+  stage.drop {
+    expression = "information_schema|performance_schema"
+  }
+
+  stage.regex {
+    expression = "Query_time:\\s+(?P<query_time>[\\d.]+)\\s+Lock_time:\\s+(?P<lock_time>[\\d.]+)\\s+Rows_sent:\\s+(?P<rows_sent>\\d+)\\s+Rows_examined:\\s+(?P<rows_examined>\\d+)"
+  }
+
+  stage.labels {
+    values = {
+      query_time    = "",
+      rows_examined = "",
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// ============================================================
+// 3. Loki 전송 엔드포인트
+// ============================================================
+
+loki.write "default" {
+  endpoint {
+    url = "http://{{ hostvars['monitoring-loki'].private_ip }}:3100/loki/api/v1/push"
+  }
+}

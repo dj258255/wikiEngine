@@ -1,5 +1,5 @@
 # ARM App Server ({{ app_server_host }})
-# Nginx + App + MySQL + Redis + Promtail + cAdvisor + Node Exporter + MySQL Exporter + Redis Exporter
+# Nginx + App + MySQL + Redis + Alloy + cAdvisor + Node Exporter + MySQL Exporter + Redis Exporter
 #
 # 사용법: docker compose --env-file .env.prod up -d
 
@@ -184,20 +184,24 @@ services:
     networks:
       - wiki-net
 
-  promtail:
-    image: {{ promtail_image }}
-    container_name: wiki-promtail-prod
+  alloy:
+    image: {{ alloy_image }}
+    container_name: wiki-alloy-prod
     restart: always
     volumes:
-      - ./promtail/promtail.yml:/etc/promtail/config.yml:Z
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:Z
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - mysql_logs:/var/log/mysql:ro
-    command: -config.file=/etc/promtail/config.yml
+      - alloy_data:/var/lib/alloy/data
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
     deploy:
       resources:
         limits:
-          memory: {{ promtail_memory_limit }}
+          memory: {{ alloy_memory_limit }}
     networks:
       - wiki-net
 
@@ -244,6 +248,7 @@ volumes:
   mysql_logs:
   lucene_index:
   redis_data:
+  alloy_data:
 
 networks:
   wiki-net:

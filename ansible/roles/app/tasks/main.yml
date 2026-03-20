@@ -23,7 +23,7 @@
     group: "{{ ansible_user }}"
   loop:
     - ""
-    - promtail
+    - alloy
     - nginx
     - certbot/www
     - certbot/certs
@@ -38,13 +38,19 @@
     mode: "0644"
   tags: [deploy]
 
-- name: Promtail 설정 생성 (템플릿)
+- name: Alloy 설정 생성 (템플릿)
   template:
-    src: promtail.yml.j2
-    dest: "{{ app_dir }}/promtail/promtail.yml"
+    src: alloy-config.alloy.j2
+    dest: "{{ app_dir }}/alloy/config.alloy"
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0644"
+  tags: [deploy]
+
+- name: 레거시 Promtail 디렉토리 정리 (Alloy 마이그레이션)
+  file:
+    path: "{{ app_dir }}/promtail"
+    state: absent
   tags: [deploy]
 
 - name: SSL 인증서 존재 확인
