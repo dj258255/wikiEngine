@@ -5,6 +5,7 @@ import com.wiki.engine.auth.UserPrincipal;
 import com.wiki.engine.post.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -26,6 +27,7 @@ import java.util.List;
  * - LIKE '%keyword%' 검색 (Full Table Scan)
  * - 동기 조회수 증가 (Row Lock 경합)
  */
+@Slf4j
 @RestController
 @RequestMapping(path = "/posts", version = "1.0")
 @RequiredArgsConstructor
@@ -46,11 +48,16 @@ public class PostController {
         return posts.map(PostSummaryResponse::from);
     }
 
-    /** 게시글 상세 조회 (캐시 히트 가능) + 조회수 증가 (항상 DB) */
+    /** 게시글 상세 조회 (캐시 히트 가능) + 조회수 증가 (best-effort) */
     @GetMapping("/{id}")
     public PostDetailResponse getPost(@PathVariable Long id) {
         Post post = postService.findByIdCached(id);
-        postService.incrementViewCount(id);
+        try {
+            postService.incrementViewCount(id);
+        } catch (Exception e) {
+            // 조회수 증가 실패가 게시글 조회를 실패시키면 안 됨 (best-effort)
+            log.warn("조회수 증가 실패 (무시): postId={}, error={}", id, e.getMessage());
+        }
         return PostDetailResponse.from(post);
     }
 
