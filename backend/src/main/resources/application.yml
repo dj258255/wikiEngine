@@ -44,6 +44,19 @@ spring:
       lettuce:
         shutdown-timeout: 200ms
 
+  # Kafka (Phase 14-3: CDC Consumer)
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: wiki-cdc-consumer
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+    listener:
+      concurrency: 1  # 단일 파티션이므로 1개 스레드로 충분
+
   # Flyway: DB 스키마 버전 관리 및 마이그레이션
   # spring.datasource.url (Primary)을 자동으로 사용하므로 별도 URL 불필요
   flyway:

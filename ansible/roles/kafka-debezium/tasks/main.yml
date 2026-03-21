@@ -1,0 +1,35 @@
+# Phase 14-3: Kafka + Debezium CDC 설정
+# Kafka와 Debezium Connect는 서버 2의 docker-compose에 포함됨
+# 이 task는 MySQL에 Debezium 사용자를 생성하고 Connector를 등록한다
+
+- name: Debezium Connector 등록 스크립트 배포
+  copy:
+    src: register-connector.sh
+    dest: "{{ app2_dir }}/register-connector.sh"
+    mode: "0755"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: [kafka]
+
+- name: MySQL Primary에 Debezium 사용자 생성 (idempotent)
+  shell: |
+    docker exec wiki-mysql-prod mysql -u root -p"{{ mysql_root_password }}" -e "
+      CREATE USER IF NOT EXISTS 'debezium'@'%' IDENTIFIED BY '{{ debezium_mysql_password }}';
+      GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'debezium'@'%';
+      FLUSH PRIVILEGES;
+    "
+  delegate_to: app-arm
+  tags: [kafka]
+  changed_when: false
+
+- name: Debezium Connector 등록 (Kafka + Connect 시작 후)
+  shell: |
+    cd {{ app2_dir }} && ./register-connector.sh \
+      localhost:8083 \
+      {{ hostvars['app-arm'].private_ip }} \
+      {{ debezium_mysql_password }}
+  tags: [kafka]
+  register: connector_result
+  retries: 3
+  delay: 10
+  until: connector_result.rc == 0

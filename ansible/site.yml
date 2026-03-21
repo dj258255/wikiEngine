@@ -37,6 +37,7 @@
     - docker
     - firewall
     - mysql-replica
+    - kafka-debezium
 
 # --- AMD #1: Loki + Grafana ---
 - name: Monitoring Loki 배포 (AMD #1)

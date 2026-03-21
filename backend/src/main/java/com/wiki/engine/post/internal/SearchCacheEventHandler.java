@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.wiki.engine.post.PostEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
@@ -18,9 +19,12 @@ import org.springframework.stereotype.Component;
  * Phase 14-1: L1 즉시 무효화 + L2 최대 10분 stale.
  *
  * <p>멱등성: invalidateAll()은 여러 번 호출해도 동일.
+ *
+ * <p>Phase 14-3: Kafka CDC Consumer가 활성화되면 이 핸들러는 비활성화된다.
  */
 @Slf4j
 @Component
+@ConditionalOnMissingBean(DebeziumCdcConsumer.class)
 public class SearchCacheEventHandler {
 
     private final Cache<String, Object> searchResultsL1Cache;

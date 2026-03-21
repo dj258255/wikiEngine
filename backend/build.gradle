@@ -65,6 +65,9 @@ dependencies {
     // Spring Data Redis: Redis L2 캐시 (Phase 11)
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+    // Spring Kafka: CDC Consumer (Phase 14-3, Debezium → Kafka → Consumer)
+    implementation 'org.springframework.kafka:spring-kafka'
+
     // Datafaker: 더미 데이터 생성 (한글/영문 랜덤 이름, 닉네임 등)
     implementation 'net.datafaker:datafaker:2.5.3'
 
