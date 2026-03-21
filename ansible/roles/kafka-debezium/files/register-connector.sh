@@ -40,7 +40,7 @@ curl -sf -X POST "http://${CONNECT_HOST}/connectors" \
         "schema.history.internal.kafka.topic": "_schema_history",
 
         "include.schema.changes": "false",
-        "snapshot.mode": "schema_only",
+        "snapshot.mode": "no_data",
 
         "key.converter": "org.apache.kafka.connect.json.JsonConverter",
         "key.converter.schemas.enable": "false",
