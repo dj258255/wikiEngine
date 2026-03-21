@@ -126,7 +126,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_connected{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_connected{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -217,7 +217,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_binlogposition{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_binlogposition{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -303,7 +303,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_isgtidmodeenabled{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_isgtidmodeenabled{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -394,7 +394,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_numberofcommittedtransactions{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_numberofcommittedtransactions{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -480,7 +480,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_numberofrolledbacktransactions{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_numberofrolledbacktransactions{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -566,7 +566,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_numberofnotwellformedtransactions{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\r",
+          "expr": "debezium_metrics_numberofnotwellformedtransactions{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\r",
           "refId": "A"
         }
       ],
@@ -652,7 +652,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_totalnumberofeventsseen{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_totalnumberofeventsseen{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -717,7 +717,7 @@
       "pluginVersion": "6.5.2",
       "targets": [
         {
-          "expr": "debezium_metrics_numberofskippedevents{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_numberofskippedevents{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -793,7 +793,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_numberofeventsfiltered{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_numberofeventsfiltered{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -814,9 +814,9 @@
     },
     {
       "aliasColors": {
-        "debezium_metrics_secondssincelastevent{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
-        "debezium_metrics_secondssincelastevent{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "dark-purple",
-        "debezium_metrics_secondssincelastevent{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-purple"
+        "debezium_metrics_secondssincelastevent{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
+        "debezium_metrics_secondssincelastevent{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "dark-purple",
+        "debezium_metrics_secondssincelastevent{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-purple"
       },
       "bars": true,
       "dashLength": 10,
@@ -863,7 +863,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "debezium_metrics_secondssincelastevent{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_secondssincelastevent{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -975,7 +975,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_queuetotalcapacity{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_queuetotalcapacity{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -1062,7 +1062,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_queueremainingcapacity{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_queueremainingcapacity{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -1083,9 +1083,9 @@
     },
     {
       "aliasColors": {
-        "debezium_metrics_secondsbehindmaster{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-blue",
-        "debezium_metrics_secondsbehindmaster{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
-        "debezium_metrics_secondsbehindmaster{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-blue"
+        "debezium_metrics_secondsbehindmaster{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-blue",
+        "debezium_metrics_secondsbehindmaster{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
+        "debezium_metrics_secondsbehindmaster{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-blue"
       },
       "bars": false,
       "cacheTimeout": null,
@@ -1132,7 +1132,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "debezium_metrics_secondsbehindmaster{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}",
+          "expr": "debezium_metrics_secondsbehindmaster{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}",
           "refId": "A"
         }
       ],
@@ -1179,9 +1179,9 @@
     },
     {
       "aliasColors": {
-        "debezium_metrics_millisecondsbehindsource{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
-        "debezium_metrics_millisecondsbehindsource{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-blue",
-        "debezium_metrics_millisecondsbehindsource{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-purple"
+        "debezium_metrics_millisecondsbehindsource{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
+        "debezium_metrics_millisecondsbehindsource{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-blue",
+        "debezium_metrics_millisecondsbehindsource{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-purple"
       },
       "bars": true,
       "dashLength": 10,
@@ -1225,7 +1225,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "debezium_metrics_millisecondsbehindsource{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_millisecondsbehindsource{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -1272,9 +1272,9 @@
     },
     {
       "aliasColors": {
-        "debezium_metrics_numberofdisconnects{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-orange",
-        "debezium_metrics_numberofdisconnects{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-blue",
-        "debezium_metrics_numberofdisconnects{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-purple"
+        "debezium_metrics_numberofdisconnects{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-orange",
+        "debezium_metrics_numberofdisconnects{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-blue",
+        "debezium_metrics_numberofdisconnects{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-purple"
       },
       "bars": true,
       "dashLength": 10,
@@ -1318,7 +1318,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "debezium_metrics_numberofdisconnects{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_numberofdisconnects{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -1365,9 +1365,9 @@
     },
     {
       "aliasColors": {
-        "debezium_metrics_numberoflargetransactions{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
-        "debezium_metrics_numberoflargetransactions{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
-        "debezium_metrics_numberoflargetransactions{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-blue"
+        "debezium_metrics_numberoflargetransactions{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
+        "debezium_metrics_numberoflargetransactions{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
+        "debezium_metrics_numberoflargetransactions{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-blue"
       },
       "bars": false,
       "dashLength": 10,
@@ -1411,7 +1411,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "debezium_metrics_numberoflargetransactions{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_numberoflargetransactions{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -1541,7 +1541,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_totaltablecount{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}",
+          "expr": "debezium_metrics_totaltablecount{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}",
           "refId": "A"
         }
       ],
@@ -1618,7 +1618,7 @@
       "pluginVersion": "6.5.2",
       "targets": [
         {
-          "expr": "debezium_metrics_remainingtablecount{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}",
+          "expr": "debezium_metrics_remainingtablecount{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}",
           "refId": "A"
         }
       ],
@@ -1694,7 +1694,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_holdinggloballock{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}",
+          "expr": "debezium_metrics_holdinggloballock{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}",
           "refId": "A"
         }
       ],
@@ -1786,7 +1786,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_snapshotrunning{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}",
+          "expr": "debezium_metrics_snapshotrunning{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}",
           "refId": "A"
         }
       ],
@@ -1877,7 +1877,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_snapshotaborted{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_snapshotaborted{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -1968,7 +1968,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_snapshotcompleted{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}",
+          "expr": "debezium_metrics_snapshotcompleted{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}",
           "refId": "A"
         }
       ],
@@ -2040,7 +2040,7 @@
       "pluginVersion": "6.5.2",
       "targets": [
         {
-          "expr": "debezium_metrics_snapshotdurationinseconds{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_snapshotdurationinseconds{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -2051,9 +2051,9 @@
     },
     {
       "aliasColors": {
-        "debezium_metrics_numberofeventsfiltered{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-blue",
-        "debezium_metrics_numberofeventsfiltered{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-purple",
-        "debezium_metrics_numberofeventsfiltered{context=\"snapshot\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "dark-blue"
+        "debezium_metrics_numberofeventsfiltered{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-blue",
+        "debezium_metrics_numberofeventsfiltered{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-purple",
+        "debezium_metrics_numberofeventsfiltered{context=\"snapshot\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "dark-blue"
       },
       "bars": false,
       "dashLength": 10,
@@ -2097,7 +2097,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "debezium_metrics_numberofeventsfiltered{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_numberofeventsfiltered{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -2209,7 +2209,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_millisecondssincelastevent{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\r",
+          "expr": "debezium_metrics_millisecondssincelastevent{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\r",
           "refId": "A"
         }
       ],
@@ -2295,7 +2295,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_queuetotalcapacity{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_queuetotalcapacity{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -2360,7 +2360,7 @@
       "pluginVersion": "6.5.2",
       "targets": [
         {
-          "expr": "debezium_metrics_queueremainingcapacity{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_queueremainingcapacity{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -2371,9 +2371,9 @@
     },
     {
       "aliasColors": {
-        "debezium_metrics_numberoferroneousevents{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-orange",
-        "debezium_metrics_numberoferroneousevents{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-blue",
-        "debezium_metrics_numberoferroneousevents{context=\"snapshot\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-purple"
+        "debezium_metrics_numberoferroneousevents{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-orange",
+        "debezium_metrics_numberoferroneousevents{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-blue",
+        "debezium_metrics_numberoferroneousevents{context=\"snapshot\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-purple"
       },
       "bars": false,
       "dashLength": 10,
@@ -2417,7 +2417,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "debezium_metrics_numberoferroneousevents{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\r",
+          "expr": "debezium_metrics_numberoferroneousevents{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\r",
           "refId": "A"
         }
       ],
@@ -2464,9 +2464,9 @@
     },
     {
       "aliasColors": {
-        "debezium_metrics_totalnumberofeventsseen{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
-        "debezium_metrics_totalnumberofeventsseen{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
-        "debezium_metrics_totalnumberofeventsseen{context=\"snapshot\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-blue"
+        "debezium_metrics_totalnumberofeventsseen{context=\"binlog\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
+        "debezium_metrics_totalnumberofeventsseen{context=\"binlog\",instance=\"192.168.13.124:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "semi-dark-purple",
+        "debezium_metrics_totalnumberofeventsseen{context=\"snapshot\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "semi-dark-blue"
       },
       "bars": false,
       "dashLength": 10,
@@ -2510,7 +2510,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "debezium_metrics_totalnumberofeventsseen{context=\"$context\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_totalnumberofeventsseen{context=\"$context\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -2661,7 +2661,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_recoverystarttime{context=\"schema-history\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}",
+          "expr": "debezium_metrics_recoverystarttime{context=\"schema-history\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}",
           "format": "time_series",
           "instant": false,
           "legendFormat": "",
@@ -2750,7 +2750,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_millisecondssincelastappliedchange{context=\"schema-history\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_millisecondssincelastappliedchange{context=\"schema-history\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -2836,7 +2836,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "debezium_metrics_millisecondssincelastrecoveredchange{context=\"schema-history\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_millisecondssincelastrecoveredchange{context=\"schema-history\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -2857,8 +2857,8 @@
     },
     {
       "aliasColors": {
-        "debezium_metrics_changesrecovered{context=\"schema-history\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "dark-blue",
-        "debezium_metrics_changesrecovered{context=\"schema-history\",instance=\"192.168.13.124:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-purple"
+        "debezium_metrics_changesrecovered{context=\"schema-history\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "dark-blue",
+        "debezium_metrics_changesrecovered{context=\"schema-history\",instance=\"192.168.13.124:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-purple"
       },
       "bars": false,
       "dashLength": 10,
@@ -2902,7 +2902,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "debezium_metrics_changesrecovered{context=\"schema-history\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_changesrecovered{context=\"schema-history\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
@@ -2949,8 +2949,8 @@
     },
     {
       "aliasColors": {
-        "debezium_metrics_changesapplied{context=\"schema-history\",instance=\"192.168.11.182:7071\",job=\"debezium\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "dark-purple",
-        "debezium_metrics_changesapplied{context=\"schema-history\",instance=\"192.168.13.124:7071\",job=\"debezium\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-blue"
+        "debezium_metrics_changesapplied{context=\"schema-history\",instance=\"192.168.11.182:7071\",job=\"debezium-jmx\",name=\"snapshot-prod-aurora-cluster-cluster\",plugin=\"mysql\"}": "dark-purple",
+        "debezium_metrics_changesapplied{context=\"schema-history\",instance=\"192.168.13.124:7071\",job=\"debezium-jmx\",name=\"prod-aurora-cluster\",plugin=\"mysql\"}": "dark-blue"
       },
       "bars": false,
       "dashLength": 10,
@@ -2994,7 +2994,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "debezium_metrics_changesapplied{context=\"schema-history\",instance=\"$instance\",job=\"debezium\",name=\"$name\",plugin=\"$plugin\"}\t\r",
+          "expr": "debezium_metrics_changesapplied{context=\"schema-history\",instance=\"$instance\",job=\"debezium-jmx\",server=\"$name\",plugin=\"$plugin\"}\t\r",
           "refId": "A"
         }
       ],
