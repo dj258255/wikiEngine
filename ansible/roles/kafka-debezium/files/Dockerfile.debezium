@@ -1,13 +1,12 @@
 FROM quay.io/debezium/connect:3.4
 
-# JMX Prometheus Exporter JAR 다운로드 (ADD는 404 시 빈 파일 생성하므로 curl 사용)
 USER root
-RUN curl -fSL -o /kafka/etc/jmx_prometheus_javaagent.jar \
-    https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/1.0.1/jmx_prometheus_javaagent-1.0.1.jar
+RUN mkdir -p /kafka/etc && \
+    curl -fSL -o /kafka/etc/jmx_prometheus_javaagent.jar \
+    https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/1.0.1/jmx_prometheus_javaagent-1.0.1.jar && \
+    chmod 644 /kafka/etc/jmx_prometheus_javaagent.jar
 USER kafka
 
-# JMX Exporter 설정 파일 복사
 COPY jmx-exporter/debezium-jmx-config.yml /kafka/etc/jmx-config.yml
 
-# JMX Exporter를 Java Agent로 등록 (포트 7072)
 ENV KAFKA_OPTS="-javaagent:/kafka/etc/jmx_prometheus_javaagent.jar=7072:/kafka/etc/jmx-config.yml"
