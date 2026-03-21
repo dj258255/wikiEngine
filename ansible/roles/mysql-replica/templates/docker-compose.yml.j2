@@ -192,9 +192,9 @@ services:
     networks:
       - wiki-net
 
-  # Kafka UI — 토픽/메시지/커넥터 관리 웹 UI
+  # Kafka UI — 토픽/메시지/커넥터 관리 웹 UI (kafbat fork, provectuslabs는 폐기됨)
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: kafbat/kafka-ui:latest
     container_name: wiki-kafka-ui-prod
     restart: always
     environment:
