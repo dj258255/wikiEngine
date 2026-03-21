@@ -16,7 +16,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: {{ mysql_replica_memory_limit | default('4G') }}
+          memory: {{ mysql_replica_memory_limit }}
     # Note: read-only/super-read-only는 초기화 완료 후 START REPLICA 시점에 SET GLOBAL로 활성화.
     # Docker entrypoint 초기화(root 비밀번호 설정)가 super-read-only와 충돌하므로 command에서 제외.
     command: >
@@ -51,7 +51,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: {{ app_memory_limit | default('2G') }}
+          memory: {{ app_memory_limit }}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
       interval: 30s
@@ -66,7 +66,7 @@ services:
 
   # Phase 13: Alloy (App 2 로그 → Loki)
   alloy:
-    image: {{ alloy_image | default('grafana/alloy:latest') }}
+    image: {{ alloy_image }}
     container_name: wiki-alloy-prod-2
     restart: always
     volumes:
@@ -78,7 +78,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: {{ alloy_memory_limit | default('128M') }}
+          memory: {{ alloy_memory_limit }}
     networks:
       - wiki-net
 
@@ -105,7 +105,7 @@ services:
 
   # Phase 14-3: Kafka (KRaft 단일 브로커, ZooKeeper 불필요)
   kafka:
-    image: {{ kafka_image | default('apache/kafka:3.9.0') }}
+    image: {{ kafka_image }}
     container_name: wiki-kafka-prod
     restart: always
     hostname: kafka
@@ -123,9 +123,9 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_LOG_RETENTION_HOURS: {{ kafka_retention_hours | default(168) }}  # 7일 보존
-      KAFKA_LOG_RETENTION_BYTES: {{ kafka_retention_bytes | default(1073741824) }}  # 1GB
-      CLUSTER_ID: {{ kafka_cluster_id | default('MkU3OEVBNTcwNTJENDM2Qk') }}
+      KAFKA_LOG_RETENTION_HOURS: {{ kafka_retention_hours }}
+      KAFKA_LOG_RETENTION_BYTES: {{ kafka_retention_bytes }}
+      CLUSTER_ID: {{ kafka_cluster_id }}
     ports:
       - "9092:9092"
     volumes:
@@ -133,7 +133,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: {{ kafka_memory_limit | default('4G') }}
+          memory: {{ kafka_memory_limit }}
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
       interval: 30s
@@ -145,7 +145,7 @@ services:
 
   # Phase 14-3: Debezium Connect (MySQL binlog → Kafka)
   debezium-connect:
-    image: {{ debezium_image | default('quay.io/debezium/connect:3.0') }}
+    image: {{ debezium_image }}
     container_name: wiki-debezium-prod
     restart: always
     environment:
@@ -162,7 +162,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: {{ debezium_memory_limit | default('2G') }}
+          memory: {{ debezium_memory_limit }}
     depends_on:
       kafka:
         condition: service_healthy

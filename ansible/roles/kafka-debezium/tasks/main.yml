@@ -5,7 +5,7 @@
 - name: Debezium Connector 등록 스크립트 배포
   copy:
     src: register-connector.sh
-    dest: "{{ app2_dir }}/register-connector.sh"
+    dest: "{{ replica_dir }}/register-connector.sh"
     mode: "0755"
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
@@ -24,7 +24,7 @@
 
 - name: Debezium Connector 등록 (Kafka + Connect 시작 후)
   shell: |
-    cd {{ app2_dir }} && ./register-connector.sh \
+    cd {{ replica_dir }} && ./register-connector.sh \
       localhost:8083 \
       {{ hostvars['app-arm'].private_ip }} \
       {{ debezium_mysql_password }}
