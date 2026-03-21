@@ -247,6 +247,24 @@ services:
     networks:
       - wiki-net
 
+  # Nginx Prometheus Exporter — Nginx stub_status → Prometheus
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: wiki-nginx-exporter-prod
+    restart: always
+    command:
+      - --nginx.scrape-uri=http://nginx:80/nginx_status
+    ports:
+      - "9113:9113"
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    depends_on:
+      - nginx
+    networks:
+      - wiki-net
+
 volumes:
   mysql_data:
   mysql_logs:

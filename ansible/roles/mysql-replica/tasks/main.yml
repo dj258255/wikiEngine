@@ -61,6 +61,25 @@
     mode: "0755"
   tags: [deploy]
 
+- name: Debezium JMX Exporter 빌드 디렉토리 생성
+  file:
+    path: "{{ replica_dir }}/debezium/jmx-exporter"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: [deploy]
+
+- name: Debezium Dockerfile + JMX 설정 배포
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  loop:
+    - { src: "../../kafka-debezium/files/Dockerfile.debezium", dest: "{{ replica_dir }}/debezium/Dockerfile.debezium" }
+    - { src: "../../kafka-debezium/files/jmx-exporter/debezium-jmx-config.yml", dest: "{{ replica_dir }}/debezium/jmx-exporter/debezium-jmx-config.yml" }
+  tags: [deploy]
+
 - name: Replica + App 2 서비스 시작
   community.docker.docker_compose_v2:
     project_src: "{{ replica_dir }}"

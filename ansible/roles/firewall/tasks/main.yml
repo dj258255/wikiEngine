@@ -22,6 +22,7 @@
     - "9100"   # Node Exporter
     - "9104"   # MySQL Exporter
     - "9121"   # Redis Exporter (Phase 11)
+    - "9113"   # Nginx Exporter (Phase 14-3)
     - "8081"   # cAdvisor
   register: fw_result
   changed_when: "'ALREADY_ENABLED' not in fw_result.stderr"
