@@ -6,8 +6,8 @@ import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.config.TieredCacheService;
 import com.wiki.engine.post.dto.CachedSearchResult;
 import com.wiki.engine.post.dto.PostSearchResponse;
-import com.wiki.engine.post.internal.LuceneIndexService;
 import com.wiki.engine.post.internal.LuceneSearchService;
+// LuceneIndexService 제거됨 — Phase 14-1: Lucene 색인은 EventHandler가 담당
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
 import com.wiki.engine.post.internal.RedisAutocompleteService;
@@ -17,8 +17,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
@@ -46,20 +48,21 @@ class PostServiceTest {
 
     @Mock private PostRepository postRepository;
     @Mock private PostLikeRepository postLikeRepository;
-    @Mock private LuceneIndexService luceneIndexService;
     @Mock private LuceneSearchService luceneSearchService;
     @Mock private SearchLogCollector searchLogCollector;
     @Mock private RedisAutocompleteService redisAutocompleteService;
     @Mock private TieredCacheService tieredCacheService;
     @Mock private Cache<String, Object> searchResultsL1Cache;
     @Mock private Cache<String, Object> postDetailL1Cache;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     @BeforeEach
     void setUp() {
         postService = new PostService(
-                postRepository, postLikeRepository, luceneIndexService,
+                postRepository, postLikeRepository,
                 luceneSearchService, searchLogCollector, redisAutocompleteService,
-                tieredCacheService, searchResultsL1Cache, postDetailL1Cache);
+                tieredCacheService, searchResultsL1Cache, postDetailL1Cache,
+                eventPublisher);
 
         // TieredCacheService: pass-through (항상 origin loader 호출)
         lenient().when(tieredCacheService.get(
@@ -87,8 +90,8 @@ class PostServiceTest {
     class CreatePost {
 
         @Test
-        @DisplayName("[해피] 정상적으로 게시글을 생성한다 + Lucene 색인")
-        void success() throws IOException {
+        @DisplayName("[해피] 정상적으로 게시글을 생성한다 + PostEvent.Created 발행")
+        void success() {
             given(postRepository.save(any(Post.class)))
                     .willAnswer(invocation -> invocation.getArgument(0));
 
@@ -99,20 +102,10 @@ class PostServiceTest {
             assertThat(result.getAuthorId()).isEqualTo(1L);
             assertThat(result.getCategoryId()).isEqualTo(1L);
             verify(postRepository).save(any(Post.class));
-            verify(luceneIndexService).indexPost(result);
-        }
 
-        @Test
-        @DisplayName("[코너] Lucene 색인 실패해도 게시글 생성은 정상 동작")
-        void luceneFailure() throws IOException {
-            given(postRepository.save(any(Post.class)))
-                    .willAnswer(invocation -> invocation.getArgument(0));
-            willThrow(new IOException("index error")).given(luceneIndexService).indexPost(any());
-
-            Post result = postService.createPost("제목", "본문", 1L, 1L);
-
-            assertThat(result.getTitle()).isEqualTo("제목");
-            verify(postRepository).save(any(Post.class));
+            var captor = ArgumentCaptor.forClass(PostEvent.Created.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().post()).isEqualTo(result);
         }
 
         @Test
@@ -170,8 +163,8 @@ class PostServiceTest {
     class UpdatePost {
 
         @Test
-        @DisplayName("[해피] 작성자가 정상적으로 수정한다 + Lucene 재색인 + 캐시 무효화")
-        void success() throws IOException {
+        @DisplayName("[해피] 작성자가 정상적으로 수정한다 + PostEvent.Updated 발행")
+        void success() {
             Post post = createTestPost();
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
 
@@ -180,20 +173,11 @@ class PostServiceTest {
             assertThat(post.getTitle()).isEqualTo("수정 제목");
             assertThat(post.getContent()).isEqualTo("수정 본문");
             assertThat(post.getUpdatedAt()).isNotNull();
-            verify(luceneIndexService).indexPost(post);
-            verify(tieredCacheService).evict(postDetailL1Cache, "post:1");
-        }
 
-        @Test
-        @DisplayName("[코너] Lucene 색인 실패해도 수정은 정상 동작")
-        void luceneFailure() throws IOException {
-            Post post = createTestPost();
-            given(postRepository.findById(1L)).willReturn(Optional.of(post));
-            willThrow(new IOException("index error")).given(luceneIndexService).indexPost(any());
-
-            postService.updatePost(1L, "수정 제목", "수정 본문", 1L);
-
-            assertThat(post.getTitle()).isEqualTo("수정 제목");
+            var captor = ArgumentCaptor.forClass(PostEvent.Updated.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().postId()).isEqualTo(1L);
+            assertThat(captor.getValue().post()).isEqualTo(post);
         }
 
         @Test
@@ -225,8 +209,8 @@ class PostServiceTest {
     class DeletePost {
 
         @Test
-        @DisplayName("[해피] 작성자가 정상적으로 삭제한다 (좋아요 + Lucene 인덱스 함께 삭제 + 캐시 무효화)")
-        void success() throws IOException {
+        @DisplayName("[해피] 작성자가 정상적으로 삭제한다 (좋아요 삭제 + PostEvent.Deleted 발행)")
+        void success() {
             Post post = createTestPost();
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
 
@@ -234,20 +218,10 @@ class PostServiceTest {
 
             verify(postLikeRepository).deleteByPostId(1L);
             verify(postRepository).delete(post);
-            verify(luceneIndexService).deleteFromIndex(1L);
-            verify(tieredCacheService).evict(postDetailL1Cache, "post:1");
-        }
 
-        @Test
-        @DisplayName("[코너] Lucene 삭제 실패해도 게시글 삭제는 정상 동작")
-        void luceneFailure() throws IOException {
-            Post post = createTestPost();
-            given(postRepository.findById(1L)).willReturn(Optional.of(post));
-            willThrow(new IOException("delete error")).given(luceneIndexService).deleteFromIndex(any());
-
-            postService.deletePost(1L, 1L);
-
-            verify(postRepository).delete(post);
+            var captor = ArgumentCaptor.forClass(PostEvent.Deleted.class);
+            verify(eventPublisher).publishEvent(captor.capture());
+            assertThat(captor.getValue().postId()).isEqualTo(1L);
         }
 
         @Test
@@ -281,7 +255,7 @@ class PostServiceTest {
     class LikePost {
 
         @Test
-        @DisplayName("[해피] 새 좋아요 — true + likeCount 증가")
+        @DisplayName("[해피] 새 좋아요 — true + likeCount 증가 + LikeChanged 이벤트")
         void success() {
             given(postLikeRepository.insertIgnore(1L, 1L)).willReturn(1);
 
@@ -289,6 +263,7 @@ class PostServiceTest {
 
             assertThat(result).isTrue();
             verify(postRepository).incrementLikeCount(1L);
+            verify(eventPublisher).publishEvent(any(PostEvent.LikeChanged.class));
         }
 
         @Test
@@ -310,7 +285,7 @@ class PostServiceTest {
     class UnlikePost {
 
         @Test
-        @DisplayName("[해피] 좋아요 취소 — true + likeCount 감소")
+        @DisplayName("[해피] 좋아요 취소 — true + likeCount 감소 + LikeChanged 이벤트")
         void success() {
             given(postLikeRepository.deleteByPostIdAndUserId(1L, 1L)).willReturn(1);
 
@@ -318,6 +293,7 @@ class PostServiceTest {
 
             assertThat(result).isTrue();
             verify(postRepository).decrementLikeCount(1L);
+            verify(eventPublisher).publishEvent(any(PostEvent.LikeChanged.class));
         }
 
         @Test

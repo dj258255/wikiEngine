@@ -6,7 +6,6 @@ import com.wiki.engine.post.dto.CachedSearchResult;
 import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
-import com.wiki.engine.post.internal.LuceneIndexService;
 import com.wiki.engine.post.internal.RedisAutocompleteService;
 import com.wiki.engine.post.internal.SearchLogCollector;
 import com.wiki.engine.post.internal.LuceneSearchService;
@@ -14,6 +13,7 @@ import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
@@ -33,6 +33,10 @@ import java.util.Optional;
  *
  * <p>Phase 11: @Cacheable/@CacheEvict 제거 → TieredCacheService(L1+L2) 직접 호출.
  * 자동완성: Trie → RedisAutocompleteService(Redis flat KV) 전환.
+ *
+ * <p>Phase 14-1: 쓰기 작업의 Read Model 직접 호출 제거.
+ * Lucene 인덱싱, 캐시 무효화를 ApplicationEvent로 디커플링.
+ * LuceneIndexEventHandler, CacheInvalidationEventHandler, SearchCacheEventHandler가 소비.
  */
 @Slf4j
 @Service
@@ -46,32 +50,32 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
-    private final LuceneIndexService luceneIndexService;
     private final LuceneSearchService luceneSearchService;
     private final SearchLogCollector searchLogCollector;
     private final RedisAutocompleteService redisAutocompleteService;
     private final TieredCacheService tieredCacheService;
     private final Cache<String, Object> searchResultsL1Cache;
     private final Cache<String, Object> postDetailL1Cache;
+    private final ApplicationEventPublisher eventPublisher;
 
     public PostService(PostRepository postRepository,
                        PostLikeRepository postLikeRepository,
-                       LuceneIndexService luceneIndexService,
                        LuceneSearchService luceneSearchService,
                        SearchLogCollector searchLogCollector,
                        RedisAutocompleteService redisAutocompleteService,
                        TieredCacheService tieredCacheService,
                        @Qualifier("searchResultsL1Cache") Cache<String, Object> searchResultsL1Cache,
-                       @Qualifier("postDetailL1Cache") Cache<String, Object> postDetailL1Cache) {
+                       @Qualifier("postDetailL1Cache") Cache<String, Object> postDetailL1Cache,
+                       ApplicationEventPublisher eventPublisher) {
         this.postRepository = postRepository;
         this.postLikeRepository = postLikeRepository;
-        this.luceneIndexService = luceneIndexService;
         this.luceneSearchService = luceneSearchService;
         this.searchLogCollector = searchLogCollector;
         this.redisAutocompleteService = redisAutocompleteService;
         this.tieredCacheService = tieredCacheService;
         this.searchResultsL1Cache = searchResultsL1Cache;
         this.postDetailL1Cache = postDetailL1Cache;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -93,7 +97,7 @@ public class PostService {
                 .build();
 
         Post saved = postRepository.save(post);
-        indexSafely(saved);
+        eventPublisher.publishEvent(new PostEvent.Created(saved.getId(), saved));
         return saved;
     }
 
@@ -136,8 +140,7 @@ public class PostService {
         }
 
         post.update(title, content);
-        indexSafely(post);
-        tieredCacheService.evict(postDetailL1Cache, "post:" + id);
+        eventPublisher.publishEvent(new PostEvent.Updated(id, post));
     }
 
     /**
@@ -159,8 +162,7 @@ public class PostService {
         // 게시글에 달린 좋아요를 먼저 삭제한 뒤 게시글 삭제
         postLikeRepository.deleteByPostId(id);
         postRepository.delete(post);
-        deleteFromIndexSafely(id);
-        tieredCacheService.evict(postDetailL1Cache, "post:" + id);
+        eventPublisher.publishEvent(new PostEvent.Deleted(id));
     }
 
     /**
@@ -178,6 +180,7 @@ public class PostService {
 
         if (inserted > 0) {
             postRepository.incrementLikeCount(postId);
+            eventPublisher.publishEvent(new PostEvent.LikeChanged(postId));
             return true;
         }
         return false;
@@ -196,6 +199,7 @@ public class PostService {
 
         if (deleted > 0) {
             postRepository.decrementLikeCount(postId);
+            eventPublisher.publishEvent(new PostEvent.LikeChanged(postId));
             return true;
         }
         return false;
@@ -282,19 +286,4 @@ public class PostService {
         return redisAutocompleteService.search(prefix, 10);
     }
 
-    private void indexSafely(Post post) {
-        try {
-            luceneIndexService.indexPost(post);
-        } catch (IOException e) {
-            log.error("Lucene 색인 실패: postId={}", post.getId(), e);
-        }
-    }
-
-    private void deleteFromIndexSafely(Long postId) {
-        try {
-            luceneIndexService.deleteFromIndex(postId);
-        } catch (IOException e) {
-            log.error("Lucene 삭제 실패: postId={}", postId, e);
-        }
-    }
 }
