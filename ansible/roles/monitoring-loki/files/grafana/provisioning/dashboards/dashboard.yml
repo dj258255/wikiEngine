@@ -11,6 +11,16 @@ providers:
       path: /var/lib/grafana/dashboards/k6
       foldersFromFilesStructure: false
 
+  - name: 'kafka-dashboards'
+    orgId: 1
+    folder: 'Kafka'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards/kafka
+      foldersFromFilesStructure: false
+
   - name: 'monitoring-dashboards'
     orgId: 1
     folder: 'Monitoring'

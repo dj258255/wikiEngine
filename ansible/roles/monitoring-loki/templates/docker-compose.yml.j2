@@ -78,6 +78,7 @@ services:
       - ./grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:Z
       - ./grafana/dashboards/k6:/var/lib/grafana/dashboards/k6:Z
       - ./grafana/dashboards/monitoring:/var/lib/grafana/dashboards/monitoring:Z
+      - ./grafana/dashboards/kafka:/var/lib/grafana/dashboards/kafka:Z
     deploy:
       resources:
         limits:

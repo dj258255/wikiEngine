@@ -145,8 +145,12 @@ services:
       - wiki-net
 
   # Phase 14-3: Debezium Connect (MySQL binlog → Kafka)
+  # 커스텀 이미지: JMX Prometheus Exporter 내장 (CDC lag 모니터링)
   debezium-connect:
-    image: {{ debezium_image }}
+    build:
+      context: ./debezium
+      dockerfile: Dockerfile.debezium
+    image: wiki-debezium-jmx:latest
     container_name: wiki-debezium-prod
     restart: always
     environment:
@@ -158,11 +162,9 @@ services:
       CONFIG_STORAGE_REPLICATION_FACTOR: 1
       OFFSET_STORAGE_REPLICATION_FACTOR: 1
       STATUS_STORAGE_REPLICATION_FACTOR: 1
-      JMXHOST: "0.0.0.0"
-      JMXPORT: "9010"
     ports:
       - "8083:8083"
-      - "9010:9010"   # JMX 메트릭 (Debezium CDC lag 모니터링)
+      - "7072:7072"   # JMX Prometheus Exporter (Debezium CDC lag 모니터링)
     deploy:
       resources:
         limits:

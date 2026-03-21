@@ -1,0 +1,37 @@
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+rules:
+  # Debezium 스트리밍 메트릭 (CDC lag, 이벤트 수 등)
+  - pattern: "debezium.([^:]+)<type=connector-metrics, context=streaming, server=([^,]+)><>([^:]+)"
+    name: "debezium_metrics_$3"
+    labels:
+      plugin: "$1"
+      server: "$2"
+      context: "streaming"
+
+  # Debezium 스냅샷 메트릭
+  - pattern: "debezium.([^:]+)<type=connector-metrics, context=snapshot, server=([^,]+)><>([^:]+)"
+    name: "debezium_metrics_$3"
+    labels:
+      plugin: "$1"
+      server: "$2"
+      context: "snapshot"
+
+  # Debezium 스키마 히스토리 메트릭
+  - pattern: "debezium.([^:]+)<type=connector-metrics, context=schema-history, server=([^,]+)><>([^:]+)"
+    name: "debezium_metrics_$3"
+    labels:
+      plugin: "$1"
+      server: "$2"
+      context: "schema-history"
+
+  # Kafka Connect 워커 메트릭
+  - pattern: "kafka.connect<type=connect-worker-metrics><>([^:]+)"
+    name: "kafka_connect_worker_$1"
+
+  # Kafka Connect 태스크 메트릭
+  - pattern: "kafka.connect<type=connector-task-metrics, connector=([^,]+), task=([^,]+)><>([^:]+)"
+    name: "kafka_connect_task_$3"
+    labels:
+      connector: "$1"
+      task: "$2"

@@ -3,6 +3,25 @@
 # 이 task는 MySQL에 Debezium 사용자를 생성하고 Connector를 등록한다
 # tags: deploy를 포함하여 GitHub Actions CI/CD에서 자동 실행
 
+- name: Debezium 빌드 디렉토리 생성
+  file:
+    path: "{{ replica_dir }}/debezium/jmx-exporter"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  tags: [deploy, kafka]
+
+- name: Debezium Dockerfile + JMX Exporter 설정 배포
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  loop:
+    - { src: "Dockerfile.debezium", dest: "{{ replica_dir }}/debezium/Dockerfile.debezium" }
+    - { src: "jmx-exporter/debezium-jmx-config.yml", dest: "{{ replica_dir }}/debezium/jmx-exporter/debezium-jmx-config.yml" }
+  tags: [deploy, kafka]
+
 - name: Debezium Connector 등록 스크립트 배포
   copy:
     src: register-connector.sh
