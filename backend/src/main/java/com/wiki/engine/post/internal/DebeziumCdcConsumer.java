@@ -73,13 +73,13 @@ public class DebeziumCdcConsumer {
     public void onPostChange(String message) {
         try {
             JsonNode root = jsonMapper.readTree(message);
-            JsonNode payload = root.path("payload");
-
-            String op = payload.path("op").asText();
+            // schemas.enable=false이므로 payload 래퍼 없이 root에 바로 before/after/op 존재
+            String op = root.path("op").textValue();
+            if (op == null) return;
             switch (op) {
-                case "c", "r" -> handleCreate(payload);  // create or snapshot read
-                case "u" -> handleUpdate(payload);
-                case "d" -> handleDelete(payload);
+                case "c", "r" -> handleCreate(root);   // create or snapshot read
+                case "u" -> handleUpdate(root);
+                case "d" -> handleDelete(root);
                 default -> log.debug("CDC: 무시하는 op 타입: {}", op);
             }
         } catch (Exception e) {
@@ -89,9 +89,11 @@ public class DebeziumCdcConsumer {
         }
     }
 
-    private void handleCreate(JsonNode payload) {
-        JsonNode after = payload.path("after");
-        Long postId = after.path("id").asLong();
+    private void handleCreate(JsonNode root) {
+        JsonNode after = root.path("after");
+        if (after.isMissingNode()) return;
+        long postId = after.path("id").longValue();
+        if (postId == 0) return;
 
         postRepository.findById(postId).ifPresent(post -> {
             indexSafely(post);
@@ -100,9 +102,11 @@ public class DebeziumCdcConsumer {
         });
     }
 
-    private void handleUpdate(JsonNode payload) {
-        JsonNode after = payload.path("after");
-        Long postId = after.path("id").asLong();
+    private void handleUpdate(JsonNode root) {
+        JsonNode after = root.path("after");
+        if (after.isMissingNode()) return;
+        long postId = after.path("id").longValue();
+        if (postId == 0) return;
 
         postRepository.findById(postId).ifPresent(post -> {
             indexSafely(post);
@@ -112,9 +116,11 @@ public class DebeziumCdcConsumer {
         });
     }
 
-    private void handleDelete(JsonNode payload) {
-        JsonNode before = payload.path("before");
-        Long postId = before.path("id").asLong();
+    private void handleDelete(JsonNode root) {
+        JsonNode before = root.path("before");
+        if (before.isMissingNode()) return;
+        long postId = before.path("id").longValue();
+        if (postId == 0) return;
 
         try {
             luceneIndexService.deleteFromIndex(postId);
