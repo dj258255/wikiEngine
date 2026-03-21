@@ -96,7 +96,7 @@ public class DebeziumCdcConsumer {
         postRepository.findById(postId).ifPresent(post -> {
             indexSafely(post);
             searchResultsL1Cache.invalidateAll();
-            log.debug("CDC CREATE: postId={}", postId);
+            log.info("CDC CREATE: postId={}", postId);
         });
     }
 
@@ -108,7 +108,7 @@ public class DebeziumCdcConsumer {
             indexSafely(post);
             tieredCacheService.evict(postDetailL1Cache, "post:" + postId);
             searchResultsL1Cache.invalidateAll();
-            log.debug("CDC UPDATE: postId={}", postId);
+            log.info("CDC UPDATE: postId={}", postId);
         });
     }
 
@@ -123,7 +123,7 @@ public class DebeziumCdcConsumer {
         }
         tieredCacheService.evict(postDetailL1Cache, "post:" + postId);
         searchResultsL1Cache.invalidateAll();
-        log.debug("CDC DELETE: postId={}", postId);
+        log.info("CDC DELETE: postId={}", postId);
     }
 
     private void indexSafely(Post post) {
