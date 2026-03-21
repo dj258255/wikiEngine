@@ -80,12 +80,13 @@
     - { src: "../../kafka-debezium/files/jmx-exporter/debezium-jmx-config.yml", dest: "{{ replica_dir }}/debezium/jmx-exporter/debezium-jmx-config.yml" }
   tags: [deploy]
 
-- name: Replica + App 2 서비스 시작
+- name: Replica + App 2 서비스 시작 (Debezium 이미지 강제 재빌드)
   community.docker.docker_compose_v2:
     project_src: "{{ replica_dir }}"
     env_files: [".env.prod"]
     state: present
     pull: missing
+    build: always
     wait: false
     remove_orphans: true
   become: false
