@@ -33,8 +33,8 @@ curl -sf -X POST "http://${CONNECT_HOST}/connectors" \
         "database.server.id": "10",
 
         "topic.prefix": "dbserver1",
-        "database.include.list": "wiki_engine",
-        "table.include.list": "wiki_engine.posts",
+        "database.include.list": "wikidb",
+        "table.include.list": "wikidb.posts",
 
         "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
         "schema.history.internal.kafka.topic": "_schema_history",

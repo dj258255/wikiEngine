@@ -69,7 +69,7 @@ public class DebeziumCdcConsumer {
      * 토픽 이름: {debezium.server-name}.{schema}.posts
      * 환경변수 CDC_TOPIC으로 오버라이드 가능.
      */
-    @KafkaListener(topics = "${cdc.topic:dbserver1.wiki_engine.posts}")
+    @KafkaListener(topics = "${cdc.topic:dbserver1.wikidb.posts}")
     public void onPostChange(String message) {
         try {
             JsonNode root = jsonMapper.readTree(message);
