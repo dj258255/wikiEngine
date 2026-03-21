@@ -2,6 +2,7 @@ package com.wiki.engine;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -10,6 +11,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * 약 2,700만 건의 위키피디아 데이터를 활용한 대규모 CRUD 성능 최적화 프로젝트이다.
  */
 @SpringBootApplication
+@EnableAsync
 @EnableScheduling
 public class WikiEngineApplication {
 

@@ -3,9 +3,8 @@ package com.wiki.engine.post.internal;
 import com.wiki.engine.post.PostEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.io.IOException;
 
@@ -22,17 +21,17 @@ public class LuceneIndexEventHandler {
 
     private final LuceneIndexService luceneIndexService;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @ApplicationModuleListener
     public void onCreated(PostEvent.Created event) {
         indexSafely(event);
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @ApplicationModuleListener
     public void onUpdated(PostEvent.Updated event) {
         indexSafely(event);
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @ApplicationModuleListener
     public void onDeleted(PostEvent.Deleted event) {
         try {
             luceneIndexService.deleteFromIndex(event.postId());

@@ -4,9 +4,8 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.wiki.engine.post.PostEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
  * 게시글 변경 이벤트를 받아 검색 결과 캐시를 무효화한다.
@@ -31,17 +30,17 @@ public class SearchCacheEventHandler {
         this.searchResultsL1Cache = searchResultsL1Cache;
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @ApplicationModuleListener
     public void onCreated(PostEvent.Created event) {
         invalidateSearchCache();
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @ApplicationModuleListener
     public void onUpdated(PostEvent.Updated event) {
         invalidateSearchCache();
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @ApplicationModuleListener
     public void onDeleted(PostEvent.Deleted event) {
         invalidateSearchCache();
     }
