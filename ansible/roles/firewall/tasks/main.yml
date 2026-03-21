@@ -56,6 +56,8 @@
     - "8080"   # App 2 Spring Boot (Phase 13, Nginx LB 대상)
     - "9100"   # Node Exporter
     - "9104"   # MySQL Exporter (Replica, Phase 12)
+    - "9308"   # Kafka Exporter (Phase 14-3)
+    - "9094"   # Kafka External Listener (서버 1 App 접근용)
   register: fw_result
   changed_when: "'ALREADY_ENABLED' not in fw_result.stderr"
   tags: [setup]
@@ -93,4 +95,7 @@
 
 - name: 방화벽 리로드
   command: firewall-cmd --reload
+  async: 60
+  poll: 10
+  ignore_errors: true
   tags: [setup]

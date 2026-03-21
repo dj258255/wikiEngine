@@ -158,12 +158,57 @@ services:
       CONFIG_STORAGE_REPLICATION_FACTOR: 1
       OFFSET_STORAGE_REPLICATION_FACTOR: 1
       STATUS_STORAGE_REPLICATION_FACTOR: 1
+      JMXHOST: "0.0.0.0"
+      JMXPORT: "9010"
     ports:
       - "8083:8083"
+      - "9010:9010"   # JMX 메트릭 (Debezium CDC lag 모니터링)
     deploy:
       resources:
         limits:
           memory: {{ debezium_memory_limit }}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - wiki-net
+
+  # Kafka Exporter — Consumer lag + 토픽 메트릭 → Prometheus
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: wiki-kafka-exporter-prod
+    restart: always
+    command:
+      - --kafka.server=kafka:9092
+    ports:
+      - "9308:9308"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - wiki-net
+
+  # Kafka UI — 토픽/메시지/커넥터 관리 웹 UI
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: wiki-kafka-ui-prod
+    restart: always
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: wiki-kafka
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://debezium-connect:8083
+    ports:
+      - "9090:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
     depends_on:
       kafka:
         condition: service_healthy

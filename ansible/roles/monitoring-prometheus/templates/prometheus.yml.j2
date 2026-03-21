@@ -36,6 +36,11 @@ scrape_configs:
     static_configs:
       - targets: ['{{ hostvars["app-arm"].private_ip }}:9121']
 
+  # Kafka Exporter — Consumer lag, 토픽 메트릭 (Phase 14-3)
+  - job_name: 'kafka-exporter'
+    static_configs:
+      - targets: ['{{ hostvars["app-arm-2"].private_ip }}:9308']
+
   # Node Exporter (all servers)
   - job_name: 'node-exporter'
     static_configs:
