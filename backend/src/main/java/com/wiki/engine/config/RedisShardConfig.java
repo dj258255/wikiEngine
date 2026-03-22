@@ -1,7 +1,8 @@
 package com.wiki.engine.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -13,24 +14,33 @@ import java.util.List;
 /**
  * Redis 샤딩 설정 (Phase 15).
  *
- * <p>redis.shards 프로퍼티가 설정되면 3개 독립 Redis 인스턴스에 대한
- * StringRedisTemplate을 생성하고, ConsistentHashRouter로 키 기반 라우팅을 수행한다.
- *
- * <p>기존 단일 Redis(spring.data.redis)는 블랙리스트 등 비샤딩 용도로 유지된다.
+ * <p>redis.sharding.enabled=true이면 3개 독립 Redis 인스턴스에 대한
+ * ConsistentHashRouter Bean을 생성한다.
+ * false이면 Bean을 생성하지 않아, 각 서비스가 기존 단일 Redis로 동작한다.
  */
 @Configuration
-@ConditionalOnProperty(name = "redis.sharding.enabled", havingValue = "true")
 class RedisShardConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(RedisShardConfig.class);
 
     @Bean
     ConsistentHashRouter consistentHashRouter(
-            @Value("${redis.shard1.host}") String host1,
+            @Value("${redis.sharding.enabled:false}") boolean enabled,
+            @Value("${redis.shard1.host:localhost}") String host1,
             @Value("${redis.shard1.port:6379}") int port1,
-            @Value("${redis.shard2.host}") String host2,
+            @Value("${redis.shard2.host:localhost}") String host2,
             @Value("${redis.shard2.port:6379}") int port2,
-            @Value("${redis.shard3.host}") String host3,
+            @Value("${redis.shard3.host:localhost}") String host3,
             @Value("${redis.shard3.port:6379}") int port3,
             @Value("${redis.password:}") String password) {
+
+        if (!enabled) {
+            log.info("Redis 샤딩 비활성화 — 기존 단일 Redis로 동작");
+            return null;
+        }
+
+        log.info("Redis 샤딩 활성화 — 3노드 ConsistentHashRouter 생성: {}:{}, {}:{}, {}:{}",
+                host1, port1, host2, port2, host3, port3);
 
         List<StringRedisTemplate> shardNodes = List.of(
                 createTemplate(host1, port1, password),
