@@ -123,7 +123,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Events Filtered",
+      "title": "Erroneous Events",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -136,13 +136,25 @@
       },
       "targets": [
         {
-          "expr": "debezium_metrics_numberofeventsfiltered{job=\"debezium-jmx\",context=\"streaming\"}",
+          "expr": "debezium_metrics_numberoferroneousevents{job=\"debezium-jmx\",context=\"streaming\"}",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
         }
       }
     },
@@ -240,7 +252,7 @@
     {
       "id": 11,
       "type": "timeseries",
-      "title": "Seconds Since Last Event",
+      "title": "MilliSeconds Since Last Event",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -253,14 +265,14 @@
       },
       "targets": [
         {
-          "expr": "debezium_metrics_secondssincelastevent{job=\"debezium-jmx\",context=\"streaming\"}",
+          "expr": "debezium_metrics_millisecondssincelastevent{job=\"debezium-jmx\",context=\"streaming\"}",
           "refId": "A",
-          "legendFormat": "Seconds Since Last Event"
+          "legendFormat": "ms Since Last Event"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "ms"
         }
       }
     },
