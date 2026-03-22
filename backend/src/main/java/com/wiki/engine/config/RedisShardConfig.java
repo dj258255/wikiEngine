@@ -19,17 +19,17 @@ import java.util.List;
  * <p>기존 단일 Redis(spring.data.redis)는 블랙리스트 등 비샤딩 용도로 유지된다.
  */
 @Configuration
-@ConditionalOnProperty(prefix = "redis.shards[0]", name = "host")
+@ConditionalOnProperty(name = "redis.sharding.enabled", havingValue = "true")
 class RedisShardConfig {
 
     @Bean
     ConsistentHashRouter consistentHashRouter(
-            @Value("${redis.shards[0].host}") String host1,
-            @Value("${redis.shards[0].port:6379}") int port1,
-            @Value("${redis.shards[1].host}") String host2,
-            @Value("${redis.shards[1].port:6379}") int port2,
-            @Value("${redis.shards[2].host}") String host3,
-            @Value("${redis.shards[2].port:6379}") int port3,
+            @Value("${redis.shard1.host}") String host1,
+            @Value("${redis.shard1.port:6379}") int port1,
+            @Value("${redis.shard2.host}") String host2,
+            @Value("${redis.shard2.port:6379}") int port2,
+            @Value("${redis.shard3.host}") String host3,
+            @Value("${redis.shard3.port:6379}") int port3,
             @Value("${redis.password:}") String password) {
 
         List<StringRedisTemplate> shardNodes = List.of(

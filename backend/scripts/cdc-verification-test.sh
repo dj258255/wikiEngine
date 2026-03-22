@@ -116,8 +116,8 @@ test_cdc_correctness() {
     cookie_file=$(login)
     log "로그인 완료"
 
-    # 1. 고유한 제목으로 게시글 생성
-    local unique_title="CDCTest_${TIMESTAMP}_correctness"
+    # 1. 고유한 제목으로 게시글 생성 (Lucene Nori 토크나이저가 토큰화할 수 있도록)
+    local unique_title="CDC검증 ${TIMESTAMP} 정확성테스트"
     local post_id
     post_id=$(create_post "$cookie_file" "$unique_title")
 
@@ -243,7 +243,7 @@ test_cdc_latency() {
     } > "$result_file"
 
     for run in $(seq 1 $iterations); do
-        local unique_title="CDCLatency_${TIMESTAMP}_run${run}"
+        local unique_title="CDC지연측정 ${TIMESTAMP} ${run}회차"
 
         local t0
         t0=$(now_ms)
@@ -331,7 +331,7 @@ with open('$result_file', 'a') as f:
     # 테스트 게시글 정리
     log ""
     log "테스트 게시글 정리 중 (직접 SQL DELETE — CDC가 Lucene에서도 자동 삭제)..."
-    mysql_direct "DELETE FROM posts WHERE title LIKE 'CDCLatency_${TIMESTAMP}_%';"
+    mysql_direct "DELETE FROM posts WHERE title LIKE 'CDC지연측정 ${TIMESTAMP}%';"
     log "정리 완료"
 }
 
