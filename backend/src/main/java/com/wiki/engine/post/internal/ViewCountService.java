@@ -3,12 +3,12 @@ package com.wiki.engine.post.internal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Set;
 
 /**
  * Redis 기반 조회수 카운터 (INCR + 배치 flush).
@@ -50,29 +50,36 @@ public class ViewCountService {
     /**
      * 누적된 조회수를 DB에 배치 flush (30초 주기).
      * Redis에서 읽고 삭제 → DB UPDATE.
+     *
+     * KEYS → SCAN 전환: KEYS는 전체 keyspace를 O(N) 블로킹 스캔하여
+     * 실행 동안 모든 Redis 명령이 대기한다. SCAN은 커서 기반으로
+     * 각 호출 사이에 다른 명령이 실행될 수 있어 블로킹하지 않는다.
      */
     @Scheduled(fixedRate = 30_000)
     @Transactional
     public void flushToDB() {
-        Set<String> keys = redisTemplate.keys(KEY_PREFIX + "*");
-        if (keys == null || keys.isEmpty()) {
-            return;
-        }
+        ScanOptions options = ScanOptions.scanOptions()
+                .match(KEY_PREFIX + "*")
+                .count(1000)
+                .build();
 
         int flushed = 0;
-        for (String key : keys) {
-            try {
-                String value = redisTemplate.opsForValue().getAndDelete(key);
-                if (value == null) continue;
+        try (Cursor<String> cursor = redisTemplate.scan(options)) {
+            while (cursor.hasNext()) {
+                String key = cursor.next();
+                try {
+                    String value = redisTemplate.opsForValue().getAndDelete(key);
+                    if (value == null) continue;
 
-                long delta = Long.parseLong(value);
-                if (delta <= 0) continue;
+                    long delta = Long.parseLong(value);
+                    if (delta <= 0) continue;
 
-                Long postId = Long.parseLong(key.substring(KEY_PREFIX.length()));
-                postRepository.incrementViewCountBy(postId, delta);
-                flushed++;
-            } catch (Exception e) {
-                log.warn("조회수 flush 실패: key={}, error={}", key, e.getMessage());
+                    Long postId = Long.parseLong(key.substring(KEY_PREFIX.length()));
+                    postRepository.incrementViewCountBy(postId, delta);
+                    flushed++;
+                } catch (Exception e) {
+                    log.warn("조회수 flush 실패: key={}, error={}", key, e.getMessage());
+                }
             }
         }
 
