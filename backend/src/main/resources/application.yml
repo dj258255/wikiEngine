@@ -80,16 +80,20 @@ spring:
         generate_statistics: ${HIBERNATE_STATISTICS}  # Hibernate 쿼리 통계 수집 (Actuator 메트릭 노출용)
 
 # Redis 샤딩 (Phase 15: Consistent Hashing)
-# 설정이 없으면 기존 단일 Redis로 동작 (로컬 개발 호환)
+# redis.sharding.enabled=true면 3개 샤드로 라우팅, 아니면 기존 단일 Redis
 redis:
+  sharding:
+    enabled: ${REDIS_SHARDING_ENABLED:false}
   password: ${REDIS_PASSWORD:}
-  shards:
-    - host: ${REDIS_SHARD1_HOST:}
-      port: ${REDIS_SHARD1_PORT:6379}
-    - host: ${REDIS_SHARD2_HOST:}
-      port: ${REDIS_SHARD2_PORT:6379}
-    - host: ${REDIS_SHARD3_HOST:}
-      port: ${REDIS_SHARD3_PORT:6379}
+  shard1:
+    host: ${REDIS_SHARD1_HOST:localhost}
+    port: ${REDIS_SHARD1_PORT:6379}
+  shard2:
+    host: ${REDIS_SHARD2_HOST:localhost}
+    port: ${REDIS_SHARD2_PORT:6379}
+  shard3:
+    host: ${REDIS_SHARD3_HOST:localhost}
+    port: ${REDIS_SHARD3_PORT:6379}
 
 # 서버 설정
 server:

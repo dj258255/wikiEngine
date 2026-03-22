@@ -1,0 +1,30 @@
+═══ CDC End-to-End 지연 측정 결과 ═══
+테스트 일시: Sun Mar 22 20:28:45 KST 2026
+반복 횟수: 10
+경로: POST API → MySQL → binlog → Debezium → Kafka → Consumer → Lucene → 검색 API
+폴링 간격: 500ms
+
+  Run 1: id=14822075, TIMEOUT (>60s)
+  Run 2: id=14822076, TIMEOUT (>60s)
+  Run 3: id=14822077, TIMEOUT (>60s)
+  Run 4: id=14822078, TIMEOUT (>60s)
+  Run 5: id=14822079, TIMEOUT (>60s)
+  Run 6: id=14822081, TIMEOUT (>60s)
+  Run 7: id=14822082, TIMEOUT (>60s)
+  Run 8: id=14822084, latency=1201ms
+  Run 9: id=14822085, TIMEOUT (>60s)
+  Run 10: id=14822087, TIMEOUT (>60s)
+
+═══ 통계 ═══
+  성공: 1 / 10
+  평균: 1201ms
+  P50:  1201ms
+  P95:  1201ms
+  최소: 1201ms
+  최대: 1201ms
+
+참고: Phase 14-1b(@ApplicationModuleListener)에서는 같은 JVM 내에서
+      비동기로 ~100ms 내에 Lucene을 갱신했다. CDC 경로는 binlog →
+      Debezium → Kafka → Consumer → Lucene을 거치므로 더 느리다.
+      그러나 CDC의 이점(직접 SQL 감지, 이벤트 리플레이, 앱 외부 독립 동작)은
+      이 지연 증가를 감수할 가치가 있다.
