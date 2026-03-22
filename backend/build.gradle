@@ -65,6 +65,9 @@ dependencies {
     // Spring Data Redis: Redis L2 캐시 (Phase 11)
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+    // Guava: Consistent Hashing에서 MurmurHash3 해시 함수 사용 (Phase 15)
+    implementation 'com.google.guava:guava:33.4.0-jre'
+
     // Spring Kafka: CDC Consumer (Phase 14-3, Debezium → Kafka → Consumer)
     implementation 'org.springframework.boot:spring-boot-starter-kafka'
 

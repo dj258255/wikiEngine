@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -25,15 +26,23 @@ public class TieredCacheService {
     private static final Logger log = LoggerFactory.getLogger(TieredCacheService.class);
 
     private final StringRedisTemplate redis;
+    private final @Nullable ConsistentHashRouter hashRouter;
     private final JsonMapper jsonMapper;
     private final MeterRegistry meterRegistry;
 
     public TieredCacheService(StringRedisTemplate redis,
+                              @Nullable ConsistentHashRouter hashRouter,
                               JsonMapper jsonMapper,
                               MeterRegistry meterRegistry) {
         this.redis = redis;
+        this.hashRouter = hashRouter;
         this.jsonMapper = jsonMapper;
         this.meterRegistry = meterRegistry;
+    }
+
+    /** 샤딩 활성화 시 ConsistentHashRouter로 라우팅, 아니면 기존 단일 Redis */
+    private StringRedisTemplate redisFor(String key) {
+        return hashRouter != null ? hashRouter.getNode(key) : redis;
     }
 
     /**
@@ -62,7 +71,7 @@ public class TieredCacheService {
 
         // 2. L2 확인 (Redis 장애 시 스킵)
         try {
-            String json = redis.opsForValue().get(redisKey);
+            String json = redisFor(redisKey).opsForValue().get(redisKey);
             if (json != null) {
                 T value = jsonMapper.readValue(json, type);
                 l1Cache.put(redisKey, value);
@@ -81,7 +90,7 @@ public class TieredCacheService {
         // 4. L1 + L2 양쪽에 저장
         l1Cache.put(redisKey, value);
         try {
-            redis.opsForValue().set(redisKey, jsonMapper.writeValueAsString(value), l2Ttl);
+            redisFor(redisKey).opsForValue().set(redisKey, jsonMapper.writeValueAsString(value), l2Ttl);
         } catch (RedisConnectionFailureException e) {
             log.warn("Redis L2 저장 실패 ({}), L1에만 캐싱: {}", redisKey, e.getMessage());
         } catch (Exception e) {
@@ -98,7 +107,7 @@ public class TieredCacheService {
     public void evict(Cache<String, Object> l1Cache, String redisKey) {
         l1Cache.invalidate(redisKey);
         try {
-            redis.delete(redisKey);
+            redisFor(redisKey).delete(redisKey);
         } catch (RedisConnectionFailureException e) {
             log.warn("Redis L2 삭제 실패 ({}): {}", redisKey, e.getMessage());
         }

@@ -1,10 +1,12 @@
 package com.wiki.engine.post.internal;
 
+import com.wiki.engine.config.ConsistentHashRouter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,7 @@ public class RedisAutocompleteService {
     private static final long VERSION_CACHE_TTL_MS = 30_000;
 
     private final StringRedisTemplate redis;
+    private final @Nullable ConsistentHashRouter hashRouter;
     private final JsonMapper jsonMapper;
     private final SearchLogRepository searchLogRepository;
     private final LuceneSearchService luceneSearchService;
@@ -49,13 +52,20 @@ public class RedisAutocompleteService {
     private volatile long versionCacheTime;
 
     public RedisAutocompleteService(StringRedisTemplate redis,
+                                    @Nullable ConsistentHashRouter hashRouter,
                                     JsonMapper jsonMapper,
                                     SearchLogRepository searchLogRepository,
                                     LuceneSearchService luceneSearchService) {
         this.redis = redis;
+        this.hashRouter = hashRouter;
         this.jsonMapper = jsonMapper;
         this.searchLogRepository = searchLogRepository;
         this.luceneSearchService = luceneSearchService;
+    }
+
+    /** 샤딩 활성화 시 ConsistentHashRouter로 라우팅, 아니면 기존 단일 Redis */
+    private StringRedisTemplate redisFor(String key) {
+        return hashRouter != null ? hashRouter.getNode(key) : redis;
     }
 
     /**
@@ -98,7 +108,7 @@ public class RedisAutocompleteService {
             String version = getCurrentVersion();
             if (version != null) {
                 String key = "prefix:v" + version + ":" + searchKey;
-                String json = redis.opsForValue().get(key);
+                String json = redisFor(key).opsForValue().get(key);
                 if (json != null) {
                     List<?> raw = jsonMapper.readValue(json, List.class);
                     return raw.stream()
@@ -110,7 +120,7 @@ public class RedisAutocompleteService {
                 // 원본 prefix로도 시도 (자모가 아닌 완성 음절 검색)
                 if (!searchKey.equals(normalized)) {
                     String originalKey = "prefix:v" + version + ":" + normalized;
-                    String originalJson = redis.opsForValue().get(originalKey);
+                    String originalJson = redisFor(originalKey).opsForValue().get(originalKey);
                     if (originalJson != null) {
                         List<?> raw = jsonMapper.readValue(originalJson, List.class);
                         return raw.stream()
@@ -187,7 +197,7 @@ public class RedisAutocompleteService {
                     .toList();
             try {
                 String key = "prefix:v" + newVersion + ":" + entry.getKey();
-                redis.opsForValue().set(key, jsonMapper.writeValueAsString(topK), KEY_TTL);
+                redisFor(key).opsForValue().set(key, jsonMapper.writeValueAsString(topK), KEY_TTL);
                 keyCount++;
             } catch (Exception e) {
                 log.error("prefix_topk Redis 저장 실패: prefix={}", entry.getKey(), e);

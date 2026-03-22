@@ -1,14 +1,17 @@
 package com.wiki.engine.post.internal;
 
-import lombok.RequiredArgsConstructor;
+import com.wiki.engine.config.ConsistentHashRouter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 /**
  * Redis 기반 조회수 카운터 (INCR + 배치 flush).
@@ -27,21 +30,34 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ViewCountService {
 
     private final StringRedisTemplate redisTemplate;
+    private final @Nullable ConsistentHashRouter hashRouter;
     private final PostRepository postRepository;
 
     private static final String KEY_PREFIX = "post:views:";
+
+    public ViewCountService(StringRedisTemplate redisTemplate,
+                            @Nullable ConsistentHashRouter hashRouter,
+                            PostRepository postRepository) {
+        this.redisTemplate = redisTemplate;
+        this.hashRouter = hashRouter;
+        this.postRepository = postRepository;
+    }
+
+    private StringRedisTemplate redisFor(String key) {
+        return hashRouter != null ? hashRouter.getNode(key) : redisTemplate;
+    }
 
     /**
      * 조회수 1 증가 (Redis INCR, O(1), ~0.1ms).
      * DB를 타지 않으므로 R/W 라우팅과 무관.
      */
     public void increment(Long postId) {
+        String key = KEY_PREFIX + postId;
         try {
-            redisTemplate.opsForValue().increment(KEY_PREFIX + postId);
+            redisFor(key).opsForValue().increment(key);
         } catch (RedisConnectionFailureException e) {
             log.warn("Redis 조회수 INCR 실패 (무시): postId={}", postId);
         }
@@ -64,21 +80,29 @@ public class ViewCountService {
                 .build();
 
         int flushed = 0;
-        try (Cursor<String> cursor = redisTemplate.scan(options)) {
-            while (cursor.hasNext()) {
-                String key = cursor.next();
-                try {
-                    String value = redisTemplate.opsForValue().getAndDelete(key);
-                    if (value == null) continue;
 
-                    long delta = Long.parseLong(value);
-                    if (delta <= 0) continue;
+        // 샤딩 시 모든 노드를 순회, 아니면 단일 Redis만
+        List<StringRedisTemplate> targets = hashRouter != null
+                ? hashRouter.getAllNodes()
+                : List.of(redisTemplate);
 
-                    Long postId = Long.parseLong(key.substring(KEY_PREFIX.length()));
-                    postRepository.incrementViewCountBy(postId, delta);
-                    flushed++;
-                } catch (Exception e) {
-                    log.warn("조회수 flush 실패: key={}, error={}", key, e.getMessage());
+        for (StringRedisTemplate node : targets) {
+            try (Cursor<String> cursor = node.scan(options)) {
+                while (cursor.hasNext()) {
+                    String key = cursor.next();
+                    try {
+                        String value = node.opsForValue().getAndDelete(key);
+                        if (value == null) continue;
+
+                        long delta = Long.parseLong(value);
+                        if (delta <= 0) continue;
+
+                        Long postId = Long.parseLong(key.substring(KEY_PREFIX.length()));
+                        postRepository.incrementViewCountBy(postId, delta);
+                        flushed++;
+                    } catch (Exception e) {
+                        log.warn("조회수 flush 실패: key={}, error={}", key, e.getMessage());
+                    }
                 }
             }
         }

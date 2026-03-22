@@ -104,6 +104,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_SHARD1_HOST: redis-shard-1
+      REDIS_SHARD1_PORT: 6379
+      REDIS_SHARD2_HOST: redis-shard-2
+      REDIS_SHARD2_PORT: 6379
+      REDIS_SHARD3_HOST: redis-shard-3
+      REDIS_SHARD3_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       KAFKA_CONSUMER_GROUP_ID: wiki-cdc-consumer-primary
     ports:
@@ -118,6 +124,12 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      redis-shard-1:
+        condition: service_healthy
+      redis-shard-2:
+        condition: service_healthy
+      redis-shard-3:
         condition: service_healthy
     networks:
       - wiki-net
@@ -166,6 +178,91 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      - wiki-net
+
+  # Phase 15: Redis 샤드 (Consistent Hashing)
+  redis-shard-1:
+    image: {{ redis_image }}
+    container_name: wiki-redis-shard1-prod
+    restart: always
+    ports:
+      - "{{ private_ip }}:{{ redis_shard1_port }}:6379"
+    volumes:
+      - redis_shard1_data:/data
+    command: >
+      redis-server
+      --bind 0.0.0.0
+      --maxmemory {{ redis_shard_maxmemory }}
+      --maxmemory-policy volatile-lru
+      --requirepass ${REDIS_PASSWORD}
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 128
+    deploy:
+      resources:
+        limits:
+          memory: {{ redis_shard_memory_limit }}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wiki-net
+
+  redis-shard-2:
+    image: {{ redis_image }}
+    container_name: wiki-redis-shard2-prod
+    restart: always
+    ports:
+      - "{{ private_ip }}:{{ redis_shard2_port }}:6379"
+    volumes:
+      - redis_shard2_data:/data
+    command: >
+      redis-server
+      --bind 0.0.0.0
+      --maxmemory {{ redis_shard_maxmemory }}
+      --maxmemory-policy volatile-lru
+      --requirepass ${REDIS_PASSWORD}
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 128
+    deploy:
+      resources:
+        limits:
+          memory: {{ redis_shard_memory_limit }}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wiki-net
+
+  redis-shard-3:
+    image: {{ redis_image }}
+    container_name: wiki-redis-shard3-prod
+    restart: always
+    ports:
+      - "{{ private_ip }}:{{ redis_shard3_port }}:6379"
+    volumes:
+      - redis_shard3_data:/data
+    command: >
+      redis-server
+      --bind 0.0.0.0
+      --maxmemory {{ redis_shard_maxmemory }}
+      --maxmemory-policy volatile-lru
+      --requirepass ${REDIS_PASSWORD}
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 128
+    deploy:
+      resources:
+        limits:
+          memory: {{ redis_shard_memory_limit }}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - wiki-net
 
@@ -272,6 +369,9 @@ volumes:
   mysql_logs:
   lucene_index:
   redis_data:
+  redis_shard1_data:
+  redis_shard2_data:
+  redis_shard3_data:
   alloy_data:
 
 networks:
