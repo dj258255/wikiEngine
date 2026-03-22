@@ -65,20 +65,6 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
 
-# Redis 샤딩 (Phase 15: Consistent Hashing)
-# 설정이 없으면 기존 단일 Redis로 동작 (로컬 개발 호환)
-redis:
-  password: ${REDIS_PASSWORD:}
-  shards:
-    - host: ${REDIS_SHARD1_HOST:}
-      port: ${REDIS_SHARD1_PORT:6379}
-    - host: ${REDIS_SHARD2_HOST:}
-      port: ${REDIS_SHARD2_PORT:6379}
-    - host: ${REDIS_SHARD3_HOST:}
-      port: ${REDIS_SHARD3_PORT:6379}
-
-# 아래는 spring: 블록 (위의 spring: 키와 병합됨)
-spring:
   # JPA / Hibernate 설정
   jpa:
     hibernate:
@@ -92,6 +78,18 @@ spring:
           batch_size: ${HIBERNATE_BATCH_SIZE}  # 배치 INSERT 크기
         order_inserts: true  # INSERT 문 순서 정렬 (배치 최적화)
         generate_statistics: ${HIBERNATE_STATISTICS}  # Hibernate 쿼리 통계 수집 (Actuator 메트릭 노출용)
+
+# Redis 샤딩 (Phase 15: Consistent Hashing)
+# 설정이 없으면 기존 단일 Redis로 동작 (로컬 개발 호환)
+redis:
+  password: ${REDIS_PASSWORD:}
+  shards:
+    - host: ${REDIS_SHARD1_HOST:}
+      port: ${REDIS_SHARD1_PORT:6379}
+    - host: ${REDIS_SHARD2_HOST:}
+      port: ${REDIS_SHARD2_PORT:6379}
+    - host: ${REDIS_SHARD3_HOST:}
+      port: ${REDIS_SHARD3_PORT:6379}
 
 # 서버 설정
 server:
