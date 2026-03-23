@@ -217,8 +217,67 @@ services:
     networks:
       - wiki-net
 
+  # Phase 15: Redis 샤드 2, 3 (서버 1에서 분산 배치)
+  redis-shard-2:
+    image: {{ redis_image }}
+    container_name: wiki-redis-shard2-prod
+    restart: always
+    ports:
+      - "{{ redis_shard2_port }}:6379"
+    volumes:
+      - redis_shard2_data:/data
+    command: >
+      redis-server
+      --bind 0.0.0.0
+      --maxmemory {{ redis_shard_maxmemory }}
+      --maxmemory-policy volatile-lru
+      --requirepass ${REDIS_PASSWORD}
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 128
+    deploy:
+      resources:
+        limits:
+          memory: {{ redis_shard_memory_limit }}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wiki-net
+
+  redis-shard-3:
+    image: {{ redis_image }}
+    container_name: wiki-redis-shard3-prod
+    restart: always
+    ports:
+      - "{{ redis_shard3_port }}:6379"
+    volumes:
+      - redis_shard3_data:/data
+    command: >
+      redis-server
+      --bind 0.0.0.0
+      --maxmemory {{ redis_shard_maxmemory }}
+      --maxmemory-policy volatile-lru
+      --requirepass ${REDIS_PASSWORD}
+      --slowlog-log-slower-than 10000
+      --slowlog-max-len 128
+    deploy:
+      resources:
+        limits:
+          memory: {{ redis_shard_memory_limit }}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wiki-net
+
 volumes:
   mysql_replica_data:
+  redis_shard2_data:
+  redis_shard3_data:
   kafka_data:
   lucene_index:
     driver: local

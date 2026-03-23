@@ -60,6 +60,8 @@
     - "9308"   # Kafka Exporter (Phase 14-3)
     - "7072"   # Debezium JMX Exporter (Phase 14-3)
     - "9094"   # Kafka External Listener (서버 1 App 접근용)
+    - "{{ redis_shard2_port }}"   # Redis Shard 2 (Phase 15, 서버 1 App 접근용)
+    - "{{ redis_shard3_port }}"   # Redis Shard 3 (Phase 15, 서버 1 App 접근용)
   register: fw_result
   changed_when: "'ALREADY_ENABLED' not in fw_result.stderr"
   tags: [setup]
