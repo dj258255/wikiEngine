@@ -31,10 +31,26 @@ scrape_configs:
     static_configs:
       - targets: ['{{ hostvars["app-arm-2"].private_ip }}:9104']
 
-  # Redis Exporter (ARM - Phase 11)
+  # Redis Exporter — 기존 단일 인스턴스 (직접 스크래핑)
   - job_name: 'redis'
     static_configs:
       - targets: ['{{ hostvars["app-arm"].private_ip }}:9121']
+
+  # Redis Exporter — 샤드 3개 (multi-target 패턴, Phase 15)
+  - job_name: 'redis-shards'
+    static_configs:
+      - targets:
+          - 'redis://{{ hostvars["app-arm"].private_ip }}:{{ redis_shard1_port }}'
+          - 'redis://{{ hostvars["app-arm"].private_ip }}:{{ redis_shard2_port }}'
+          - 'redis://{{ hostvars["app-arm"].private_ip }}:{{ redis_shard3_port }}'
+    metrics_path: /scrape
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: '{{ hostvars["app-arm"].private_ip }}:9121'
 
   # Nginx Exporter — RPS, 4xx/5xx, 커넥션 수
   - job_name: 'nginx'

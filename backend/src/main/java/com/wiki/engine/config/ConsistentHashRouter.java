@@ -25,15 +25,47 @@ public class ConsistentHashRouter {
     private final ConcurrentSkipListMap<Long, StringRedisTemplate> ring = new ConcurrentSkipListMap<>();
     private final List<StringRedisTemplate> nodes;
     private static final int VIRTUAL_NODES = 150;
+    private int nodeCount;
 
     public ConsistentHashRouter(List<StringRedisTemplate> shardNodes) {
-        this.nodes = shardNodes;
+        this.nodes = new java.util.ArrayList<>(shardNodes);
+        this.nodeCount = nodes.size();
         for (int i = 0; i < nodes.size(); i++) {
-            for (int v = 0; v < VIRTUAL_NODES; v++) {
-                long hash = hash("node-" + i + "-vnode-" + v);
-                ring.put(hash, nodes.get(i));
-            }
+            addToRing(nodes.get(i), i);
         }
+    }
+
+    private void addToRing(StringRedisTemplate node, int nodeIndex) {
+        for (int v = 0; v < VIRTUAL_NODES; v++) {
+            long h = hash("node-" + nodeIndex + "-vnode-" + v);
+            ring.put(h, node);
+        }
+    }
+
+    private void removeFromRing(int nodeIndex) {
+        for (int v = 0; v < VIRTUAL_NODES; v++) {
+            long h = hash("node-" + nodeIndex + "-vnode-" + v);
+            ring.remove(h);
+        }
+    }
+
+    /**
+     * 노드를 해시 링에 추가한다.
+     * 기존 키 중 ~1/N만 새 노드로 이동한다 (Consistent Hashing의 핵심 이점).
+     * ConcurrentSkipListMap이므로 추가 중에도 조회가 안전하다.
+     */
+    public void addNode(StringRedisTemplate newNode) {
+        int index = nodeCount++;
+        nodes.add(newNode);
+        addToRing(newNode, index);
+    }
+
+    /**
+     * 노드를 해시 링에서 제거한다.
+     * 해당 노드가 담당하던 키는 시계 방향 다음 노드가 자동으로 담당한다.
+     */
+    public void removeNode(int nodeIndex) {
+        removeFromRing(nodeIndex);
     }
 
     /**
@@ -50,9 +82,19 @@ public class ConsistentHashRouter {
         return entry.getValue();
     }
 
-    /** 모든 노드를 반환한다 (SCAN 등 전체 순회 시 사용). */
+    /** 모든 활성 노드를 반환한다 (SCAN 등 전체 순회 시 사용). */
     public List<StringRedisTemplate> getAllNodes() {
         return Collections.unmodifiableList(nodes);
+    }
+
+    /** 현재 링의 노드 수. */
+    public int getNodeCount() {
+        return nodeCount;
+    }
+
+    /** 현재 링의 가상 노드(엔트리) 수. */
+    public int getRingSize() {
+        return ring.size();
     }
 
     /**
