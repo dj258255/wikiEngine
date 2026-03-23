@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
   const query = searchParams.get("q") || "";
   const page = searchParams.get("page") || "0";
   const size = searchParams.get("size") || "20";
+  const categoryId = searchParams.get("categoryId") || "";
 
   if (!query.trim()) {
     return NextResponse.json({ results: [], hasNext: false });
@@ -15,10 +16,11 @@ export async function GET(request: NextRequest) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
-    const res = await fetch(
-      `${API_URL}/api/v1.0/posts/search?q=${encodeURIComponent(query)}&page=${page}&size=${size}`,
-      { cache: "no-store", signal: controller.signal }
-    );
+    let url = `${API_URL}/api/v1.0/posts/search?q=${encodeURIComponent(query)}&page=${page}&size=${size}`;
+    if (categoryId) {
+      url += `&categoryId=${encodeURIComponent(categoryId)}`;
+    }
+    const res = await fetch(url, { cache: "no-store", signal: controller.signal });
     clearTimeout(timeout);
 
     if (!res.ok) {

@@ -37,6 +37,28 @@ public record PostSearchResponse(
     private static final Pattern HTML_ENTITIES = Pattern.compile("&[a-zA-Z]+;|&#\\d+;");
     private static final Pattern MULTI_SPACES = Pattern.compile("[\\s]+");
 
+    // 나무위키 고유 마크업
+    // 나무위키 include: 중첩 괄호 허용 — [include(틀:다른 뜻1, other1=값(서브))]
+    private static final Pattern NAMU_INCLUDE = Pattern.compile("\\[include\\([^\\]]*\\)\\]");
+    private static final Pattern NAMU_BR = Pattern.compile("\\{br\\}");
+    private static final Pattern NAMU_TOC = Pattern.compile("\\[목차\\]|\\[tableofcontents\\]");
+    private static final Pattern NAMU_FOOTNOTE = Pattern.compile("\\[\\*[^\\]]*\\]");
+    private static final Pattern NAMU_IMAGE = Pattern.compile("\\[\\[파일:[^\\]]*\\]\\]|\\[파일:[^\\]]*\\]");
+    private static final Pattern NAMU_PIPE_TABLE = Pattern.compile("\\|\\|[^\\n]*\\|\\|");
+    private static final Pattern NAMU_MACRO = Pattern.compile("\\{\\{\\{[^}]*\\}\\}\\}");
+    private static final Pattern NAMU_COLOR = Pattern.compile("\\{\\{\\{#[0-9a-fA-F]{3,6}\\s");
+    // Infobox 파라미터 라인: "| key = value" 패턴 (영문/한국어 공통)
+    // \w는 Java에서 한국어를 포함하지 않으므로 Unicode letter/digit 사용
+    private static final Pattern INFOBOX_PARAM = Pattern.compile("\\|\\s*[\\p{L}\\p{N}\\s_-]+=\\s*[^|}\\n]*");
+    // Lua 모듈 코드 (위키 모듈 문서)
+    private static final Pattern LUA_CODE = Pattern.compile("local\\s+\\w+\\s*=\\s*\\{\\}[\\s\\S]*?(?:end|return\\s+\\w+)");
+    private static final Pattern LUA_FUNCTION = Pattern.compile("function\\s+[\\w.:]+\\([^)]*\\)[\\s\\S]*?end");
+    private static final Pattern LUA_REQUIRE = Pattern.compile("require\\(['\"][^'\"]*['\"]\\)");
+    // 대시 구분선 (---...---)
+    private static final Pattern DASH_LINE = Pattern.compile("-{3,}");
+    // 남은 잔해
+    private static final Pattern REMAINING_BRACES = Pattern.compile("[{}\\[\\]]+");
+
     public static PostSearchResponse from(Post post) {
         return new PostSearchResponse(
                 post.getId(),
@@ -55,28 +77,48 @@ public record PostSearchResponse(
 
         String plain = content;
 
-        // 1. 위키 틀/테이블 제거 (가장 먼저 — 내부에 | 포함)
+        // 1. 나무위키 고유 마크업 제거 (위키피디아 패턴보다 먼저)
+        plain = NAMU_INCLUDE.matcher(plain).replaceAll("");
+        plain = NAMU_MACRO.matcher(plain).replaceAll("");
+        plain = NAMU_COLOR.matcher(plain).replaceAll("");
+        plain = NAMU_BR.matcher(plain).replaceAll(" ");
+        plain = NAMU_TOC.matcher(plain).replaceAll("");
+        plain = NAMU_FOOTNOTE.matcher(plain).replaceAll("");
+        plain = NAMU_IMAGE.matcher(plain).replaceAll("");
+        plain = NAMU_PIPE_TABLE.matcher(plain).replaceAll("");
+
+        // 2. 위키피디아 틀/테이블 제거 (내부에 | 포함)
         plain = WIKI_TEMPLATE.matcher(plain).replaceAll("");
         plain = WIKI_TABLE.matcher(plain).replaceAll("");
 
-        // 2. 카테고리/파일 링크 제거 (텍스트 추출 불필요)
+        // 3. 카테고리/파일 링크 제거 (텍스트 추출 불필요)
         plain = WIKI_CATEGORY.matcher(plain).replaceAll("");
         plain = WIKI_FILE.matcher(plain).replaceAll("");
 
-        // 3. 위키 링크 → 표시 텍스트 추출: [[대한민국|한국]] → 한국, [[서울]] → 서울
+        // 4. 위키 링크 → 표시 텍스트 추출: [[대한민국|한국]] → 한국, [[서울]] → 서울
         plain = WIKI_LINK.matcher(plain).replaceAll("$1");
 
-        // 4. 외부 링크, ref 태그, HTML 태그 제거
+        // 5. 외부 링크, ref 태그, HTML 태그 제거
         plain = WIKI_EXT_LINK.matcher(plain).replaceAll("");
         plain = WIKI_REF.matcher(plain).replaceAll("");
         plain = HTML_TAGS.matcher(plain).replaceAll("");
         plain = HTML_ENTITIES.matcher(plain).replaceAll(" ");
 
-        // 5. 위키 서식 제거 (볼드/이탤릭, 헤딩)
+        // 6. 위키 서식 제거 (볼드/이탤릭, 헤딩)
         plain = WIKI_HEADING.matcher(plain).replaceAll("$1");
         plain = WIKI_BOLD_ITALIC.matcher(plain).replaceAll("");
 
-        // 6. 정리: 다중 공백 → 단일 공백
+        // 7. Lua 코드 제거 (위키 모듈 문서)
+        plain = LUA_CODE.matcher(plain).replaceAll("");
+        plain = LUA_FUNCTION.matcher(plain).replaceAll("");
+        plain = LUA_REQUIRE.matcher(plain).replaceAll("");
+
+        // 8. 남은 마크업 잔해 정리: | key = value (Infobox 파라미터), 대시 구분선, 고립된 {}, [] 등
+        plain = INFOBOX_PARAM.matcher(plain).replaceAll("");
+        plain = DASH_LINE.matcher(plain).replaceAll(" ");
+        plain = REMAINING_BRACES.matcher(plain).replaceAll(" ");
+
+        // 9. 정리: 다중 공백 → 단일 공백
         plain = MULTI_SPACES.matcher(plain).replaceAll(" ").strip();
 
         if (plain.length() <= SNIPPET_LENGTH) {

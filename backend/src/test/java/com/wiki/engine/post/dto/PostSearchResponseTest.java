@@ -143,4 +143,142 @@ class PostSearchResponseTest {
                 .doesNotContain("[[")
                 .doesNotContain("회사 정보");
     }
+
+    // ─── 나무위키 마크업 테스트 ───
+
+    @Test
+    void createSnippet_나무위키_include_틀() {
+        // 배포 후 스크린샷: [include(틀:회원수정2)] [include(틀:다른 뜻1...)]
+        String input = "[include(틀:회원수정2)] [include(틀:다른 뜻1, other1=다른 뜻, rd1=삼성(동음이의어))] " +
+                "[include(틀:대한민국의 대기업)] [include(틀:삼성)] 대한민국";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("[include")
+                .doesNotContain("틀:")
+                .contains("대한민국");
+    }
+
+    @Test
+    void createSnippet_나무위키_br_목차() {
+        // {br}, [목차]
+        String input = "|||| || } }{br} || } || 삼성대로[br](천안로사거리~천안IC(천안대교)) || } || } }{br} || " +
+                "[include(틀:천안시의 교통)] [include(틀:천안시의 주요 도로)] [include(틀:충청남도의 도로)] }";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("{br}")
+                .doesNotContain("[include")
+                .doesNotContain("||");
+    }
+
+    @Test
+    void createSnippet_나무위키_파이프_테이블_제거() {
+        // ||노선명 = 삼성대로 |노선번호명 = ... 같은 파이프 구분 테이블
+        String input = "|노선명 = 삼성1로 |노선번호명 = 지방도 제318호선의 일부 |노선도 = |총연장 = |개통년 = " +
+                "|기점 = 경기도 화성시 동탄동 |주요경유지 = |종점 = 경기도 화성시 반월동 반월삼거리 " +
+                "|주요교차도로 = 지방도 제315호선 |}} 삼성1로(Samsung 1-ro";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("|노선명")
+                .doesNotContain("|노선번호명")
+                .contains("삼성1로");
+    }
+
+    @Test
+    void createSnippet_나무위키_삼성물산_실제() {
+        // | 상장일 = 2014년 12월 18일 | 자회사 = 삼성웰스토리...
+        String input = "| 상장일 = 2014년 12월 18일 | 자회사 = 삼성웰스토리주식회사제일패션리테일주식회사 " +
+                "삼우종합건축사사무소주식회사 서울레이크사이드 | 장소 = 서울특별시 강동구 상일로6길 26";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("| 상장일")
+                .doesNotContain("| 자회사");
+    }
+
+    @Test
+    void createSnippet_영문위키_infobox_파라미터_제거() {
+        // 배포 후 스크린샷: | image = Jalgaon Banana Bunch closeup.jpg | alt = ... | caption = ...
+        String input = "| image = Jalgaon Banana Bunch closeup.jpg | alt = Jalgaon Banana Bunch close-up " +
+                "| caption = Jalgaon Banana Bunch close-up | alternative names = जळगाव";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("| image")
+                .doesNotContain("| alt")
+                .doesNotContain("| caption");
+    }
+
+    @Test
+    void createSnippet_영문위키_Melt_Banana_실제() {
+        // | years_active = 1992–present | label = | website = | current_members = ...
+        String input = "| years_active = 1992–present | label = | website = " +
+                "| current_members = Yasuko Onuki Ichiro Agata | past_members = Sudoh Toshiaki Oshima Watchma Rika";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("| years_active")
+                .doesNotContain("| current_members")
+                .doesNotContain("| label");
+    }
+
+    @Test
+    void createSnippet_Lua_모듈_코드_제거() {
+        // 모듈:Test/Bananas — Lua 스크립트가 본문인 경우
+        String input = "local p = {} ---------------------------------------- " +
+                "function p.has_fruit(param) return true end";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("function p.");
+    }
+
+    @Test
+    void createSnippet_Lua_모듈_hello_world() {
+        // 모듈:Bananas — 짧은 Lua 코드
+        String input = "-- 헬로 월드! local p = {} function p.hello() return \"Hello, world!\" end return p";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("function");
+    }
+
+    @Test
+    void createSnippet_대시_구분선_제거() {
+        String input = "local p = {} --------------------------------------- function p.test() end";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result).doesNotContain("-------");
+    }
+
+    @Test
+    void createSnippet_영문위키_Bananas_infobox_연속_빈값() {
+        // | writer = | starring = See below | music = Nathan Larson | cinematography = | editing = ...
+        String input = "| writer = | starring = See below | music = Nathan Larson " +
+                "| cinematography = | editing = Jesper Osmund | studio = novemberfilm | distributor = Oscillo";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("| writer")
+                .doesNotContain("| starring")
+                .doesNotContain("| studio");
+    }
+
+    @Test
+    void createSnippet_noprose_잔해_제거() {
+        // | noprose=yes }} 《Bananas》는 영국의...
+        String input = "| noprose=yes }} 《Bananas》는 영국의 하드 록 밴드 딥 퍼플의 열일곱 번째 스튜디오 음반으로";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("noprose")
+                .doesNotContain("}}");
+        // INFOBOX_PARAM이 "| noprose=yes" 이후 텍스트까지 먹을 수 있으므로,
+        // Bananas가 남아있는지는 패턴 의존적 — 핵심은 마크업 잔해 제거
+    }
+
+    @Test
+    void createSnippet_나무위키_삼성로_include_복합() {
+        // [include(틀:다른 뜻1, other1=...)] } [목차] 개요 서울특별시 강남구...
+        String input = "[include(틀:다른 뜻1, other1=경기도 수원시 영통구에 위치한 도로, rd1=삼성로(수원), " +
+                "other2=경기도 군포시에 위치한 도로, rd2=삼성로(군포))] [include(틀:강남구의 간선도로)] } " +
+                "[목차] 개요 서울특별시 강남구 개포3·4단지 삼거";
+        String result = PostSearchResponse.createSnippet(input);
+        assertThat(result)
+                .doesNotContain("[include")
+                .doesNotContain("[목차]")
+                .contains("개요")
+                .contains("서울특별시");
+    }
 }
