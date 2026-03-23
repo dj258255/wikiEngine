@@ -319,10 +319,10 @@ class PostServiceTest {
         void success() throws IOException {
             Post post = createTestPost();
             Pageable pageable = PageRequest.of(0, 20);
-            given(luceneSearchService.search("테스트", pageable))
+            given(luceneSearchService.search("테스트", null, pageable))
                     .willReturn(new SliceImpl<>(List.of(post), pageable, false));
 
-            Slice<PostSearchResponse> result = postService.search("테스트", pageable);
+            Slice<PostSearchResponse> result = postService.search("테스트", null, pageable);
 
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().getFirst().title()).isEqualTo("테스트 게시글");
@@ -333,10 +333,10 @@ class PostServiceTest {
         @DisplayName("[코너] 검색 결과 없음 — 빈 Slice")
         void empty() throws IOException {
             Pageable pageable = PageRequest.of(0, 20);
-            given(luceneSearchService.search("없는키워드", pageable))
+            given(luceneSearchService.search("없는키워드", null, pageable))
                     .willReturn(new SliceImpl<>(Collections.emptyList(), pageable, false));
 
-            Slice<PostSearchResponse> result = postService.search("없는키워드", pageable);
+            Slice<PostSearchResponse> result = postService.search("없는키워드", null, pageable);
 
             assertThat(result.getContent()).isEmpty();
             assertThat(result.hasNext()).isFalse();
