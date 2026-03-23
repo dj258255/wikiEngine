@@ -433,7 +433,7 @@ class PostControllerTest {
         @DisplayName("[해피] 정상 검색 — 200 + 결과 반환")
         void success() throws Exception {
             PostSearchResponse response = new PostSearchResponse(1L, "테스트 게시글", "테스트 본문...", 0L, 0L, java.time.Instant.now());
-            given(postService.search(eq("테스트"), any(Pageable.class)))
+            given(postService.search(eq("테스트"), isNull(), any(Pageable.class)))
                     .willReturn(new SliceImpl<>(List.of(response)));
 
             mockMvc.perform(get(BASE + "/search").param("q", "테스트"))
@@ -444,7 +444,7 @@ class PostControllerTest {
         @Test
         @DisplayName("[코너] 결과 없음 — 200 + 빈 Slice")
         void empty() throws Exception {
-            given(postService.search(eq("없는키워드"), any(Pageable.class)))
+            given(postService.search(eq("없는키워드"), isNull(), any(Pageable.class)))
                     .willReturn(new SliceImpl<>(Collections.emptyList()));
 
             mockMvc.perform(get(BASE + "/search").param("q", "없는키워드"))
@@ -465,7 +465,7 @@ class PostControllerTest {
         @Test
         @DisplayName("[임계] 페이지 사이즈 지정 — 200")
         void customPageSize() throws Exception {
-            given(postService.search(eq("test"), any(Pageable.class)))
+            given(postService.search(eq("test"), isNull(), any(Pageable.class)))
                     .willReturn(new PageImpl<>(Collections.emptyList()));
 
             mockMvc.perform(get(BASE + "/search")

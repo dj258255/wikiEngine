@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FeatureField;
+import org.apache.lucene.document.LongField;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
@@ -43,11 +44,14 @@ public class LuceneSearchService {
      * title과 content 필드를 동시에 검색하며, title에 더 높은 가중치를 부여한다.
      * totalHits 불필요 — hasNext()만으로 "다음" 버튼 활성화 판단.
      * limit + 1 조회하여 hasNext 판단 (Slice 패턴).
+     *
+     * @param categoryId null이면 전체 검색, 값이 있으면 해당 카테고리만 필터링.
+     *                   Occur.FILTER로 추가되어 스코어에 영향 없이 필터만 수행.
      */
-    public Slice<Post> search(String keyword, Pageable pageable) throws IOException {
+    public Slice<Post> search(String keyword, Long categoryId, Pageable pageable) throws IOException {
         IndexSearcher searcher = searcherManager.acquire();
         try {
-            Query query = buildQuery(keyword);
+            Query query = buildQuery(keyword, categoryId);
             int offset = (int) pageable.getOffset();
             int limit = pageable.getPageSize();
 
@@ -138,7 +142,7 @@ public class LuceneSearchService {
                 parser.setPhraseSlop(2);
                 query = parser.parse(escapePreservingPhrases(keyword));
             } else {
-                query = buildQuery(keyword);
+                query = buildQuery(keyword, null);
             }
 
             TopDocs topDocs = searcher.search(query, topN);
@@ -173,7 +177,7 @@ public class LuceneSearchService {
      *             + satu(likeCount, w=2.0, pivot=100)  // SHOULD: 좋아요 부스트
      *             + recencyBoost(createdAt)             // SHOULD: 최신성 감쇠
      */
-    private Query buildQuery(String keyword) throws ParseException {
+    private Query buildQuery(String keyword, Long categoryId) throws ParseException {
         // 1. BM25 텍스트 관련성 쿼리
         var boosts = java.util.Map.of("title", 3.0f, "content", 1.0f);
         var parser = new MultiFieldQueryParser(new String[]{"title", "content"}, analyzer, boosts);
@@ -187,13 +191,19 @@ public class LuceneSearchService {
         // 3. 최신성 감쇠 (exponential decay, 반감기 30일)
         Query recencyBoost = buildRecencyBoost(5.0f, 30);
 
-        // 4. MUST(텍스트) + SHOULD(인기도 + 최신성)
-        return new BooleanQuery.Builder()
+        // 4. MUST(텍스트) + SHOULD(인기도 + 최신성) + FILTER(카테고리)
+        BooleanQuery.Builder builder = new BooleanQuery.Builder()
                 .add(textQuery, BooleanClause.Occur.MUST)
                 .add(viewBoost, BooleanClause.Occur.SHOULD)
                 .add(likeBoost, BooleanClause.Occur.SHOULD)
-                .add(recencyBoost, BooleanClause.Occur.SHOULD)
-                .build();
+                .add(recencyBoost, BooleanClause.Occur.SHOULD);
+
+        // Phase 17: 카테고리 필터 — FILTER는 스코어 미영향, bitset 캐싱 대상
+        if (categoryId != null) {
+            builder.add(LongField.newExactQuery("categoryId", categoryId), BooleanClause.Occur.FILTER);
+        }
+
+        return builder.build();
     }
 
     /**

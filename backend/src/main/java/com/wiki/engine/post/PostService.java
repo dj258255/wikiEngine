@@ -250,17 +250,21 @@ public class PostService {
      * Lucene + Nori 검색 — Slice + PostSearchResponse 반환.
      * L1(Caffeine) + L2(Redis) 2계층 캐시.
      * 검색 로그는 캐시 히트/미스와 무관하게 항상 기록한다.
+     *
+     * @param categoryId null이면 전체 검색, 값이 있으면 해당 카테고리만 필터링 (Phase 17).
      */
-    public Slice<PostSearchResponse> search(String keyword, Pageable pageable) {
+    public Slice<PostSearchResponse> search(String keyword, Long categoryId, Pageable pageable) {
         validatePageLimit(pageable, MAX_SEARCH_PAGE);
         searchLogCollector.record(keyword);
 
-        String redisKey = "search:" + keyword + ":" + pageable.getPageNumber() + ":" + pageable.getPageSize();
+        // 캐시 키에 categoryId 포함 — 같은 키워드라도 카테고리별로 다른 결과
+        String categoryPart = categoryId != null ? categoryId.toString() : "all";
+        String redisKey = "search:" + keyword + ":" + categoryPart + ":" + pageable.getPageNumber() + ":" + pageable.getPageSize();
         CachedSearchResult cached = tieredCacheService.get("searchResults", searchResultsL1Cache,
                 redisKey, CachedSearchResult.class, SEARCH_L2_TTL,
                 () -> {
                     try {
-                        Slice<Post> result = luceneSearchService.search(keyword, pageable);
+                        Slice<Post> result = luceneSearchService.search(keyword, categoryId, pageable);
                         List<PostSearchResponse> responses = result.getContent().stream()
                                 .map(PostSearchResponse::from)
                                 .toList();
