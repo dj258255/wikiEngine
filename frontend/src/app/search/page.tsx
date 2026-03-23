@@ -17,6 +17,11 @@ interface SearchResult {
   createdAt: string;
 }
 
+interface Category {
+  id: number;
+  name: string;
+}
+
 export default function SearchPage() {
   return (
     <Suspense fallback={
@@ -35,6 +40,7 @@ function SearchPageContent() {
   const { user } = useAuth();
   const query = searchParams.get("q") || "";
   const pageParam = Number(searchParams.get("page") || "0");
+  const categoryParam = searchParams.get("categoryId") || "";
   const [searchQuery, setSearchQuery] = useState(query);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [hasNext, setHasNext] = useState(false);
@@ -43,6 +49,10 @@ function SearchPageContent() {
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
+  // 카테고리 필터
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState(categoryParam);
+
   // 자동완성
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -50,18 +60,27 @@ function SearchPageContent() {
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
+  // 카테고리 목록 로드 (1회)
+  useEffect(() => {
+    fetch(`${API_URL}/api/v1.0/categories`)
+      .then(res => res.ok ? res.json() : null)
+      .then(json => { if (json?.data) setCategories(json.data); })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     setSearchQuery(query);
     setCurrentPage(pageParam);
+    setSelectedCategory(categoryParam);
     if (query) {
-      fetchResults(query, pageParam);
+      fetchResults(query, pageParam, categoryParam);
       fetchAiSummary(query);
     } else {
       setResults([]);
       setHasNext(false);
       setAiSummary("");
     }
-  }, [query, pageParam]);
+  }, [query, pageParam, categoryParam]);
 
   // 자동완성 debounce + AbortController
   useEffect(() => {
@@ -106,10 +125,12 @@ function SearchPageContent() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const fetchResults = async (q: string, page: number) => {
+  const fetchResults = async (q: string, page: number, catId = "") => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}`);
+      let url = `/api/search?q=${encodeURIComponent(q)}&page=${page}`;
+      if (catId) url += `&categoryId=${catId}`;
+      const res = await fetch(url);
       const data = await res.json();
       setResults(data.results || []);
       setHasNext(data.hasNext || false);
@@ -135,10 +156,18 @@ function SearchPageContent() {
     }
   };
 
-  const navigateSearch = (q: string, page = 0) => {
+  const navigateSearch = (q: string, page = 0, catId = selectedCategory) => {
     const params = new URLSearchParams({ q });
     if (page > 0) params.set("page", String(page));
+    if (catId) params.set("categoryId", catId);
     router.push(`/search?${params.toString()}`);
+  };
+
+  const handleCategoryChange = (catId: string) => {
+    setSelectedCategory(catId);
+    if (query) {
+      navigateSearch(query, 0, catId);
+    }
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -238,7 +267,7 @@ function SearchPageContent() {
             href="/posts"
             className="shrink-0 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
-            전체 보기
+            최신 게시글
           </Link>
           {user && (
             <Link
@@ -280,6 +309,35 @@ function SearchPageContent() {
             ) : (
               <p className="text-sm text-zinc-500 dark:text-zinc-400">요약을 생성할 수 없습니다.</p>
             )}
+          </div>
+        )}
+
+        {/* 카테고리 필터 */}
+        {query && categories.length > 0 && (
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => handleCategoryChange("")}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                !selectedCategory
+                  ? "bg-blue-500 text-white"
+                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              }`}
+            >
+              전체
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => handleCategoryChange(String(cat.id))}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                  selectedCategory === String(cat.id)
+                    ? "bg-blue-500 text-white"
+                    : "border border-zinc-300 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
           </div>
         )}
 

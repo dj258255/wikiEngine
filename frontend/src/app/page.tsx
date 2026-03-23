@@ -105,20 +105,13 @@ export default function Home() {
         <UserMenu />
       </div>
 
-      <main className="flex flex-col items-center gap-8">
-        <div className="flex flex-col items-center gap-1 text-sm text-zinc-400 dark:text-zinc-500">
-          <p>위키피디아: 2026년 1월 2일 데이터 기준</p>
-          <p>나무위키: 2021년 3월 데이터 기준</p>
-        </div>
+      <main className="flex flex-col items-center gap-6 -mt-20">
         <h1 className="text-4xl font-bold text-zinc-900 dark:text-zinc-100">
           위키 검색
         </h1>
-        <Link
-          href="/posts"
-          className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
-        >
-          게시판 바로가기
-        </Link>
+        <div className="flex flex-col items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
+          <p>위키피디아(한/영) + 나무위키 — 총 1,425만 건</p>
+        </div>
         <form onSubmit={handleSearch} className="relative w-full min-w-[600px] max-w-4xl px-4">
           <div className="relative">
             <input
@@ -178,9 +171,12 @@ export default function Home() {
             </div>
           )}
         </form>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          한국어 위키피디아 검색 엔진
-        </p>
+        <Link
+          href="/posts"
+          className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+        >
+          최신 게시글 보기
+        </Link>
       </main>
     </div>
   );
