@@ -40,6 +40,7 @@ public class LuceneSearchService {
     private final SearcherManager searcherManager;
     private final Analyzer analyzer;
     private final PostRepository postRepository;
+    private final QueryExpansionService queryExpansionService;
 
     /**
      * 검색 결과 + snippet 정보를 함께 담는 record.
@@ -223,11 +224,8 @@ public class LuceneSearchService {
      *             + recencyBoost(createdAt)             // SHOULD: 최신성 감쇠
      */
     private Query buildQuery(String keyword, Long categoryId) throws ParseException {
-        // 1. BM25 텍스트 관련성 쿼리
-        var boosts = java.util.Map.of("title", 3.0f, "content", 1.0f);
-        var parser = new MultiFieldQueryParser(new String[]{"title", "content"}, analyzer, boosts);
-        parser.setPhraseSlop(2);
-        Query textQuery = parser.parse(escapePreservingPhrases(keyword));
+        // 1. BM25 텍스트 관련성 쿼리 + 동의어 확장 (Phase 18)
+        Query textQuery = buildTextQueryWithSynonyms(keyword);
 
         // 2. 인기도 부스트 (FeatureField saturation — BlockMaxWAND 호환)
         Query viewBoost = FeatureField.newSaturationQuery("features", "viewCount", 3.0f, 1000);
@@ -249,6 +247,74 @@ public class LuceneSearchService {
         }
 
         return builder.build();
+    }
+
+    /**
+     * Phase 18: 동의어 확장이 적용된 텍스트 쿼리를 생성한다.
+     *
+     * 원래 키워드: "AI"
+     * → 동의어 확장: ["AI" (boost=1.0), "인공지능" (boost=1.0)]
+     * → BooleanQuery(SHOULD): title:"ai"^3 OR content:"ai" OR title:"인공지능"^3 OR content:"인공지능"
+     *
+     * 동의어가 없으면 기존 BM25 쿼리와 동일하게 동작한다.
+     */
+    private Query buildTextQueryWithSynonyms(String keyword) throws ParseException {
+        var boosts = java.util.Map.of("title", 3.0f, "content", 1.0f);
+        var parser = new MultiFieldQueryParser(new String[]{"title", "content"}, analyzer, boosts);
+        parser.setPhraseSlop(2);
+
+        // 원래 키워드를 토큰화하여 동의어 확장
+        List<String> tokens = tokenize(keyword);
+        List<QueryExpansionService.ExpandedTerm> expanded = queryExpansionService.expand(tokens);
+
+        // 동의어가 없으면 (원래 term만) 기존 방식
+        boolean hasSynonyms = expanded.stream().anyMatch(e -> !e.original());
+        if (!hasSynonyms) {
+            return parser.parse(escapePreservingPhrases(keyword));
+        }
+
+        // 동의어가 있으면: 원래 쿼리 + 동의어 쿼리를 SHOULD로 묶기
+        BooleanQuery.Builder synonymBuilder = new BooleanQuery.Builder();
+
+        // 원래 키워드 쿼리 (boost=1.0)
+        Query originalQuery = parser.parse(escapePreservingPhrases(keyword));
+        synonymBuilder.add(new BoostQuery(originalQuery, 1.0f), BooleanClause.Occur.SHOULD);
+
+        // 동의어별 쿼리 (각자 weight 적용)
+        for (var term : expanded) {
+            if (!term.original()) {
+                try {
+                    Query synQuery = parser.parse(escapePreservingPhrases(term.term()));
+                    synonymBuilder.add(new BoostQuery(synQuery, (float) term.boost()), BooleanClause.Occur.SHOULD);
+                } catch (ParseException e) {
+                    log.debug("동의어 쿼리 파싱 실패: synonym={}", term.term());
+                }
+            }
+        }
+
+        // minimumNumberShouldMatch=1: 최소 1개(원래 or 동의어)는 매칭되어야 함
+        synonymBuilder.setMinimumNumberShouldMatch(1);
+        return synonymBuilder.build();
+    }
+
+    /**
+     * 키워드를 Nori 형태소 분석기로 토큰화한다.
+     * 동의어 확장 시 각 토큰별로 동의어를 찾기 위해 사용.
+     */
+    private List<String> tokenize(String text) {
+        List<String> tokens = new ArrayList<>();
+        try (var stream = analyzer.tokenStream("title", text)) {
+            var termAttr = stream.addAttribute(org.apache.lucene.analysis.tokenattributes.CharTermAttribute.class);
+            stream.reset();
+            while (stream.incrementToken()) {
+                tokens.add(termAttr.toString());
+            }
+            stream.end();
+        } catch (IOException e) {
+            log.warn("토큰화 실패: text={}", text);
+            tokens.add(text); // fallback: 원본 그대로
+        }
+        return tokens;
     }
 
     /**
