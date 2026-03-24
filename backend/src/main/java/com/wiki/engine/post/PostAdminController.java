@@ -3,6 +3,7 @@ package com.wiki.engine.post;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.dto.PostSummaryResponse;
+import com.wiki.engine.post.internal.CategoryClassificationService;
 import com.wiki.engine.post.internal.LuceneIndexService;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostRepository;
@@ -37,6 +38,7 @@ public class PostAdminController {
 
     private final LuceneIndexService luceneIndexService;
     private final LuceneSearchService luceneSearchService;
+    private final CategoryClassificationService categoryClassificationService;
     private final PostRepository postRepository;
     private final Analyzer analyzer;
 
@@ -49,6 +51,22 @@ public class PostAdminController {
             @RequestParam(defaultValue = "0") long startId) throws IOException {
         long start = System.currentTimeMillis();
         luceneIndexService.indexAll(startId);
+        long elapsed = System.currentTimeMillis() - start;
+
+        return ResponseEntity.ok(Map.of(
+                "status", "completed",
+                "elapsed", elapsed + "ms"
+        ));
+    }
+
+    /**
+     * Phase 19: 카테고리 자동 분류 트리거.
+     * category_keywords 테이블 기반으로 전체 게시글을 주제별 카테고리로 분류한다.
+     */
+    @PostMapping("/classify-categories")
+    public ResponseEntity<Map<String, String>> classifyCategories() {
+        long start = System.currentTimeMillis();
+        categoryClassificationService.classifyAll();
         long elapsed = System.currentTimeMillis() - start;
 
         return ResponseEntity.ok(Map.of(
