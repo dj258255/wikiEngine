@@ -35,7 +35,11 @@ public class CategoryClassificationService {
      *
      * 배치 실행: 관리자 API로 수동 트리거.
      */
-    @Transactional
+    /**
+     * 전체 게시글을 주제별 카테고리로 분류한다.
+     * @Transactional 제거 — 1,425만 건 단일 트랜잭션은 커넥션 leak 유발.
+     * 카테고리별 개별 UPDATE로 분리하여 각각 짧은 트랜잭션으로 실행.
+     */
     public void classifyAll() {
         log.info("=== 카테고리 자동 분류 시작 ===");
         long startTime = System.currentTimeMillis();
@@ -65,11 +69,22 @@ public class CategoryClassificationService {
         );
         log.info("키워드 매핑 {}개 로드", keywordMap.size());
 
-        // 3. 전체 게시글을 "기타"로 초기화 (깨끗한 상태에서 시작)
-        int resetCount = jdbcTemplate.update("UPDATE posts SET category_id = ?", etcCategoryId);
-        log.info("전체 {}건을 '기타'로 초기화", resetCount);
+        // 3. 전체 게시글을 "기타"로 초기화 — 배치로 쪼개서 실행 (Lock timeout 방지)
+        int batchSize = 100_000;
+        int resetTotal = 0;
+        while (true) {
+            int updated = jdbcTemplate.update(
+                    "UPDATE posts SET category_id = ? WHERE category_id != ? LIMIT ?",
+                    etcCategoryId, etcCategoryId, batchSize);
+            resetTotal += updated;
+            if (updated < batchSize) break;
+            if (resetTotal % 1_000_000 == 0) {
+                log.info("초기화 진행: {}건 완료", resetTotal);
+            }
+        }
+        log.info("전체 {}건을 '기타'로 초기화", resetTotal);
 
-        // 4. 카테고리별 키워드로 SQL UPDATE (키워드 매칭된 것만 덮어쓰기)
+        // 4. 카테고리별 키워드로 SQL UPDATE — 배치로 쪼개서 실행
         int totalUpdated = 0;
 
         for (Map.Entry<String, Long> entry : categoryNameToId.entrySet()) {
@@ -90,29 +105,47 @@ public class CategoryClassificationService {
 
             if (keywords.isEmpty()) continue;
 
-            // 제목 기반 키워드 LIKE 매칭
-            StringBuilder sql = new StringBuilder("UPDATE posts SET category_id = ? WHERE (");
-
-            List<Object> params = new ArrayList<>();
-            params.add(categoryId);
-
+            // 제목 기반 키워드 LIKE 매칭 — LIMIT 배치
+            StringBuilder whereClause = new StringBuilder("(");
+            List<Object> whereParams = new ArrayList<>();
             for (int i = 0; i < keywords.size(); i++) {
-                if (i > 0) sql.append(" OR ");
-                sql.append("LOWER(title) LIKE ?");
-                params.add("%" + keywords.get(i) + "%");
+                if (i > 0) whereClause.append(" OR ");
+                whereClause.append("LOWER(title) LIKE ?");
+                whereParams.add("%" + keywords.get(i) + "%");
             }
-            sql.append(")");
+            whereClause.append(")");
 
-            int updated = jdbcTemplate.update(sql.toString(), params.toArray());
-            if (updated > 0) {
-                log.info("카테고리 '{}': {}건 분류 (키워드 {}개)", categoryName, updated, keywords.size());
-                totalUpdated += updated;
+            int categoryTotal = 0;
+            while (true) {
+                List<Object> params = new ArrayList<>();
+                params.add(categoryId);
+                params.addAll(whereParams);
+                params.add(batchSize);
+
+                String sql = "UPDATE posts SET category_id = ? WHERE " + whereClause + " AND category_id = ? LIMIT ?";
+                params.add(3, etcCategoryId); // category_id = 기타인 것만 (이미 분류된 건 스킵)
+
+                // 파라미터 순서 정리: categoryId, ...whereParams, etcCategoryId, batchSize
+                List<Object> orderedParams = new ArrayList<>();
+                orderedParams.add(categoryId);
+                orderedParams.addAll(whereParams);
+                orderedParams.add(etcCategoryId);
+                orderedParams.add(batchSize);
+
+                int updated = jdbcTemplate.update(
+                        "UPDATE posts SET category_id = ? WHERE " + whereClause + " AND category_id = ? LIMIT ?",
+                        orderedParams.toArray());
+                categoryTotal += updated;
+                if (updated < batchSize) break;
+            }
+
+            if (categoryTotal > 0) {
+                log.info("카테고리 '{}': {}건 분류 (키워드 {}개)", categoryName, categoryTotal, keywords.size());
+                totalUpdated += categoryTotal;
             }
         }
 
-        // "기타"에 남은 건수 = resetCount - totalUpdated
-        int etcRemaining = resetCount - totalUpdated;
-        log.info("'기타' 카테고리: {}건 (미분류)", etcRemaining);
+        log.info("'기타' 카테고리: {}건 (미분류)", resetTotal - totalUpdated);
 
         long elapsed = (System.currentTimeMillis() - startTime) / 1000;
         log.info("=== 카테고리 분류 완료: {}건, {}초 ===", totalUpdated, elapsed);

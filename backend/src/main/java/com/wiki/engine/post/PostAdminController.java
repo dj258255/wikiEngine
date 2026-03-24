@@ -62,16 +62,21 @@ public class PostAdminController {
     /**
      * Phase 19: 카테고리 자동 분류 트리거.
      * category_keywords 테이블 기반으로 전체 게시글을 주제별 카테고리로 분류한다.
+     * 1,425만 건 UPDATE는 수 분 걸리므로 비동기 실행 — 즉시 202 반환.
      */
     @PostMapping("/classify-categories")
     public ResponseEntity<Map<String, String>> classifyCategories() {
-        long start = System.currentTimeMillis();
-        categoryClassificationService.classifyAll();
-        long elapsed = System.currentTimeMillis() - start;
+        Thread.startVirtualThread(() -> {
+            try {
+                categoryClassificationService.classifyAll();
+            } catch (Exception e) {
+                log.error("카테고리 분류 실패", e);
+            }
+        });
 
-        return ResponseEntity.ok(Map.of(
-                "status", "completed",
-                "elapsed", elapsed + "ms"
+        return ResponseEntity.accepted().body(Map.of(
+                "status", "accepted",
+                "message", "백그라운드에서 분류 중. Loki 로그로 진행 상황 확인."
         ));
     }
 
