@@ -147,6 +147,14 @@ public class CategoryClassificationService {
 
         log.info("'기타' 카테고리: {}건 (미분류)", resetTotal - totalUpdated);
 
+        // 5. 기존 namespace 카테고리 삭제 (게시글 0건이 된 레거시 카테고리)
+        int deleted = jdbcTemplate.update(
+                "DELETE FROM categories WHERE name IN " +
+                "('일반 문서','토론','사용자','사용자토론','프로젝트','파일','분류'," +
+                "'도움말','틀','프로젝트토론','분류토론','도움말토론','틀토론'," +
+                "'미디어위키','미디어위키토론','파일토론','나무위키')");
+        log.info("기존 namespace 카테고리 {}개 삭제", deleted);
+
         long elapsed = (System.currentTimeMillis() - startTime) / 1000;
         log.info("=== 카테고리 분류 완료: {}건, {}초 ===", totalUpdated, elapsed);
     }
