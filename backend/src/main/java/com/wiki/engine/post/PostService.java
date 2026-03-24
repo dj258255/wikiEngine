@@ -289,10 +289,16 @@ public class PostService {
                 });
         Slice<PostSearchResponse> results = new SliceImpl<>(cached.content(), pageable, cached.hasNext());
 
-        // Phase 18: 결과가 적으면 오타 교정 제안 (첫 페이지에서만)
+        // Phase 18: 오타 교정 제안 (첫 페이지에서만)
+        // 전략: 항상 교정 시도 → 교정된 검색어가 원본과 다르면 제안
+        // "프로그래링" → "프로그래밍" 제안 (결과가 있어도 관련도가 낮은 경우)
         String suggestion = null;
-        if (pageable.getPageNumber() == 0 && results.getContent().size() < 3) {
+        if (pageable.getPageNumber() == 0) {
             suggestion = spellCheckService.suggestCorrection(keyword).orElse(null);
+            // 교정 결과가 원본과 같으면 제안 불필요
+            if (suggestion != null && suggestion.equalsIgnoreCase(keyword)) {
+                suggestion = null;
+            }
         }
 
         return new SearchResponseWithSuggestion(results, suggestion);
