@@ -48,6 +48,7 @@ function SearchPageContent() {
   const [aiSummary, setAiSummary] = useState("");
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [spellSuggestion, setSpellSuggestion] = useState<string | null>(null);
 
   // 카테고리 필터
   const [categories, setCategories] = useState<Category[]>([]);
@@ -127,6 +128,7 @@ function SearchPageContent() {
 
   const fetchResults = async (q: string, page: number, catId = "") => {
     setLoading(true);
+    setSpellSuggestion(null);
     try {
       let url = `/api/search?q=${encodeURIComponent(q)}&page=${page}`;
       if (catId) url += `&categoryId=${catId}`;
@@ -135,6 +137,9 @@ function SearchPageContent() {
       setResults(data.results || []);
       setHasNext(data.hasNext || false);
       setCurrentPage(data.currentPage || 0);
+      if (data.suggestion) {
+        setSpellSuggestion(data.suggestion);
+      }
     } catch {
       setResults([]);
     } finally {
@@ -309,6 +314,20 @@ function SearchPageContent() {
             ) : (
               <p className="text-sm text-zinc-500 dark:text-zinc-400">요약을 생성할 수 없습니다.</p>
             )}
+          </div>
+        )}
+
+        {/* 오타 교정 제안 */}
+        {spellSuggestion && (
+          <div className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+            혹시{" "}
+            <button
+              onClick={() => navigateSearch(spellSuggestion, 0, selectedCategory)}
+              className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
+            >
+              &quot;{spellSuggestion}&quot;
+            </button>
+            을(를) 찾으셨나요?
           </div>
         )}
 

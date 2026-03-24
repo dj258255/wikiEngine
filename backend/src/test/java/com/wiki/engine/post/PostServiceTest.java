@@ -7,6 +7,7 @@ import com.wiki.engine.config.TieredCacheService;
 import com.wiki.engine.post.dto.CachedSearchResult;
 import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.post.internal.LuceneSearchService;
+import com.wiki.engine.post.internal.SpellCheckService;
 // LuceneIndexService 제거됨 — Phase 14-1: Lucene 색인은 EventHandler가 담당
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
@@ -52,6 +53,7 @@ class PostServiceTest {
     @Mock private LuceneSearchService luceneSearchService;
     @Mock private SearchLogCollector searchLogCollector;
     @Mock private RedisAutocompleteService redisAutocompleteService;
+    @Mock private SpellCheckService spellCheckService;
     @Mock private TieredCacheService tieredCacheService;
     @Mock private Cache<String, Object> searchResultsL1Cache;
     @Mock private Cache<String, Object> postDetailL1Cache;
@@ -61,7 +63,7 @@ class PostServiceTest {
     void setUp() {
         postService = new PostService(
                 postRepository, postLikeRepository,
-                luceneSearchService, searchLogCollector, redisAutocompleteService,
+                luceneSearchService, searchLogCollector, redisAutocompleteService, spellCheckService,
                 tieredCacheService, searchResultsL1Cache, postDetailL1Cache,
                 eventPublisher);
 
@@ -324,10 +326,10 @@ class PostServiceTest {
                     .willReturn(new LuceneSearchService.SearchResult(
                             new SliceImpl<>(List.of(post), pageable, false), Map.of()));
 
-            Slice<PostSearchResponse> result = postService.search("테스트", null, pageable);
+            var result = postService.search("테스트", null, pageable);
 
-            assertThat(result.getContent()).hasSize(1);
-            assertThat(result.getContent().getFirst().title()).isEqualTo("테스트 게시글");
+            assertThat(result.results().getContent()).hasSize(1);
+            assertThat(result.results().getContent().getFirst().title()).isEqualTo("테스트 게시글");
             verify(searchLogCollector).record("테스트");
         }
 
@@ -339,10 +341,10 @@ class PostServiceTest {
                     .willReturn(new LuceneSearchService.SearchResult(
                             new SliceImpl<>(Collections.emptyList(), pageable, false), Map.of()));
 
-            Slice<PostSearchResponse> result = postService.search("없는키워드", null, pageable);
+            var result = postService.search("없는키워드", null, pageable);
 
-            assertThat(result.getContent()).isEmpty();
-            assertThat(result.hasNext()).isFalse();
+            assertThat(result.results().getContent()).isEmpty();
+            assertThat(result.results().hasNext()).isFalse();
         }
     }
 
