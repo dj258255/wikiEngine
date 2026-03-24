@@ -65,8 +65,11 @@ public class CategoryClassificationService {
         );
         log.info("키워드 매핑 {}개 로드", keywordMap.size());
 
-        // 3. 카테고리별 키워드로 SQL UPDATE (배치)
-        // 각 카테고리의 키워드를 LIKE로 매칭하여 category_id 업데이트
+        // 3. 전체 게시글을 "기타"로 초기화 (깨끗한 상태에서 시작)
+        int resetCount = jdbcTemplate.update("UPDATE posts SET category_id = ?", etcCategoryId);
+        log.info("전체 {}건을 '기타'로 초기화", resetCount);
+
+        // 4. 카테고리별 키워드로 SQL UPDATE (키워드 매칭된 것만 덮어쓰기)
         int totalUpdated = 0;
 
         for (Map.Entry<String, Long> entry : categoryNameToId.entrySet()) {
@@ -75,7 +78,7 @@ public class CategoryClassificationService {
 
             if ("기타".equals(categoryName)) continue;
 
-            // 이 카테고리에 속한 키워드 수집
+            // 이 카테고리에 속한 키워드 수집 (weight >= 0.8만)
             List<String> keywords = new ArrayList<>();
             for (Map.Entry<String, List<KeywordMapping>> kwEntry : keywordMap.entrySet()) {
                 for (KeywordMapping mapping : kwEntry.getValue()) {
@@ -87,10 +90,8 @@ public class CategoryClassificationService {
 
             if (keywords.isEmpty()) continue;
 
-            // 키워드 LIKE 조건 생성 (제목 기반)
-            StringBuilder sql = new StringBuilder(
-                    "UPDATE posts SET category_id = ? WHERE category_id IS NULL OR category_id IN " +
-                    "(SELECT id FROM categories WHERE name IN ('일반 문서', '나무위키')) AND (");
+            // 제목 기반 키워드 LIKE 매칭
+            StringBuilder sql = new StringBuilder("UPDATE posts SET category_id = ? WHERE (");
 
             List<Object> params = new ArrayList<>();
             params.add(categoryId);
@@ -109,14 +110,9 @@ public class CategoryClassificationService {
             }
         }
 
-        // 4. 미분류 게시글을 "기타"로
-        int etcUpdated = jdbcTemplate.update(
-                "UPDATE posts SET category_id = ? WHERE category_id IS NULL OR category_id IN " +
-                "(SELECT id FROM categories WHERE name IN ('일반 문서', '나무위키'))",
-                etcCategoryId
-        );
-        log.info("'기타' 카테고리: {}건 분류", etcUpdated);
-        totalUpdated += etcUpdated;
+        // "기타"에 남은 건수 = resetCount - totalUpdated
+        int etcRemaining = resetCount - totalUpdated;
+        log.info("'기타' 카테고리: {}건 (미분류)", etcRemaining);
 
         long elapsed = (System.currentTimeMillis() - startTime) / 1000;
         log.info("=== 카테고리 분류 완료: {}건, {}초 ===", totalUpdated, elapsed);
