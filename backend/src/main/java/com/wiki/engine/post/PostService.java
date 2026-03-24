@@ -4,10 +4,12 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.wiki.engine.config.TieredCacheService;
 import com.wiki.engine.post.dto.CachedSearchResult;
 import com.wiki.engine.post.dto.PostSearchResponse;
+import com.wiki.engine.post.dto.SearchResponseWithSuggestion;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.internal.RedisAutocompleteService;
 import com.wiki.engine.post.internal.SearchLogCollector;
+import com.wiki.engine.post.internal.SpellCheckService;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
@@ -53,6 +55,7 @@ public class PostService {
     private final LuceneSearchService luceneSearchService;
     private final SearchLogCollector searchLogCollector;
     private final RedisAutocompleteService redisAutocompleteService;
+    private final SpellCheckService spellCheckService;
     private final TieredCacheService tieredCacheService;
     private final Cache<String, Object> searchResultsL1Cache;
     private final Cache<String, Object> postDetailL1Cache;
@@ -63,6 +66,7 @@ public class PostService {
                        LuceneSearchService luceneSearchService,
                        SearchLogCollector searchLogCollector,
                        RedisAutocompleteService redisAutocompleteService,
+                       SpellCheckService spellCheckService,
                        TieredCacheService tieredCacheService,
                        @Qualifier("searchResultsL1Cache") Cache<String, Object> searchResultsL1Cache,
                        @Qualifier("postDetailL1Cache") Cache<String, Object> postDetailL1Cache,
@@ -72,6 +76,7 @@ public class PostService {
         this.luceneSearchService = luceneSearchService;
         this.searchLogCollector = searchLogCollector;
         this.redisAutocompleteService = redisAutocompleteService;
+        this.spellCheckService = spellCheckService;
         this.tieredCacheService = tieredCacheService;
         this.searchResultsL1Cache = searchResultsL1Cache;
         this.postDetailL1Cache = postDetailL1Cache;
@@ -247,13 +252,14 @@ public class PostService {
     }
 
     /**
-     * Lucene + Nori 검색 — Slice + PostSearchResponse 반환.
+     * Lucene + Nori 검색 — 검색 결과 + 오타 교정 제안 반환.
      * L1(Caffeine) + L2(Redis) 2계층 캐시.
      * 검색 로그는 캐시 히트/미스와 무관하게 항상 기록한다.
      *
+     * Phase 18: 오타 교정 — 결과가 적으면 DirectSpellChecker로 교정 제안.
      * @param categoryId null이면 전체 검색, 값이 있으면 해당 카테고리만 필터링 (Phase 17).
      */
-    public Slice<PostSearchResponse> search(String keyword, Long categoryId, Pageable pageable) {
+    public SearchResponseWithSuggestion search(String keyword, Long categoryId, Pageable pageable) {
         validatePageLimit(pageable, MAX_SEARCH_PAGE);
         searchLogCollector.record(keyword);
 
@@ -281,7 +287,15 @@ public class PostService {
                         throw new UncheckedIOException(e);
                     }
                 });
-        return new SliceImpl<>(cached.content(), pageable, cached.hasNext());
+        Slice<PostSearchResponse> results = new SliceImpl<>(cached.content(), pageable, cached.hasNext());
+
+        // Phase 18: 결과가 적으면 오타 교정 제안 (첫 페이지에서만)
+        String suggestion = null;
+        if (pageable.getPageNumber() == 0 && results.getContent().size() < 3) {
+            suggestion = spellCheckService.suggestCorrection(keyword).orElse(null);
+        }
+
+        return new SearchResponseWithSuggestion(results, suggestion);
     }
 
     private void validatePageLimit(Pageable pageable, int maxPage) {

@@ -28,7 +28,11 @@ export async function GET(request: NextRequest) {
     }
 
     const json = await res.json();
-    const sliceData = json.data;
+    const data = json.data;
+
+    // Phase 18: 응답 구조 변경 — data.results (Slice) + data.suggestion (오타 교정)
+    const sliceData = data.results || data;  // fallback: 이전 응답 형식 호환
+    const suggestion = data.suggestion || null;
 
     const results = (sliceData.content || []).map(
       (post: { id: number; title: string; snippet?: string; viewCount: number; likeCount: number; createdAt: string }) => ({
@@ -45,6 +49,7 @@ export async function GET(request: NextRequest) {
       results,
       hasNext: sliceData.last === false,
       currentPage: sliceData.number || 0,
+      suggestion,
     });
   } catch {
     return NextResponse.json({ results: [], hasNext: false });

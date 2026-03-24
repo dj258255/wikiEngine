@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import com.wiki.engine.post.dto.PostSearchResponse;
+import com.wiki.engine.post.dto.SearchResponseWithSuggestion;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Pageable;
@@ -434,22 +435,22 @@ class PostControllerTest {
         void success() throws Exception {
             PostSearchResponse response = new PostSearchResponse(1L, "테스트 게시글", "테스트 본문...", 0L, 0L, java.time.Instant.now());
             given(postService.search(eq("테스트"), isNull(), any(Pageable.class)))
-                    .willReturn(new SliceImpl<>(List.of(response)));
+                    .willReturn(new SearchResponseWithSuggestion(new SliceImpl<>(List.of(response)), null));
 
             mockMvc.perform(get(BASE + "/search").param("q", "테스트"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.content[0].title").value("테스트 게시글"));
+                    .andExpect(jsonPath("$.data.results.content[0].title").value("테스트 게시글"));
         }
 
         @Test
         @DisplayName("[코너] 결과 없음 — 200 + 빈 Slice")
         void empty() throws Exception {
             given(postService.search(eq("없는키워드"), isNull(), any(Pageable.class)))
-                    .willReturn(new SliceImpl<>(Collections.emptyList()));
+                    .willReturn(new SearchResponseWithSuggestion(new SliceImpl<>(Collections.emptyList()), null));
 
             mockMvc.perform(get(BASE + "/search").param("q", "없는키워드"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.content").isEmpty());
+                    .andExpect(jsonPath("$.data.results.content").isEmpty());
         }
 
         @Test
@@ -466,7 +467,7 @@ class PostControllerTest {
         @DisplayName("[임계] 페이지 사이즈 지정 — 200")
         void customPageSize() throws Exception {
             given(postService.search(eq("test"), isNull(), any(Pageable.class)))
-                    .willReturn(new PageImpl<>(Collections.emptyList()));
+                    .willReturn(new SearchResponseWithSuggestion(new SliceImpl<>(Collections.emptyList()), null));
 
             mockMvc.perform(get(BASE + "/search")
                             .param("q", "test")

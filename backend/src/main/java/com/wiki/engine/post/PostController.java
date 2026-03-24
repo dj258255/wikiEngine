@@ -121,15 +121,12 @@ public class PostController {
     }
 
     /**
-     * 검색 — Slice + PostSearchResponse(snippet 포함).
-     * Page → Slice 전환: totalHits 불필요, hasNext()만으로 페이지네이션.
-     * content(LONGTEXT) 대신 snippet(150자)만 반환하여 응답 크기 ~99% 절감.
-     *
-     * Phase 17: categoryId 선택적 파라미터 추가.
-     * Lucene Occur.FILTER로 스코어 미영향 필터링.
+     * 검색 — 검색 결과 + 오타 교정 제안 반환.
+     * Phase 17: categoryId 선택적 파라미터.
+     * Phase 18: 결과 < 3건이면 오타 교정 제안 ("혹시 OO을 찾으셨나요?") 포함.
      */
     @GetMapping("/search")
-    public Slice<PostSearchResponse> search(
+    public SearchResponseWithSuggestion search(
             @RequestParam String q,
             @RequestParam(required = false) Long categoryId,
             @PageableDefault(size = 20) Pageable pageable) {
