@@ -10,6 +10,7 @@ import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.internal.RedisAutocompleteService;
 import com.wiki.engine.post.internal.SearchLogCollector;
 import com.wiki.engine.post.internal.SpellCheckService;
+import com.wiki.engine.post.internal.CategoryRecommendService;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
@@ -56,6 +57,7 @@ public class PostService {
     private final SearchLogCollector searchLogCollector;
     private final RedisAutocompleteService redisAutocompleteService;
     private final SpellCheckService spellCheckService;
+    private final CategoryRecommendService categoryRecommendService;
     private final TieredCacheService tieredCacheService;
     private final Cache<String, Object> searchResultsL1Cache;
     private final Cache<String, Object> postDetailL1Cache;
@@ -67,6 +69,7 @@ public class PostService {
                        SearchLogCollector searchLogCollector,
                        RedisAutocompleteService redisAutocompleteService,
                        SpellCheckService spellCheckService,
+                       CategoryRecommendService categoryRecommendService,
                        TieredCacheService tieredCacheService,
                        @Qualifier("searchResultsL1Cache") Cache<String, Object> searchResultsL1Cache,
                        @Qualifier("postDetailL1Cache") Cache<String, Object> postDetailL1Cache,
@@ -77,6 +80,7 @@ public class PostService {
         this.searchLogCollector = searchLogCollector;
         this.redisAutocompleteService = redisAutocompleteService;
         this.spellCheckService = spellCheckService;
+        this.categoryRecommendService = categoryRecommendService;
         this.tieredCacheService = tieredCacheService;
         this.searchResultsL1Cache = searchResultsL1Cache;
         this.postDetailL1Cache = postDetailL1Cache;
@@ -94,11 +98,17 @@ public class PostService {
      */
     @Transactional
     public Post createPost(String title, String content, Long authorId, Long categoryId) {
+        // Phase 19: 카테고리 미지정 시 MoreLikeThis로 자동 추천
+        Long resolvedCategoryId = categoryId;
+        if (resolvedCategoryId == null) {
+            resolvedCategoryId = categoryRecommendService.recommendCategory(title, content);
+        }
+
         Post post = Post.builder()
                 .title(title)
                 .content(content)
                 .authorId(authorId)
-                .categoryId(categoryId)
+                .categoryId(resolvedCategoryId)
                 .build();
 
         Post saved = postRepository.save(post);

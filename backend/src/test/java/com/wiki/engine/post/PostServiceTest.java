@@ -8,6 +8,7 @@ import com.wiki.engine.post.dto.CachedSearchResult;
 import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.post.internal.LuceneSearchService;
 import com.wiki.engine.post.internal.SpellCheckService;
+import com.wiki.engine.post.internal.CategoryRecommendService;
 // LuceneIndexService 제거됨 — Phase 14-1: Lucene 색인은 EventHandler가 담당
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
@@ -54,6 +55,7 @@ class PostServiceTest {
     @Mock private SearchLogCollector searchLogCollector;
     @Mock private RedisAutocompleteService redisAutocompleteService;
     @Mock private SpellCheckService spellCheckService;
+    @Mock private CategoryRecommendService categoryRecommendService;
     @Mock private TieredCacheService tieredCacheService;
     @Mock private Cache<String, Object> searchResultsL1Cache;
     @Mock private Cache<String, Object> postDetailL1Cache;
@@ -64,7 +66,7 @@ class PostServiceTest {
         postService = new PostService(
                 postRepository, postLikeRepository,
                 luceneSearchService, searchLogCollector, redisAutocompleteService, spellCheckService,
-                tieredCacheService, searchResultsL1Cache, postDetailL1Cache,
+                categoryRecommendService, tieredCacheService, searchResultsL1Cache, postDetailL1Cache,
                 eventPublisher);
 
         // TieredCacheService: pass-through (항상 origin loader 호출)
@@ -112,10 +114,12 @@ class PostServiceTest {
         }
 
         @Test
-        @DisplayName("[코너] categoryId가 null이어도 생성된다")
+        @DisplayName("[코너] categoryId가 null이면 MoreLikeThis 추천 시도 (추천 결과 없으면 null)")
         void nullCategoryId() {
             given(postRepository.save(any(Post.class)))
                     .willAnswer(invocation -> invocation.getArgument(0));
+            given(categoryRecommendService.recommendCategory("제목", "본문"))
+                    .willReturn(null);
 
             Post result = postService.createPost("제목", "본문", 1L, null);
 
