@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -320,7 +321,8 @@ class PostServiceTest {
             Post post = createTestPost();
             Pageable pageable = PageRequest.of(0, 20);
             given(luceneSearchService.search("테스트", null, pageable))
-                    .willReturn(new SliceImpl<>(List.of(post), pageable, false));
+                    .willReturn(new LuceneSearchService.SearchResult(
+                            new SliceImpl<>(List.of(post), pageable, false), Map.of()));
 
             Slice<PostSearchResponse> result = postService.search("테스트", null, pageable);
 
@@ -334,7 +336,8 @@ class PostServiceTest {
         void empty() throws IOException {
             Pageable pageable = PageRequest.of(0, 20);
             given(luceneSearchService.search("없는키워드", null, pageable))
-                    .willReturn(new SliceImpl<>(Collections.emptyList(), pageable, false));
+                    .willReturn(new LuceneSearchService.SearchResult(
+                            new SliceImpl<>(Collections.emptyList(), pageable, false), Map.of()));
 
             Slice<PostSearchResponse> result = postService.search("없는키워드", null, pageable);
 

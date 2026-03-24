@@ -147,12 +147,15 @@ public class LuceneIndexService {
         searcherManager.maybeRefresh();
     }
 
+    private static final int SNIPPET_SOURCE_LENGTH = 500;
+
     /**
      * Post 엔티티를 Lucene Document로 변환한다.
      *
      * - id: KeywordField (정확 매칭, 업데이트/삭제용)
      * - title: TextField (형태소 분석 + 검색 대상, stored)
      * - content: TextField (형태소 분석 + 검색 대상, not stored — 본문은 DB에서 조회)
+     * - snippetSource: StoredField (앞 500자, UnifiedHighlighter용 — Phase 18)
      * - categoryId: LongField (필터링/범위 쿼리용)
      * - viewCount: LongField (stored, 조회용) + FeatureField (랭킹 부스트용)
      * - likeCount: FeatureField (랭킹 부스트용)
@@ -163,6 +166,16 @@ public class LuceneIndexService {
         doc.add(new KeywordField("id", post.getId().toString(), Field.Store.YES));
         doc.add(new TextField("title", post.getTitle(), Field.Store.YES));
         doc.add(new TextField("content", post.getContent(), Field.Store.NO));
+
+        // Phase 18: snippet용 본문 앞 500자 저장 (UnifiedHighlighter 용)
+        // content 전체를 Store.YES로 하면 인덱스 100GB+ 폭증하므로, 앞 500자만 별도 저장
+        String content = post.getContent();
+        if (content != null && !content.isBlank()) {
+            String snippetSource = content.length() <= SNIPPET_SOURCE_LENGTH
+                    ? content
+                    : content.substring(0, SNIPPET_SOURCE_LENGTH);
+            doc.add(new TextField("snippetSource", snippetSource, Field.Store.YES));
+        }
 
         if (post.getCategoryId() != null) {
             doc.add(new LongField("categoryId", post.getCategoryId(), Field.Store.YES));

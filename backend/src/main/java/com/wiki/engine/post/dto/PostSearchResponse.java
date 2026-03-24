@@ -70,6 +70,23 @@ public record PostSearchResponse(
         );
     }
 
+    /**
+     * Phase 18: UnifiedHighlighter가 생성한 snippet을 직접 사용.
+     * Highlighter snippet에는 <b> 태그가 포함될 수 있으며, 위키 마크업도 이미 정리된 상태.
+     */
+    public static PostSearchResponse fromWithSnippet(Post post, String highlightedSnippet) {
+        // Highlighter snippet에서도 위키 마크업 잔해가 있을 수 있으므로 정리
+        String cleaned = createSnippet(highlightedSnippet);
+        return new PostSearchResponse(
+                post.getId(),
+                post.getTitle(),
+                cleaned,
+                post.getViewCount(),
+                post.getLikeCount(),
+                post.getCreatedAt()
+        );
+    }
+
     static String createSnippet(String content) {
         if (content == null || content.isBlank()) {
             return "";
