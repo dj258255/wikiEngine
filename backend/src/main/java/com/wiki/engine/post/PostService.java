@@ -264,11 +264,19 @@ public class PostService {
                 redisKey, CachedSearchResult.class, SEARCH_L2_TTL,
                 () -> {
                     try {
-                        Slice<Post> result = luceneSearchService.search(keyword, categoryId, pageable);
-                        List<PostSearchResponse> responses = result.getContent().stream()
-                                .map(PostSearchResponse::from)
+                        var searchResult = luceneSearchService.search(keyword, categoryId, pageable);
+                        List<PostSearchResponse> responses = searchResult.posts().getContent().stream()
+                                .map(post -> {
+                                    // Highlighter snippet이 있으면 사용, 없으면 fallback (앞 150자)
+                                    String highlightedSnippet = post.getId() != null
+                                            ? searchResult.snippets().getOrDefault(post.getId(), null)
+                                            : null;
+                                    return highlightedSnippet != null
+                                            ? PostSearchResponse.fromWithSnippet(post, highlightedSnippet)
+                                            : PostSearchResponse.from(post);
+                                })
                                 .toList();
-                        return new CachedSearchResult(responses, result.hasNext());
+                        return new CachedSearchResult(responses, searchResult.posts().hasNext());
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }

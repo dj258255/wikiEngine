@@ -13,6 +13,7 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.index.StoredFields;
 import org.apache.lucene.queries.function.FunctionScoreQuery;
 import org.apache.lucene.search.*;
+import org.apache.lucene.search.uhighlight.UnifiedHighlighter;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,15 +42,19 @@ public class LuceneSearchService {
     private final PostRepository postRepository;
 
     /**
-     * 키워드 검색 — Slice 반환.
+     * 검색 결과 + snippet 정보를 함께 담는 record.
+     * postId → highlightedSnippet 매핑으로 UnifiedHighlighter 결과를 전달.
+     */
+    public record SearchResult(Slice<Post> posts, Map<Long, String> snippets) {}
+
+    /**
+     * 키워드 검색 — Slice + snippet 반환.
      * title과 content 필드를 동시에 검색하며, title에 더 높은 가중치를 부여한다.
-     * totalHits 불필요 — hasNext()만으로 "다음" 버튼 활성화 판단.
-     * limit + 1 조회하여 hasNext 판단 (Slice 패턴).
+     * UnifiedHighlighter로 snippetSource 필드에서 검색어 주변 맥락을 추출한다.
      *
      * @param categoryId null이면 전체 검색, 값이 있으면 해당 카테고리만 필터링.
-     *                   Occur.FILTER로 추가되어 스코어에 영향 없이 필터만 수행.
      */
-    public Slice<Post> search(String keyword, Long categoryId, Pageable pageable) throws IOException {
+    public SearchResult search(String keyword, Long categoryId, Pageable pageable) throws IOException {
         IndexSearcher searcher = searcherManager.acquire();
         try {
             Query query = buildQuery(keyword, categoryId);
@@ -58,31 +64,70 @@ public class LuceneSearchService {
             // limit + 1 조회하여 hasNext 판단
             TopDocs topDocs = searcher.search(query, offset + limit + 1);
 
-            // offset 이후의 결과에서 ID 추출 (limit개까지만)
+            // offset 이후의 결과에서 ID + snippet 추출 (limit개까지만)
             StoredFields storedFields = searcher.storedFields();
             List<Long> postIds = new ArrayList<>();
+            Map<Long, String> snippetMap = new HashMap<>();
+
+            // UnifiedHighlighter로 검색어 주변 snippet 추출
+            Map<Integer, String> highlightedSnippets = extractHighlightedSnippets(
+                    searcher, query, topDocs, offset, limit);
+
             for (int i = offset; i < Math.min(topDocs.scoreDocs.length, offset + limit); i++) {
                 Document doc = storedFields.document(topDocs.scoreDocs[i].doc);
-                postIds.add(Long.parseLong(doc.get("id")));
+                long postId = Long.parseLong(doc.get("id"));
+                postIds.add(postId);
+
+                // Highlighter snippet이 있으면 사용, 없으면 null (fallback은 PostSearchResponse에서)
+                String highlighted = highlightedSnippets.get(i);
+                if (highlighted != null && !highlighted.isBlank()) {
+                    snippetMap.put(postId, highlighted);
+                }
             }
 
             if (postIds.isEmpty()) {
-                return new SliceImpl<>(List.of(), pageable, false);
+                return new SearchResult(new SliceImpl<>(List.of(), pageable, false), Map.of());
             }
 
-            // Lucene 결과 순서를 유지하며 DB에서 엔티티 조회
             List<Post> posts = postRepository.findAllById(postIds);
             posts.sort((a, b) -> postIds.indexOf(a.getId()) - postIds.indexOf(b.getId()));
 
             boolean hasNext = topDocs.scoreDocs.length > offset + limit;
-            return new SliceImpl<>(posts, pageable, hasNext);
+            return new SearchResult(new SliceImpl<>(posts, pageable, hasNext), snippetMap);
 
         } catch (ParseException e) {
             log.warn("검색어 파싱 실패: keyword={}, error={}", keyword, e.getMessage());
-            return new SliceImpl<>(List.of(), pageable, false);
+            return new SearchResult(new SliceImpl<>(List.of(), pageable, false), Map.of());
         } finally {
             searcherManager.release(searcher);
         }
+    }
+
+    /**
+     * UnifiedHighlighter로 snippetSource 필드에서 검색어 주변 텍스트를 추출한다.
+     * snippetSource가 없는 문서(재색인 전)는 null을 반환하여 PostSearchResponse fallback으로 처리.
+     */
+    private Map<Integer, String> extractHighlightedSnippets(
+            IndexSearcher searcher, Query query, TopDocs topDocs, int offset, int limit) {
+        Map<Integer, String> result = new HashMap<>();
+        try {
+            UnifiedHighlighter highlighter = UnifiedHighlighter.builder(searcher, analyzer)
+                    .withMaxLength(500)
+                    .build();
+
+            // snippetSource 필드에서 하이라이트 추출
+            String[] highlights = highlighter.highlight("snippetSource", query, topDocs, 1);
+
+            for (int i = offset; i < Math.min(highlights.length, offset + limit); i++) {
+                if (highlights[i] != null && !highlights[i].isBlank()) {
+                    result.put(i, highlights[i]);
+                }
+            }
+        } catch (Exception e) {
+            // Highlighter 실패 시 (재색인 전 등) 무시 — fallback으로 앞 150자 사용
+            log.debug("UnifiedHighlighter failed, falling back to truncation: {}", e.getMessage());
+        }
+        return result;
     }
 
     /**
