@@ -135,14 +135,14 @@ management:
         http.server.requests: true  # P95/P99 계산용 histogram bucket 활성화
         lettuce: true               # Lettuce Redis 커맨드 P95/P99 (Phase 11)
 
-# 데이터 초기화 설정 (비활성화)
-# 초기 데이터 적재 완료 후 주석 처리. mysqldump로 백업/복원 방식 사용.
-# 필요 시 .env에서 환경변수를 설정하고 아래 주석을 해제하면 재실행 가능.
-#app:
-#  init-users: ${INIT_USERS}
-#  wiki-import:
-#    enabled: ${WIKI_IMPORT_ENABLED}
-#    path: ${WIKI_IMPORT_PATH}
+# 데이터 초기화 설정
+app:
+  init-users: ${INIT_USERS:false}
+  wiki-import:
+    enabled: ${WIKI_IMPORT_ENABLED:false}
+    path: ${WIKI_IMPORT_PATH:}
+    news-path: ${NEWS_IMPORT_PATH:}
+    web-path: ${WEB_IMPORT_PATH:}
 
 # Lucene 검색엔진 설정
 lucene:
@@ -155,3 +155,8 @@ logging:
   level:
     com.wiki.engine: ${LOG_LEVEL}
     org.hibernate.orm.jdbc.bind: ${HIBERNATE_BIND_LOG_LEVEL:TRACE}  # SQL 파라미터 값 출력 (운영에서는 OFF)
+    org.apache.kafka: ${KAFKA_LOG_LEVEL:WARN}
+    org.springframework.kafka: ${KAFKA_LOG_LEVEL:WARN}
+    io.lettuce.core: ${REDIS_LOG_LEVEL:WARN}
+    org.springframework.scheduling.support: ${REDIS_LOG_LEVEL:WARN}
+    org.springframework.data.redis: ${REDIS_LOG_LEVEL:WARN}
