@@ -4,7 +4,11 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "search_logs")
+@Table(name = "search_logs", indexes = {
+        @Index(name = "idx_search_logs_time_bucket", columnList = "time_bucket")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_search_logs_query_bucket", columnNames = {"query", "time_bucket"})
+})
 class SearchLog {
 
     @Id

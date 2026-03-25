@@ -5,7 +5,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "synonyms")
+@Table(name = "synonyms", indexes = {
+        @Index(name = "idx_synonyms_term", columnList = "term")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_term_synonym", columnNames = {"term", "synonym"})
+})
 @Getter
 @NoArgsConstructor
 class Synonym {
