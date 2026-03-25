@@ -45,17 +45,23 @@ public class PostAdminController {
     /**
      * 전체 배치 인덱싱 트리거.
      * posts 테이블 전체를 Lucene에 인덱싱한다.
+     * 1,200만 건은 수 시간 걸리므로 비동기 실행 — 즉시 202 반환.
      */
     @PostMapping("/index-all")
     public ResponseEntity<Map<String, String>> indexAll(
-            @RequestParam(defaultValue = "0") long startId) throws IOException {
-        long start = System.currentTimeMillis();
-        luceneIndexService.indexAll(startId);
-        long elapsed = System.currentTimeMillis() - start;
+            @RequestParam(defaultValue = "0") long startId) {
+        Thread.startVirtualThread(() -> {
+            try {
+                luceneIndexService.indexAll(startId);
+            } catch (Exception e) {
+                log.error("Lucene 전체 인덱싱 실패", e);
+            }
+        });
 
-        return ResponseEntity.ok(Map.of(
-                "status", "completed",
-                "elapsed", elapsed + "ms"
+        return ResponseEntity.accepted().body(Map.of(
+                "status", "accepted",
+                "message", "백그라운드에서 인덱싱 중. 로그로 진행 상황 확인.",
+                "startId", String.valueOf(startId)
         ));
     }
 

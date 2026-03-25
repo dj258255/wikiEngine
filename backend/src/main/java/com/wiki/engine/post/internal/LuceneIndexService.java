@@ -11,8 +11,15 @@ import org.apache.lucene.search.SearcherManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import org.apache.lucene.index.LiveIndexWriterConfig;
+
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Lucene 인덱싱 서비스.
@@ -75,12 +82,16 @@ public class LuceneIndexService {
 
     private static final int COMMIT_INTERVAL = 1_000_000;
     private static final int LOG_INTERVAL = 100_000;
+    private static final double BULK_RAM_BUFFER_MB = 512.0;
+    private static final int INDEX_THREADS = Runtime.getRuntime().availableProcessors();
+    private static final List<Post> POISON_PILL = List.of();
 
     /**
      * 전체 배치 인덱싱: posts 테이블 전체를 Lucene에 인덱싱한다.
-     * cursor 기반 페이징으로 메모리 효율적으로 처리한다.
      *
      * 성능 최적화:
+     * - RAM buffer 512MB (bulk 중 flush 빈도 대폭 감소)
+     * - Producer-Consumer 파이프라인: DB 읽기와 Lucene 쓰기를 동시 실행
      * - commit()을 100만 건마다 1회로 제한 (매 배치마다 하면 fsync 병목)
      * - forceMerge(5)로 세그먼트 병합 시간 단축
      */
@@ -89,49 +100,120 @@ public class LuceneIndexService {
             log.warn("Lucene replica mode — indexAll is not available");
             return;
         }
+
+        // RAM buffer 확대 (bulk 인덱싱 동안만)
+        LiveIndexWriterConfig config = indexWriter.getConfig();
+        double originalRamBuffer = config.getRAMBufferSizeMB();
+        config.setRAMBufferSizeMB(BULK_RAM_BUFFER_MB);
+        log.info("RAM buffer: {}MB → {}MB (bulk mode)", originalRamBuffer, BULK_RAM_BUFFER_MB);
+
+        try {
+            doPipelinedIndexAll(startId);
+        } finally {
+            config.setRAMBufferSizeMB(originalRamBuffer);
+            log.info("RAM buffer 복원: {}MB", originalRamBuffer);
+        }
+    }
+
+    private void doPipelinedIndexAll(long startId) throws IOException {
         long startTime = System.currentTimeMillis();
-        long lastId = startId;
-        long totalIndexed = 0;
-        long skipped = 0;
-        long lastCommitCount = 0;
 
         if (startId == 0) {
             log.info("=== Lucene 전체 인덱싱 시작 (기존 인덱스 초기화) ===");
             indexWriter.deleteAll();
+            indexWriter.commit(); // 멀티스레드 인덱싱 전에 깨끗한 상태 확보
         } else {
             log.info("=== Lucene 인덱싱 재개 (id={} 이후부터) ===", startId);
         }
 
-        while (true) {
-            List<Post> batch = postRepository.findBatchAfterId(lastId, batchSize);
-            if (batch.isEmpty()) break;
+        // Producer-Consumer: capacity 2 = 더블 버퍼링 (DB가 다음 배치 읽는 동안 Lucene이 현재 배치 인덱싱)
+        var queue = new ArrayBlockingQueue<List<Post>>(2);
+        var producerLastId = new AtomicLong(startId);
+        var producerError = new AtomicLong(-1); // -1 = no error
 
-            for (Post post : batch) {
-                if (post.getContent() == null || post.getContent().isBlank()) {
-                    skipped++;
-                    continue;
+        // Producer: DB에서 배치를 읽어 큐에 넣는다
+        Thread producer = Thread.startVirtualThread(() -> {
+            long lastId = startId;
+            try {
+                while (true) {
+                    List<Post> batch = postRepository.findBatchAfterId(lastId, batchSize);
+                    if (batch.isEmpty()) break;
+                    lastId = batch.getLast().getId();
+                    producerLastId.set(lastId);
+                    queue.put(batch);    // 큐가 차 있으면 Lucene이 소비할 때까지 대기
+                    entityManager.clear();
                 }
-                indexWriter.addDocument(toDocument(post));
-                totalIndexed++;
+            } catch (Exception e) {
+                log.error("DB Producer 오류", e);
+                producerError.set(lastId);
+            } finally {
+                try { queue.put(POISON_PILL); } catch (InterruptedException ignored) {}
             }
+        });
 
-            lastId = batch.getLast().getId();
-            entityManager.clear();
+        // Consumer: 큐에서 배치를 꺼내 멀티스레드로 Lucene에 인덱싱
+        // IndexWriter.addDocument()는 thread-safe — 스레드별 DocumentsWriterPerThread로 병렬 분석
+        log.info("인덱싱: Virtual Thread (available processors={})", INDEX_THREADS);
+        ExecutorService indexPool = Executors.newVirtualThreadPerTaskExecutor();
+        var totalIndexed = new AtomicLong(0);
+        var skipped = new AtomicLong(0);
+        long lastCommitCount = 0;
+
+        while (true) {
+            List<Post> batch;
+            try {
+                batch = queue.take();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            if (batch == POISON_PILL) break;
+
+            // 배치를 스레드풀에서 병렬 처리 (Nori 형태소 분석이 CPU 병목이므로 코어 수만큼 병렬화)
+            var latch = new java.util.concurrent.CountDownLatch(batch.size());
+            for (Post post : batch) {
+                indexPool.submit(() -> {
+                    try {
+                        if (post.getContent() == null || post.getContent().isBlank()) {
+                            skipped.incrementAndGet();
+                            return;
+                        }
+                        indexWriter.addDocument(toDocument(post));
+                        totalIndexed.incrementAndGet();
+                    } catch (IOException e) {
+                        log.error("인덱싱 실패: postId={}", post.getId(), e);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            try { latch.await(); } catch (InterruptedException ignored) {}
 
             // 100만 건마다 commit (크래시 복구용 체크포인트)
-            if (totalIndexed - lastCommitCount >= COMMIT_INTERVAL) {
+            long currentTotal = totalIndexed.get();
+            if (currentTotal - lastCommitCount >= COMMIT_INTERVAL) {
                 indexWriter.commit();
-                lastCommitCount = totalIndexed;
-                log.info("Checkpoint commit at {} docs", totalIndexed);
+                lastCommitCount = currentTotal;
+                log.info("Checkpoint commit at {} docs", currentTotal);
             }
 
             // 10만 건마다 진행 로그
-            if (totalIndexed % LOG_INTERVAL < batchSize) {
+            if (currentTotal % LOG_INTERVAL < batchSize) {
                 long elapsed = (System.currentTimeMillis() - startTime) / 1000;
                 log.info("Indexed up to id={}, total={}, skipped={}, elapsed={}s, speed={} docs/s",
-                        lastId, totalIndexed, skipped, elapsed,
-                        elapsed > 0 ? totalIndexed / elapsed : totalIndexed);
+                        producerLastId.get(), currentTotal, skipped.get(), elapsed,
+                        elapsed > 0 ? currentTotal / elapsed : currentTotal);
             }
+        }
+
+        indexPool.shutdown();
+        try { indexPool.awaitTermination(1, TimeUnit.MINUTES); } catch (InterruptedException ignored) {}
+
+        // Producer 스레드 종료 대기
+        try { producer.join(); } catch (InterruptedException ignored) {}
+
+        if (producerError.get() >= 0) {
+            log.error("Producer 오류 발생 — 인덱싱 중단됨. 마지막 성공 id={}", producerError.get());
         }
 
         log.info("=== 최종 commit ===");
