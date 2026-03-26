@@ -145,6 +145,7 @@ services:
       - wiki-net
 
   # Phase 14-3: Debezium Connect (MySQL binlog → Kafka)
+  # connect-base + MySQL 커넥터만 설치 (ARM 2vCPU 환경 OOM 방지)
   # 커스텀 이미지: JMX Prometheus Exporter 내장 (CDC lag 모니터링)
   debezium-connect:
     build:
@@ -154,6 +155,7 @@ services:
     container_name: wiki-debezium-prod
     restart: always
     environment:
+      KAFKA_HEAP_OPTS: "-Xms256M -Xmx512M"
       BOOTSTRAP_SERVERS: kafka:9092
       GROUP_ID: wiki-debezium
       CONFIG_STORAGE_TOPIC: _debezium_configs

@@ -23,13 +23,13 @@
   tags: [deploy, kafka]
   changed_when: false
 
-- name: Debezium Connect 시작 대기 (최대 2분)
+- name: Debezium Connect 시작 대기 (최대 4분)
   uri:
     url: "http://localhost:8083/connectors"
     method: GET
     status_code: 200
   register: connect_ready
-  retries: 12
+  retries: 24
   delay: 10
   until: connect_ready.status == 200
   tags: [deploy, kafka]
