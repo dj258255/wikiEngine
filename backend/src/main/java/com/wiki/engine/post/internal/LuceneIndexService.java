@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.apache.lucene.index.LiveIndexWriterConfig;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -43,6 +44,8 @@ public class LuceneIndexService {
 
     // 카테고리 ID → 이름 매핑 (Facet 라벨용, 30개 고정)
     private volatile Map<Long, String> categoryNameCache = Map.of();
+    // 배치 인덱싱 시 현재 배치의 태그 캐시 (postId → tagNames)
+    private volatile Map<Long, List<String>> batchTagCache = Map.of();
 
     @Value("${lucene.batch-size}")
     private int batchSize;
@@ -74,6 +77,7 @@ public class LuceneIndexService {
             return;
         }
         ensureCategoryNameCache();
+        loadTagsForPost(post.getId());
         indexWriter.updateDocument(new Term("id", post.getId().toString()), facetsConfig.build(toDocument(post)));
         searcherManager.maybeRefresh();
     }
@@ -183,6 +187,9 @@ public class LuceneIndexService {
             }
             if (batch == POISON_PILL) break;
 
+            // 배치 단위 태그 프리로딩 (N+1 방지 — 1,215만 건에서 post별 쿼리 불가)
+            preloadTagsForBatch(batch);
+
             // 배치를 스레드풀에서 병렬 처리 (Nori 형태소 분석이 CPU 병목이므로 코어 수만큼 병렬화)
             var latch = new java.util.concurrent.CountDownLatch(batch.size());
             for (Post post : batch) {
@@ -282,6 +289,15 @@ public class LuceneIndexService {
         doc.add(new LongField("viewCount", post.getViewCount(), Field.Store.YES));
         doc.add(new LongField("createdAt", post.getCreatedAt().toEpochMilli(), Field.Store.YES));
 
+        // Phase 19.2: 태그 인덱싱 — 검색 + Facet 집계
+        List<String> tags = batchTagCache.getOrDefault(post.getId(), List.of());
+        for (String tag : tags) {
+            doc.add(new SortedSetDocValuesFacetField("tag", tag));
+        }
+        if (!tags.isEmpty()) {
+            doc.add(new TextField("tags", String.join(" ", tags), Field.Store.YES));
+        }
+
         // FeatureField: 인기도 랭킹 부스트 (BlockMaxWAND 호환, saturation 함수 사용)
         // FeatureField 값은 0보다 커야 하므로 최소 1로 보정
         doc.add(new FeatureField("features", "viewCount", Math.max(post.getViewCount(), 1)));
@@ -305,5 +321,49 @@ public class LuceneIndexService {
         if (categoryNameCache.isEmpty()) {
             loadCategoryNameCache();
         }
+    }
+
+    /**
+     * 배치 단위 태그 프리로딩 — post_tags + tags JOIN으로 한번에 조회.
+     * N+1 방지: 1,000건 배치당 1회 쿼리.
+     */
+    @SuppressWarnings("unchecked")
+    private void preloadTagsForBatch(List<Post> batch) {
+        List<Long> postIds = batch.stream().map(Post::getId).toList();
+        List<Object[]> rows = entityManager.createNativeQuery(
+                "SELECT pt.post_id, t.name FROM post_tags pt " +
+                "JOIN tags t ON pt.tag_id = t.id " +
+                "WHERE pt.post_id IN (:postIds)")
+                .setParameter("postIds", postIds)
+                .getResultList();
+
+        Map<Long, List<String>> tagMap = new ConcurrentHashMap<>();
+        for (Object[] row : rows) {
+            Long postId = ((Number) row[0]).longValue();
+            String tagName = (String) row[1];
+            tagMap.computeIfAbsent(postId, k -> new ArrayList<>()).add(tagName);
+        }
+        batchTagCache = tagMap;
+    }
+
+    /**
+     * 단건 인덱싱 시 해당 post의 태그를 로딩.
+     */
+    @SuppressWarnings("unchecked")
+    private void loadTagsForPost(Long postId) {
+        List<Object[]> rows = entityManager.createNativeQuery(
+                "SELECT pt.post_id, t.name FROM post_tags pt " +
+                "JOIN tags t ON pt.tag_id = t.id " +
+                "WHERE pt.post_id = :postId")
+                .setParameter("postId", postId)
+                .getResultList();
+
+        Map<Long, List<String>> tagMap = new ConcurrentHashMap<>();
+        for (Object[] row : rows) {
+            Long pid = ((Number) row[0]).longValue();
+            String tagName = (String) row[1];
+            tagMap.computeIfAbsent(pid, k -> new ArrayList<>()).add(tagName);
+        }
+        batchTagCache = tagMap;
     }
 }
