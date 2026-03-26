@@ -1,13 +1,21 @@
-FROM quay.io/debezium/connect-base:3.4
+FROM quay.io/debezium/connect:3.4
 
-# MySQL 커넥터만 설치 (connect-base는 커넥터 미포함 — OOM 방지)
-ARG DEBEZIUM_VERSION=3.4.2.Final
-RUN curl -fSL --retry 3 --retry-delay 2 \
-    https://repo1.maven.org/maven2/io/debezium/debezium-connector-mysql/${DEBEZIUM_VERSION}/debezium-connector-mysql-${DEBEZIUM_VERSION}-plugin.tar.gz \
-    | tar -xzf - -C $KAFKA_CONNECT_PLUGINS_DIR
+# MySQL 커넥터만 남기고 불필요한 커넥터 삭제 (ARM 2vCPU 환경 플러그인 스캔 OOM 방지)
+USER root
+RUN rm -rf /kafka/connect/debezium-connector-cockroachdb \
+           /kafka/connect/debezium-connector-db2 \
+           /kafka/connect/debezium-connector-ibmi \
+           /kafka/connect/debezium-connector-informix \
+           /kafka/connect/debezium-connector-jdbc \
+           /kafka/connect/debezium-connector-mariadb \
+           /kafka/connect/debezium-connector-mongodb \
+           /kafka/connect/debezium-connector-oracle \
+           /kafka/connect/debezium-connector-postgres \
+           /kafka/connect/debezium-connector-spanner \
+           /kafka/connect/debezium-connector-sqlserver \
+           /kafka/connect/debezium-connector-vitess
 
 # JMX Prometheus Exporter (CDC lag 모니터링)
-USER root
 RUN mkdir -p /kafka/etc && \
     curl -fSL --retry 3 --retry-delay 2 \
     -o /kafka/etc/jmx_prometheus_javaagent.jar \
