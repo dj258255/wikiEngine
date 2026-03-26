@@ -28,6 +28,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
@@ -435,7 +436,7 @@ class PostControllerTest {
         void success() throws Exception {
             PostSearchResponse response = new PostSearchResponse(1L, "테스트 게시글", "테스트 본문...", 0L, 0L, java.time.Instant.now());
             given(postService.search(eq("테스트"), isNull(), any(Pageable.class)))
-                    .willReturn(new SearchResponseWithSuggestion(new SliceImpl<>(List.of(response)), null));
+                    .willReturn(new SearchResponseWithSuggestion(new SliceImpl<>(List.of(response)), null, Map.of()));
 
             mockMvc.perform(get(BASE + "/search").param("q", "테스트"))
                     .andExpect(status().isOk())
@@ -446,7 +447,7 @@ class PostControllerTest {
         @DisplayName("[코너] 결과 없음 — 200 + 빈 Slice")
         void empty() throws Exception {
             given(postService.search(eq("없는키워드"), isNull(), any(Pageable.class)))
-                    .willReturn(new SearchResponseWithSuggestion(new SliceImpl<>(Collections.emptyList()), null));
+                    .willReturn(new SearchResponseWithSuggestion(new SliceImpl<>(Collections.emptyList()), null, Map.of()));
 
             mockMvc.perform(get(BASE + "/search").param("q", "없는키워드"))
                     .andExpect(status().isOk())
@@ -467,7 +468,7 @@ class PostControllerTest {
         @DisplayName("[임계] 페이지 사이즈 지정 — 200")
         void customPageSize() throws Exception {
             given(postService.search(eq("test"), isNull(), any(Pageable.class)))
-                    .willReturn(new SearchResponseWithSuggestion(new SliceImpl<>(Collections.emptyList()), null));
+                    .willReturn(new SearchResponseWithSuggestion(new SliceImpl<>(Collections.emptyList()), null, Map.of()));
 
             mockMvc.perform(get(BASE + "/search")
                             .param("q", "test")

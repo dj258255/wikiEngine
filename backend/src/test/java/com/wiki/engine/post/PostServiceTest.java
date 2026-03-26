@@ -328,7 +328,7 @@ class PostServiceTest {
             Pageable pageable = PageRequest.of(0, 20);
             given(luceneSearchService.search("테스트", null, pageable))
                     .willReturn(new LuceneSearchService.SearchResult(
-                            new SliceImpl<>(List.of(post), pageable, false), Map.of()));
+                            new SliceImpl<>(List.of(post), pageable, false), Map.of(), Map.of()));
 
             var result = postService.search("테스트", null, pageable);
 
@@ -343,7 +343,7 @@ class PostServiceTest {
             Pageable pageable = PageRequest.of(0, 20);
             given(luceneSearchService.search("없는키워드", null, pageable))
                     .willReturn(new LuceneSearchService.SearchResult(
-                            new SliceImpl<>(Collections.emptyList(), pageable, false), Map.of()));
+                            new SliceImpl<>(Collections.emptyList(), pageable, false), Map.of(), Map.of()));
 
             var result = postService.search("없는키워드", null, pageable);
 
