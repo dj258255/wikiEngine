@@ -23,6 +23,20 @@
   tags: [deploy, kafka]
   changed_when: false
 
+- name: Kafka 내부 토픽 cleanup.policy=compact 보장 (Kafka 4.x 필수)
+  shell: >
+    docker exec wiki-kafka-prod /opt/kafka/bin/kafka-configs.sh
+    --bootstrap-server localhost:9092
+    --alter --entity-type topics
+    --entity-name {{ item }}
+    --add-config cleanup.policy=compact
+  loop:
+    - _debezium_offsets
+    - _debezium_configs
+    - _debezium_status
+  changed_when: false
+  tags: [deploy, kafka]
+
 - name: Debezium Connect 시작 대기 (최대 4분)
   uri:
     url: "http://localhost:8083/connectors"
