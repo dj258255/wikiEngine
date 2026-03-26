@@ -7,6 +7,15 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FeatureField;
 import org.apache.lucene.document.LongField;
+import org.apache.lucene.facet.FacetResult;
+import org.apache.lucene.facet.Facets;
+import org.apache.lucene.facet.FacetsCollector;
+import org.apache.lucene.facet.FacetsCollectorManager;
+import org.apache.lucene.facet.FacetsConfig;
+import org.apache.lucene.facet.LabelAndValue;
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetCounts;
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesReaderState;
+import org.apache.lucene.facet.sortedset.DefaultSortedSetDocValuesReaderState;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
@@ -23,6 +32,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,12 +51,15 @@ public class LuceneSearchService {
     private final Analyzer analyzer;
     private final PostRepository postRepository;
     private final QueryExpansionService queryExpansionService;
+    private final FacetsConfig facetsConfig;
 
     /**
-     * 검색 결과 + snippet 정보를 함께 담는 record.
+     * 검색 결과 + snippet + Facet 정보를 함께 담는 record.
      * postId → highlightedSnippet 매핑으로 UnifiedHighlighter 결과를 전달.
+     * categoryFacets: 카테고리명 → 매칭 건수 (전체 매칭 문서 기준, 페이징 무관).
      */
-    public record SearchResult(Slice<Post> posts, Map<Long, String> snippets) {}
+    public record SearchResult(Slice<Post> posts, Map<Long, String> snippets,
+                                Map<String, Long> categoryFacets) {}
 
     /**
      * 키워드 검색 — Slice + snippet 반환.
@@ -64,6 +77,10 @@ public class LuceneSearchService {
 
             // limit + 1 조회하여 hasNext 판단
             TopDocs topDocs = searcher.search(query, offset + limit + 1);
+
+            // Phase 19.2: 카테고리 Facet 집계 (전체 매칭 문서 대상, 페이징 무관)
+            FacetsCollector facetsCollector = searcher.search(query, new FacetsCollectorManager());
+            Map<String, Long> categoryFacets = collectCategoryFacets(searcher, facetsCollector);
 
             // offset 이후의 결과에서 ID + snippet 추출 (limit개까지만)
             StoredFields storedFields = searcher.storedFields();
@@ -87,18 +104,18 @@ public class LuceneSearchService {
             }
 
             if (postIds.isEmpty()) {
-                return new SearchResult(new SliceImpl<>(List.of(), pageable, false), Map.of());
+                return new SearchResult(new SliceImpl<>(List.of(), pageable, false), Map.of(), Map.of());
             }
 
             List<Post> posts = postRepository.findAllById(postIds);
             posts.sort((a, b) -> postIds.indexOf(a.getId()) - postIds.indexOf(b.getId()));
 
             boolean hasNext = topDocs.scoreDocs.length > offset + limit;
-            return new SearchResult(new SliceImpl<>(posts, pageable, hasNext), snippetMap);
+            return new SearchResult(new SliceImpl<>(posts, pageable, hasNext), snippetMap, categoryFacets);
 
         } catch (ParseException e) {
             log.warn("검색어 파싱 실패: keyword={}, error={}", keyword, e.getMessage());
-            return new SearchResult(new SliceImpl<>(List.of(), pageable, false), Map.of());
+            return new SearchResult(new SliceImpl<>(List.of(), pageable, false), Map.of(), Map.of());
         } finally {
             searcherManager.release(searcher);
         }
@@ -327,6 +344,30 @@ public class LuceneSearchService {
         double lambda = Math.log(2) / halfLifeDays;
 
         return new FunctionScoreQuery(new MatchAllDocsQuery(), new RecencyDecaySource(nowMillis, lambda, weight));
+    }
+
+    /**
+     * Phase 19.2: 카테고리 Facet 집계.
+     * SortedSetDocValuesFacetField("category")가 인덱스에 있으면 집계, 없으면 빈 맵 반환.
+     * 재색인 전에는 Facet 필드가 없으므로 graceful fallback.
+     */
+    private Map<String, Long> collectCategoryFacets(IndexSearcher searcher, FacetsCollector fc) {
+        Map<String, Long> result = new LinkedHashMap<>();
+        try {
+            SortedSetDocValuesReaderState state = new DefaultSortedSetDocValuesReaderState(
+                    searcher.getIndexReader(), facetsConfig);
+            Facets facets = new SortedSetDocValuesFacetCounts(state, fc);
+            FacetResult facetResult = facets.getTopChildren(30, "category");
+            if (facetResult != null) {
+                for (LabelAndValue lv : facetResult.labelValues) {
+                    result.put(lv.label, lv.value.longValue());
+                }
+            }
+        } catch (Exception e) {
+            // 재색인 전: SortedSetDocValues 필드 미존재 → 빈 맵 반환
+            log.debug("카테고리 Facet 집계 실패 (재색인 전일 수 있음): {}", e.getMessage());
+        }
+        return result;
     }
 
     /**

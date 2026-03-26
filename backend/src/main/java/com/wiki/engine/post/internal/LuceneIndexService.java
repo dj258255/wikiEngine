@@ -5,6 +5,8 @@ import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.apache.lucene.document.*;
+import org.apache.lucene.facet.FacetsConfig;
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.SearcherManager;
@@ -15,7 +17,9 @@ import org.apache.lucene.index.LiveIndexWriterConfig;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +39,10 @@ public class LuceneIndexService {
     private final SearcherManager searcherManager;
     private final PostRepository postRepository;
     private final EntityManager entityManager;
+    private final FacetsConfig facetsConfig;
+
+    // 카테고리 ID → 이름 매핑 (Facet 라벨용, 30개 고정)
+    private volatile Map<Long, String> categoryNameCache = Map.of();
 
     @Value("${lucene.batch-size}")
     private int batchSize;
@@ -43,11 +51,13 @@ public class LuceneIndexService {
             @Autowired(required = false) IndexWriter indexWriter,
             SearcherManager searcherManager,
             PostRepository postRepository,
-            EntityManager entityManager) {
+            EntityManager entityManager,
+            FacetsConfig facetsConfig) {
         this.indexWriter = indexWriter;
         this.searcherManager = searcherManager;
         this.postRepository = postRepository;
         this.entityManager = entityManager;
+        this.facetsConfig = facetsConfig;
     }
 
     /**
@@ -63,7 +73,8 @@ public class LuceneIndexService {
             log.warn("Skipping empty content: postId={}", post.getId());
             return;
         }
-        indexWriter.updateDocument(new Term("id", post.getId().toString()), toDocument(post));
+        ensureCategoryNameCache();
+        indexWriter.updateDocument(new Term("id", post.getId().toString()), facetsConfig.build(toDocument(post)));
         searcherManager.maybeRefresh();
     }
 
@@ -117,6 +128,9 @@ public class LuceneIndexService {
 
     private void doPipelinedIndexAll(long startId) throws IOException {
         long startTime = System.currentTimeMillis();
+
+        // Facet 라벨용 카테고리 이름 로딩
+        loadCategoryNameCache();
 
         if (startId == 0) {
             log.info("=== Lucene 전체 인덱싱 시작 (기존 인덱스 초기화) ===");
@@ -178,7 +192,7 @@ public class LuceneIndexService {
                             skipped.incrementAndGet();
                             return;
                         }
-                        indexWriter.addDocument(toDocument(post));
+                        indexWriter.addDocument(facetsConfig.build(toDocument(post)));
                         totalIndexed.incrementAndGet();
                     } catch (IOException e) {
                         log.error("인덱싱 실패: postId={}", post.getId(), e);
@@ -261,6 +275,9 @@ public class LuceneIndexService {
 
         if (post.getCategoryId() != null) {
             doc.add(new LongField("categoryId", post.getCategoryId(), Field.Store.YES));
+            // Phase 19.2: 카테고리 Facet — SortedSetDocValues로 집계
+            String categoryName = categoryNameCache.getOrDefault(post.getCategoryId(), "기타");
+            doc.add(new SortedSetDocValuesFacetField("category", categoryName));
         }
         doc.add(new LongField("viewCount", post.getViewCount(), Field.Store.YES));
         doc.add(new LongField("createdAt", post.getCreatedAt().toEpochMilli(), Field.Store.YES));
@@ -271,5 +288,22 @@ public class LuceneIndexService {
         doc.add(new FeatureField("features", "likeCount", Math.max(post.getLikeCount(), 1)));
 
         return doc;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void loadCategoryNameCache() {
+        List<Object[]> rows = entityManager.createNativeQuery("SELECT id, name FROM categories").getResultList();
+        Map<Long, String> map = new ConcurrentHashMap<>();
+        for (Object[] row : rows) {
+            map.put(((Number) row[0]).longValue(), (String) row[1]);
+        }
+        categoryNameCache = map;
+        log.info("카테고리 이름 캐시 로딩: {}개", map.size());
+    }
+
+    private void ensureCategoryNameCache() {
+        if (categoryNameCache.isEmpty()) {
+            loadCategoryNameCache();
+        }
     }
 }
