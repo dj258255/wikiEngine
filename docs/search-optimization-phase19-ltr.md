@@ -274,13 +274,13 @@ public List<String> suggestCategories(String title, String content) {
 - [x] `FacetsConfig` + `config.build(doc)` 적용
 - [x] `SortedSetDocValuesFacetCounts` 기반 Facet API 구현 (FacetsCollectorManager)
 - [x] 검색 API 응답에 `categoryFacets: Map<String, Long>` 필드 추가
-- [ ] 📸 검색 API 응답에 Facet 포함 확인 (재색인 후)
+- [x] 📸 검색 API 응답에 Facet 포함 확인 (재색인 후) — 30개 카테고리 전체 집계 정상
 - [ ] 📸 Grafana: Facet 집계 추가 시 응답시간 영향
 
 **태그 인덱싱 (재색인 시 함께):**
 - [x] `toDocument()`에 tags 필드 추가 — post_tags 테이블에서 배치 단위 태그 프리로딩 (N+1 방지)
 - [x] `TextField("tags", "tag1 tag2 ...", Field.Store.YES)` — 검색 대상
-- [x] `SortedSetDocValuesFacetField("tag", tagName)` — 태그별 Facet 집계용 (다중 값, FacetsConfig.setMultiValued)
+- [x] 태그 Facet 집계 제거 — 216만 고유 태그는 비실용적 (현업 안티패턴, Elasticsearch 공식 경고)
 - [ ] 태그 Facet API 구현 — 카테고리 Facet과 동일 패턴 (추후)
 - [ ] 검색 API에 `tag` 필터 파라미터 추가 (추후)
 - [ ] 📸 검색 결과에 태그 Facet 표시 (추후)
@@ -329,3 +329,52 @@ public List<String> suggestCategories(String title, String content) {
 | NDCG@10 | ???% | ???% | 랭킹 품질 |
 | P@10 | ???% | ???% | 상위 10개 정확도 |
 | 사용자 클릭율 | ???% | ???% | A/B 테스트 |
+
+---
+
+## Facet 실측 (2026-03-27, 재색인 완료 후)
+
+### 재색인 정보
+
+| 항목 | 수치 |
+|------|------|
+| 총 문서 수 | 12,156,589건 |
+| 인덱스 크기 | 42GB |
+| 재색인 소요시간 | ~2시간 (로컬 Mac M2 Pro) |
+| 세그먼트 병합 | forceMerge(5) |
+
+### After: "프로그래밍" 검색 — 카테고리 Facet 집계
+
+![After — Facet API 응답](images/phase19/phase19-after-facet-api-response.png)
+
+**API 응답 (`categoryFacets`):**
+
+| 카테고리 | 매칭 건수 |
+|----------|----------|
+| 웹 콘텐츠 | 39,910 |
+| 기타 | 3,770 |
+| 컴퓨터 과학 | 3,047 |
+| 게임 | 878 |
+| 음악 | 720 |
+| 교육 | 492 |
+| 인물 | 460 |
+| ... | ... |
+| 음식/요리 | 5 |
+
+**30개 카테고리 전체 집계 정상 동작.** 서버 1(Primary) + 서버 2(Replica) 모두 동일 결과 확인.
+
+### Before/After 비교
+
+| | Before (Phase 17) | After (Phase 19.2) |
+|---|---|---|
+| 카테고리 필터링 | ✅ LongField + Occur.FILTER | ✅ 동일 |
+| 카테고리 집계 | ❌ 없음 | ✅ **SortedSetDocValuesFacetCounts로 전체 매칭 문서 집계** |
+| 태그 검색 | ❌ 없음 | ✅ **TextField("tags") — 태그 키워드 매칭 가능** |
+| Nori 사용자 사전 | ❌ 기본 mecab-ko-dic만 | ✅ **158,539개 (수동 30 + wikipedia 158,509)** |
+
+### 적용된 변경 (재색인 1회에 모두 반영)
+
+1. `SortedSetDocValuesFacetField("category", categoryName)` — 카테고리 Facet
+2. `TextField("tags", tagNames, Store.YES)` — 태그 검색 (216만 고유 태그)
+3. Nori 사용자 사전 158K — open-korean-text wikipedia_title_nouns (Apache 2.0)
+4. 배치 태그 프리로딩 — N+1 방지 (배치당 1회 JOIN 쿼리)
