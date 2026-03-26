@@ -18,11 +18,13 @@ interface PostSummary {
   createdAt: string;
 }
 
-interface PageData {
+interface SliceData {
   content: PostSummary[];
-  totalPages: number;
-  totalElements: number;
   number: number;
+  size: number;
+  hasNext: boolean;
+  first: boolean;
+  last: boolean;
 }
 
 export default function PostListPage() {
@@ -43,15 +45,15 @@ function PostListContent() {
   const { user } = useAuth();
   const page = Number(searchParams.get("page") || "0");
 
-  const [pageData, setPageData] = useState<PageData | null>(null);
+  const [sliceData, setSliceData] = useState<SliceData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     fetch(`${API_URL}/api/v1.0/posts?page=${page}&size=20`)
       .then((res) => res.json())
-      .then((json) => setPageData(json.data))
-      .catch(() => setPageData(null))
+      .then((json) => setSliceData(json.data))
+      .catch(() => setSliceData(null))
       .finally(() => setLoading(false));
   }, [page]);
 
@@ -91,7 +93,7 @@ function PostListContent() {
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
           </div>
-        ) : !pageData || pageData.content.length === 0 ? (
+        ) : !sliceData || sliceData.content.length === 0 ? (
           <p className="py-12 text-center text-zinc-500 dark:text-zinc-400">게시글이 없습니다.</p>
         ) : (
           <>
@@ -106,7 +108,7 @@ function PostListContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                  {pageData.content.map((post) => (
+                  {sliceData.content.map((post) => (
                     <tr key={post.id} className="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
                       <td className="px-4 py-3">
                         <Link
@@ -116,16 +118,16 @@ function PostListContent() {
                           {post.title}
                         </Link>
                         <div className="mt-1 flex items-center gap-3 text-xs text-zinc-400 sm:hidden dark:text-zinc-500">
-                          <span>조회 {post.viewCount.toLocaleString()}</span>
-                          <span>좋아요 {post.likeCount.toLocaleString()}</span>
+                          <span>조회 {(post.viewCount ?? 0).toLocaleString()}</span>
+                          <span>좋아요 {(post.likeCount ?? 0).toLocaleString()}</span>
                           <span>{formatDate(post.createdAt)}</span>
                         </div>
                       </td>
                       <td className="hidden px-4 py-3 text-center text-zinc-500 sm:table-cell dark:text-zinc-400">
-                        {post.viewCount.toLocaleString()}
+                        {(post.viewCount ?? 0).toLocaleString()}
                       </td>
                       <td className="hidden px-4 py-3 text-center text-zinc-500 sm:table-cell dark:text-zinc-400">
-                        {post.likeCount.toLocaleString()}
+                        {(post.likeCount ?? 0).toLocaleString()}
                       </td>
                       <td className="hidden px-4 py-3 text-right text-zinc-500 sm:table-cell dark:text-zinc-400">
                         {formatDate(post.createdAt)}
@@ -137,24 +139,21 @@ function PostListContent() {
             </div>
 
             {/* Pagination */}
-            <div className="mt-6 flex items-center justify-between">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                총 {pageData.totalElements.toLocaleString()}건
-              </p>
+            <div className="mt-6 flex items-center justify-end">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => goToPage(page - 1)}
-                  disabled={page === 0}
+                  disabled={sliceData.first}
                   className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 >
                   이전
                 </button>
                 <span className="px-2 text-sm text-zinc-500 dark:text-zinc-400">
-                  {page + 1} / {pageData.totalPages}
+                  {page + 1} 페이지
                 </span>
                 <button
                   onClick={() => goToPage(page + 1)}
-                  disabled={page + 1 >= pageData.totalPages}
+                  disabled={!sliceData.hasNext}
                   className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 >
                   다음

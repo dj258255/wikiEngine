@@ -1,4 +1,4 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.search;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -22,7 +22,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-class QueryExpansionService {
+public class QueryExpansionService {
 
     private final SynonymRepository synonymRepository;
 
@@ -72,5 +72,5 @@ class QueryExpansionService {
      * @param boost    가중치 (원래 term=1.0, 동의어=DB weight)
      * @param original 원래 term인지 여부
      */
-    record ExpandedTerm(String term, double boost, boolean original) {}
+    public record ExpandedTerm(String term, double boost, boolean original) {}
 }

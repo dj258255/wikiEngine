@@ -1,4 +1,4 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.lucene;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.ko.KoreanAnalyzer;
@@ -79,9 +79,7 @@ class LuceneConfig {
 
     @Bean
     FacetsConfig facetsConfig() {
-        FacetsConfig config = new FacetsConfig();
-        config.setMultiValued("tag", true);  // 게시글당 태그 여러 개
-        return config;
+        return new FacetsConfig();
     }
 
     /**

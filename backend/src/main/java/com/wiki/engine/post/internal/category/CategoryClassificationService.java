@@ -1,4 +1,4 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.category;
 
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;

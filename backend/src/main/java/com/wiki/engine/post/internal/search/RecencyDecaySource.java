@@ -1,4 +1,4 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.search;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SortedNumericDocValues;
@@ -18,13 +18,13 @@ import java.io.IOException;
  * LongField은 SORTED_NUMERIC DocValues를 저장하므로
  * getSortedNumericDocValues()로 읽어야 한다 (getNumericDocValues는 NUMERIC 전용).
  */
-final class RecencyDecaySource extends DoubleValuesSource {
+public final class RecencyDecaySource extends DoubleValuesSource {
 
     private final long nowMillis;
     private final double lambda;
     private final float weight;
 
-    RecencyDecaySource(long nowMillis, double lambda, float weight) {
+    public RecencyDecaySource(long nowMillis, double lambda, float weight) {
         this.nowMillis = nowMillis;
         this.lambda = lambda;
         this.weight = weight;

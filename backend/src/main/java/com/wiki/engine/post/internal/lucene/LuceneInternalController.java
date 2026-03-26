@@ -1,4 +1,4 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.lucene;
 
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexWriter;

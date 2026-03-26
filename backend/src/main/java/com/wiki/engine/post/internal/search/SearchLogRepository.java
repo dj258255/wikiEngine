@@ -1,4 +1,4 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.search;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 
-interface SearchLogRepository extends JpaRepository<SearchLog, Long> {
+public interface SearchLogRepository extends JpaRepository<SearchLog, Long> {
 
     /**
      * 시간 버킷 기반 upsert.

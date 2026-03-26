@@ -1,7 +1,9 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.lucene;
 
 import com.wiki.engine.post.Post;
 import com.wiki.engine.post.PostEvent;
+import com.wiki.engine.post.internal.lucene.LuceneIndexEventHandler;
+import com.wiki.engine.post.internal.lucene.LuceneIndexService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

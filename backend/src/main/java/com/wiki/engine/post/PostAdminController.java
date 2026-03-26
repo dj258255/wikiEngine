@@ -3,9 +3,9 @@ package com.wiki.engine.post;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.dto.PostSummaryResponse;
-import com.wiki.engine.post.internal.CategoryClassificationService;
-import com.wiki.engine.post.internal.LuceneIndexService;
-import com.wiki.engine.post.internal.LuceneSearchService;
+import com.wiki.engine.post.internal.category.CategoryClassificationService;
+import com.wiki.engine.post.internal.lucene.LuceneIndexService;
+import com.wiki.engine.post.internal.lucene.LuceneSearchService;
 import com.wiki.engine.post.internal.PostRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +20,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.wiki.engine.post.internal.LuceneSearchService.EvalDoc;
+import com.wiki.engine.post.internal.lucene.LuceneSearchService.EvalDoc;
 
 import java.io.IOException;
 import java.util.*;

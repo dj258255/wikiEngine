@@ -1,6 +1,9 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.lucene;
 
 import com.wiki.engine.post.Post;
+import com.wiki.engine.post.internal.PostRepository;
+import com.wiki.engine.post.internal.search.QueryExpansionService;
+import com.wiki.engine.post.internal.search.RecencyDecaySource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.analysis.Analyzer;

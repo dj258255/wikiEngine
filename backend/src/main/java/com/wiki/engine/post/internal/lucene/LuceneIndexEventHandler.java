@@ -1,6 +1,7 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.lucene;
 
 import com.wiki.engine.post.PostEvent;
+import com.wiki.engine.post.internal.cdc.DebeziumCdcConsumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;

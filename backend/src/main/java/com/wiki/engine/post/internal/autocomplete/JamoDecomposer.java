@@ -1,4 +1,4 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.autocomplete;
 
 /**
  * 한글 자모 분해 유틸리티.

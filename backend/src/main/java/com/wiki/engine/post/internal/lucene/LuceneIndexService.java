@@ -1,6 +1,7 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.lucene;
 
 import com.wiki.engine.post.Post;
+import com.wiki.engine.post.internal.PostRepository;
 import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -289,11 +290,8 @@ public class LuceneIndexService {
         doc.add(new LongField("viewCount", post.getViewCount(), Field.Store.YES));
         doc.add(new LongField("createdAt", post.getCreatedAt().toEpochMilli(), Field.Store.YES));
 
-        // Phase 19.2: 태그 인덱싱 — 검색 + Facet 집계
+        // Phase 19.2: 태그 인덱싱 — 검색용 (Facet 집계는 216만 고유 태그라 비실용적)
         List<String> tags = batchTagCache.getOrDefault(post.getId(), List.of());
-        for (String tag : tags) {
-            doc.add(new SortedSetDocValuesFacetField("tag", tag));
-        }
         if (!tags.isEmpty()) {
             doc.add(new TextField("tags", String.join(" ", tags), Field.Store.YES));
         }
