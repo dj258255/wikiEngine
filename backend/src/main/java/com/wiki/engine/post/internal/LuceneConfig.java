@@ -2,6 +2,9 @@ package com.wiki.engine.post.internal;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.ko.KoreanAnalyzer;
+import org.apache.lucene.analysis.ko.KoreanPartOfSpeechStopFilter;
+import org.apache.lucene.analysis.ko.KoreanTokenizer;
+import org.apache.lucene.analysis.ko.dict.UserDictionary;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -18,6 +21,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -48,12 +55,33 @@ class LuceneConfig {
 
     @Bean
     Analyzer luceneAnalyzer() {
-        return new KoreanAnalyzer();
+        UserDictionary userDict = loadUserDictionary();
+        return new KoreanAnalyzer(
+                userDict,
+                KoreanTokenizer.DEFAULT_DECOMPOUND,
+                KoreanPartOfSpeechStopFilter.DEFAULT_STOP_TAGS,
+                false
+        );
+    }
+
+    private UserDictionary loadUserDictionary() {
+        try (InputStream is = getClass().getResourceAsStream("/userdict_ko.txt")) {
+            if (is == null) {
+                return null;
+            }
+            try (Reader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
+                return UserDictionary.open(reader);
+            }
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     @Bean
     FacetsConfig facetsConfig() {
-        return new FacetsConfig();
+        FacetsConfig config = new FacetsConfig();
+        config.setMultiValued("tag", true);  // 게시글당 태그 여러 개
+        return config;
     }
 
     /**
