@@ -1,4 +1,4 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.search;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 

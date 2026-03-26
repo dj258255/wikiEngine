@@ -1,5 +1,6 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.lucene;
 
+import com.wiki.engine.post.internal.lucene.LuceneSearchService;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

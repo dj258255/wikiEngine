@@ -1,6 +1,8 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.autocomplete;
 
 import com.wiki.engine.config.ConsistentHashRouter;
+import com.wiki.engine.post.internal.lucene.LuceneSearchService;
+import com.wiki.engine.post.internal.search.SearchLogRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;

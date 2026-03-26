@@ -1,5 +1,6 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.category;
 
+import com.wiki.engine.post.internal.PostRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.analysis.Analyzer;

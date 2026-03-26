@@ -1,8 +1,10 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.cdc;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.wiki.engine.config.TieredCacheService;
 import com.wiki.engine.post.Post;
+import com.wiki.engine.post.internal.lucene.LuceneIndexService;
+import com.wiki.engine.post.internal.PostRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
