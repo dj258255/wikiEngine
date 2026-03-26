@@ -7,6 +7,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.KeepOnlyLastCommitDeletionPolicy;
 import org.apache.lucene.index.SnapshotDeletionPolicy;
+import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.search.SearcherManager;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
@@ -48,6 +49,11 @@ class LuceneConfig {
     @Bean
     Analyzer luceneAnalyzer() {
         return new KoreanAnalyzer();
+    }
+
+    @Bean
+    FacetsConfig facetsConfig() {
+        return new FacetsConfig();
     }
 
     /**

@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -292,7 +293,8 @@ public class PostService {
                                             : PostSearchResponse.from(post);
                                 })
                                 .toList();
-                        return new CachedSearchResult(responses, searchResult.posts().hasNext());
+                        return new CachedSearchResult(responses, searchResult.posts().hasNext(),
+                                searchResult.categoryFacets());
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
@@ -311,7 +313,7 @@ public class PostService {
             }
         }
 
-        return new SearchResponseWithSuggestion(results, suggestion);
+        return new SearchResponseWithSuggestion(results, suggestion, cached.categoryFacets());
     }
 
     private void validatePageLimit(Pageable pageable, int maxPage) {
