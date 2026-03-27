@@ -4,17 +4,23 @@ import com.wiki.engine.auth.CurrentUser;
 import com.wiki.engine.auth.UserPrincipal;
 import com.wiki.engine.post.dto.*;
 import com.wiki.engine.post.internal.ViewCountService;
+import com.wiki.engine.post.internal.rag.AiSummaryDecisionService;
+import com.wiki.engine.post.internal.rag.RagService;
+import com.wiki.engine.post.internal.rag.RagSummaryResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Duration;
 import java.util.List;
@@ -36,6 +42,8 @@ public class PostController {
 
     private final PostService postService;
     private final ViewCountService viewCountService;
+    private final RagService ragService;
+    private final AiSummaryDecisionService aiSummaryDecisionService;
 
     /** 최신 게시글 목록 조회 (Deferred Join + Slice, COUNT(*) 제거) */
     @GetMapping
@@ -132,6 +140,47 @@ public class PostController {
             @PageableDefault(size = 20) Pageable pageable) {
 
         return postService.search(q, categoryId, pageable);
+    }
+
+    /**
+     * AI 검색 요약 — SSE 스트리밍 RAG.
+     *
+     * 현업 패턴(Google AI Overviews, ChatGPT, Perplexity)과 동일하게
+     * SSE(Server-Sent Events)로 토큰 단위 스트리밍한다.
+     * 검색 결과는 별도 /search API로 즉시 반환되고,
+     * AI 요약은 이 엔드포인트에서 한 글자씩 스트리밍된다.
+     *
+     * 이벤트 타입:
+     *   - "delta": 토큰 텍스트 (한 글자~단어 단위)
+     *   - "citations": 출처 정보 JSON (스트리밍 완료 후)
+     *   - "done": 스트리밍 종료 신호
+     *   - "skip": 트리거 조건 미충족 시 (스킵 사유 포함)
+     *   - "error": 오류 발생 시
+     */
+    @GetMapping(value = "/search/ai-summary", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter aiSummaryStream(@RequestParam String q) {
+        SseEmitter emitter = new SseEmitter(60_000L);
+
+        // 1. 검색 실행 (Top-5)
+        SearchResponseWithSuggestion searchResult = postService.search(q, null, PageRequest.of(0, 5));
+        List<PostSearchResponse> results = searchResult.results().getContent();
+
+        // 2. AI 요약 트리거 조건 판단
+        AiSummaryDecisionService.Decision decision = aiSummaryDecisionService.decide(q, results);
+        if (!decision.shouldGenerate()) {
+            try {
+                emitter.send(SseEmitter.event().name("skip").data(decision.skipReason()));
+                emitter.complete();
+            } catch (Exception e) {
+                emitter.completeWithError(e);
+            }
+            return emitter;
+        }
+
+        // 3. 별도 스레드에서 SSE 스트리밍 (톰캣 스레드 반환)
+        ragService.streamSummary(q, results, emitter);
+
+        return emitter;
     }
 
     /**

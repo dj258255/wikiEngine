@@ -21,11 +21,13 @@ configurations {
 
 repositories {
     mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }  // Spring AI 2.0.0-M4 (Spring Boot 4 대응)
 }
 
 dependencyManagement {
     imports {
         mavenBom 'org.springframework.modulith:spring-modulith-bom:2.0.2'
+        mavenBom 'org.springframework.ai:spring-ai-bom:2.0.0-M4'  // Phase 21: Spring AI (Gemini RAG)
     }
 }
 
@@ -73,6 +75,12 @@ dependencies {
 
     // Spring Kafka: CDC Consumer (Phase 14-3, Debezium → Kafka → Consumer)
     implementation 'org.springframework.boot:spring-boot-starter-kafka'
+
+    // Aho-Corasick: 금칙어 다중 패턴 매칭 O(N+Z) — 텍스트 길이에만 비례, 패턴 수에 무관
+    implementation 'org.ahocorasick:ahocorasick:0.6.3'
+
+    // Spring AI + Gemini: Phase 21 RAG (검색 결과 기반 AI 요약)
+    implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
 
     // Datafaker: 더미 데이터 생성 (한글/영문 랜덤 이름, 닉네임 등)
     implementation 'net.datafaker:datafaker:2.5.3'

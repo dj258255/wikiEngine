@@ -46,6 +46,7 @@ function SearchPageContent() {
   const [hasNext, setHasNext] = useState(false);
   const [currentPage, setCurrentPage] = useState(pageParam);
   const [aiSummary, setAiSummary] = useState("");
+  const [aiCitations, setAiCitations] = useState<{ docNumber: number; postId: number; title: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [spellSuggestion, setSpellSuggestion] = useState<string | null>(null);
@@ -54,7 +55,20 @@ function SearchPageContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
 
-  // 자동완성
+  // 자동완성 — 입력 prefix를 볼드 하이라이트
+  const highlightMatch = (text: string, prefix: string) => {
+    if (!prefix) return text;
+    const idx = text.toLowerCase().indexOf(prefix.toLowerCase());
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <b className="font-bold text-zinc-900 dark:text-zinc-100">{text.slice(idx, idx + prefix.length)}</b>
+        {text.slice(idx + prefix.length)}
+      </>
+    );
+  };
+
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(-1);
@@ -80,6 +94,7 @@ function SearchPageContent() {
       setResults([]);
       setHasNext(false);
       setAiSummary("");
+      setAiCitations([]);
     }
   }, [query, pageParam, categoryParam]);
 
@@ -150,12 +165,52 @@ function SearchPageContent() {
   const fetchAiSummary = async (q: string) => {
     setAiLoading(true);
     setAiSummary("");
+    setAiCitations([]);
     try {
       const res = await fetch(`/api/ai-summary?q=${encodeURIComponent(q)}`);
-      const data = await res.json();
-      setAiSummary(data.summary || "");
+      if (!res.ok || !res.body) {
+        setAiLoading(false);
+        return;
+      }
+
+      // SSE 스트리밍 수신 — 토큰 단위로 타이핑 효과
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let currentEvent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE 형식: "event: xxx\ndata: yyy\n\n"
+        while (buffer.includes("\n\n")) {
+          const blockEnd = buffer.indexOf("\n\n");
+          const block = buffer.slice(0, blockEnd);
+          buffer = buffer.slice(blockEnd + 2);
+
+          currentEvent = "";
+          let data = "";
+          for (const line of block.split("\n")) {
+            if (line.startsWith("event:")) currentEvent = line.slice(6).trim();
+            else if (line.startsWith("data:")) data = line.slice(5).trim();
+          }
+
+          if (currentEvent === "delta" && data) {
+            setAiSummary(prev => prev + data);
+            setAiLoading(false);
+          } else if (currentEvent === "citations" && data) {
+            try { setAiCitations(JSON.parse(data)); } catch { /* ignore */ }
+          } else if (currentEvent === "skip" || currentEvent === "error" || currentEvent === "done") {
+            setAiLoading(false);
+          }
+        }
+      }
     } catch {
       setAiSummary("");
+      setAiCitations([]);
     } finally {
       setAiLoading(false);
     }
@@ -262,7 +317,7 @@ function SearchPageContent() {
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4 shrink-0 text-zinc-400">
                       <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                     </svg>
-                    {s}
+                    <span>{highlightMatch(s, searchQuery.trim())}</span>
                   </button>
                 ))}
               </div>
@@ -293,8 +348,8 @@ function SearchPageContent() {
           </p>
         )}
 
-        {/* AI 요약 섹션 */}
-        {query && (
+        {/* AI 요약 섹션 — 로딩 중이거나 요약이 있을 때만 표시 (트리거 스킵 시 숨김) */}
+        {query && (aiLoading || aiSummary) && (
           <div className="mb-8 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 dark:border-blue-800 dark:from-blue-950/50 dark:to-indigo-950/50">
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-indigo-500">
@@ -310,7 +365,22 @@ function SearchPageContent() {
                 <span className="text-sm text-zinc-500">AI가 요약하는 중...</span>
               </div>
             ) : aiSummary ? (
-              <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{aiSummary}</p>
+              <div>
+                <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{aiSummary}</p>
+                {aiCitations.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {aiCitations.map((c) => (
+                      <Link
+                        key={c.postId}
+                        href={`/posts/${c.postId}`}
+                        className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-800/50"
+                      >
+                        [문서 {c.docNumber}] {c.title.length > 20 ? c.title.slice(0, 20) + "..." : c.title}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : (
               <p className="text-sm text-zinc-500 dark:text-zinc-400">요약을 생성할 수 없습니다.</p>
             )}

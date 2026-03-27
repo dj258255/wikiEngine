@@ -17,6 +17,14 @@ spring:
   flyway:
     enabled: false
 
+spring.ai:
+  google:
+    genai:
+      api-key: test-key
+      chat:
+        options:
+          model: gemini-2.0-flash
+
 server:
   port: 0
 

@@ -144,6 +144,17 @@ app:
     news-path: ${NEWS_IMPORT_PATH:}
     web-path: ${WEB_IMPORT_PATH:}
 
+# Phase 21: Spring AI + Gemini (RAG 검색 요약)
+spring.ai:
+  google:
+    genai:
+      api-key: ${GEMINI_API_KEY:}
+      chat:
+        options:
+          model: gemini-2.0-flash
+          temperature: 0.3
+          max-output-tokens: 500
+
 # Lucene 검색엔진 설정
 lucene:
   index-path: ${LUCENE_INDEX_PATH}    # 인덱스 파일 저장 경로 (dev: ./data/lucene, prod: /data/lucene)
@@ -155,6 +166,7 @@ logging:
   level:
     com.wiki.engine: ${LOG_LEVEL}
     org.hibernate.orm.jdbc.bind: ${HIBERNATE_BIND_LOG_LEVEL:TRACE}  # SQL 파라미터 값 출력 (운영에서는 OFF)
+    org.hibernate.SQL: ${HIBERNATE_SQL_LOG_LEVEL:DEBUG}  # SQL 쿼리 출력 (인덱싱 시 OFF 권장)
     org.apache.kafka: ${KAFKA_LOG_LEVEL:WARN}
     org.springframework.kafka: ${KAFKA_LOG_LEVEL:WARN}
     io.lettuce.core: ${REDIS_LOG_LEVEL:WARN}
