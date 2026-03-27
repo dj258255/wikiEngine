@@ -52,6 +52,10 @@ public class Post {
     @Column(name = "like_count", nullable = false)
     private Long likeCount = 0L;
 
+    /** 블라인드 여부 (유해 콘텐츠 — 검색 결과에서 제외) */
+    @Column(nullable = false)
+    private boolean blinded = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -67,6 +71,11 @@ public class Post {
         this.viewCount = 0L;
         this.likeCount = 0L;
         this.createdAt = Instant.now();
+    }
+
+    /** 블라인드 처리 (Phase 20: 유해 콘텐츠 검색 제외) */
+    public void setBlinded(boolean blinded) {
+        this.blinded = blinded;
     }
 
     /** 게시글 제목과 본문을 수정한다. */
