@@ -9,6 +9,7 @@ import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.post.internal.lucene.LuceneSearchService;
 import com.wiki.engine.post.internal.autocomplete.SpellCheckService;
 import com.wiki.engine.post.internal.category.CategoryRecommendService;
+import com.wiki.engine.post.internal.filter.ContentFilterService;
 import com.wiki.engine.post.internal.PostLikeRepository;
 import com.wiki.engine.post.internal.PostRepository;
 import com.wiki.engine.post.internal.autocomplete.RedisAutocompleteService;
@@ -56,6 +57,7 @@ class PostServiceTest {
     @Mock private SpellCheckService spellCheckService;
     @Mock private CategoryRecommendService categoryRecommendService;
     @Mock private TieredCacheService tieredCacheService;
+    @Mock private ContentFilterService contentFilterService;
     @Mock private Cache<String, Object> searchResultsL1Cache;
     @Mock private Cache<String, Object> postDetailL1Cache;
     @Mock private ApplicationEventPublisher eventPublisher;
@@ -65,7 +67,7 @@ class PostServiceTest {
         postService = new PostService(
                 postRepository, postLikeRepository,
                 luceneSearchService, searchLogCollector, redisAutocompleteService, spellCheckService,
-                categoryRecommendService, tieredCacheService, searchResultsL1Cache, postDetailL1Cache,
+                categoryRecommendService, tieredCacheService, contentFilterService, searchResultsL1Cache, postDetailL1Cache,
                 eventPublisher);
 
         // TieredCacheService: pass-through (항상 origin loader 호출)
