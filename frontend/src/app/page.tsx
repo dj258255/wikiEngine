@@ -11,7 +11,20 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const router = useRouter();
 
-  // 자동완성
+  // 자동완성 — 입력 prefix를 볼드 하이라이트
+  const highlightMatch = (text: string, prefix: string) => {
+    if (!prefix) return text;
+    const idx = text.toLowerCase().indexOf(prefix.toLowerCase());
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <b className="font-bold text-zinc-900 dark:text-zinc-100">{text.slice(idx, idx + prefix.length)}</b>
+        {text.slice(idx + prefix.length)}
+      </>
+    );
+  };
+
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(-1);
@@ -165,7 +178,7 @@ export default function Home() {
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4 shrink-0 text-zinc-400">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                   </svg>
-                  {s}
+                  <span>{highlightMatch(s, query.trim())}</span>
                 </button>
               ))}
             </div>
