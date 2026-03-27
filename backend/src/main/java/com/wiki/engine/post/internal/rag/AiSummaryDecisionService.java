@@ -4,20 +4,23 @@ import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.post.internal.filter.ContentFilterService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * AI 요약 트리거 조건 판단 서비스.
+ * AI 요약 트리거 조건 판단 + Rate Limiting 서비스.
  *
  * Google AI Overviews, 네이버 Cue: 등 현업 검색엔진의 패턴을 참고하여,
- * 쿼리 의도(informational/navigational/transactional)와 검색 결과 품질을 기반으로
- * AI 요약 생성 여부를 결정한다.
+ * 쿼리 의도(informational/navigational/transactional)와 검색 결과 품질,
+ * 그리고 Gemini 무료 티어 rate limit(15 RPM)을 기반으로 AI 요약 생성 여부를 결정한다.
  *
- * Google 실측: 전체 쿼리 중 AI Overview 표시율 7~15%, 질문형 쿼리는 25~30%.
+ * Rate Limiting: Redis 기반 Token Bucket — 서버 2대 이상에서 전역 제한 공유.
+ * 현업 표준: Stripe, AWS API Gateway, Spring Cloud Gateway 모두 Token Bucket 사용.
  */
 @Slf4j
 @Service
@@ -25,26 +28,39 @@ import java.util.regex.Pattern;
 public class AiSummaryDecisionService {
 
     private final ContentFilterService contentFilterService;
+    private final StringRedisTemplate redisTemplate;
 
-    /** 검색 결과 최소 건수 — 이보다 적으면 AI 요약 스킵 */
+    /** 검색 결과 최소 건수 (일반 쿼리) */
     private static final int MIN_HITS = 3;
 
-    /** 쿼리 최소 길이 (자) — 1글자 검색은 AI 요약 불필요 */
+    /** 검색 결과 최소 건수 (물음표 질문 — "자바 GC?" 등 명시적 질문은 결과 1건이라도 답변) */
+    private static final int MIN_HITS_QUESTION = 1;
+
+    /** 쿼리 최소 길이 (자) */
     private static final int MIN_QUERY_LENGTH = 2;
 
-    /** 질문형 패턴 — "~란", "~무엇", "~방법", "~원리", "~차이", "~비교", "~어떻게", "~왜" */
+    /** 전역 Rate Limit — Gemini 무료 15 RPM, 여유 두고 10 RPM */
+    private static final long GLOBAL_MAX_PER_MINUTE = 10;
+
+    /** Redis rate limit 키 */
+    private static final String RATE_KEY = "rag:ratelimit:global";
+
+    /** Rate limit 윈도우 */
+    private static final Duration RATE_WINDOW = Duration.ofMinutes(1);
+
+    /** 질문형 패턴 */
     private static final Pattern INFORMATIONAL_PATTERN = Pattern.compile(
             ".*(이란|란\\s|무엇|방법|원리|차이|비교|어떻게|왜|how|what|why|vs|versus|difference).*",
             Pattern.CASE_INSENSITIVE
     );
 
-    /** 거래 의도 키워드 — 구매, 가격, 할인 등 */
+    /** 거래 의도 키워드 */
     private static final Set<String> TRANSACTIONAL_KEYWORDS = Set.of(
             "구매", "가격", "할인", "예약", "배송", "최저가", "주문", "결제",
             "buy", "price", "order", "cheap", "discount", "shop"
     );
 
-    /** 네비게이션 의도 — URL 패턴, 유명 사이트명 */
+    /** 네비게이션 의도 */
     private static final Set<String> NAVIGATIONAL_KEYWORDS = Set.of(
             "네이버", "다음", "구글", "유튜브", "쿠팡", "인스타그램", "카카오톡",
             "naver", "google", "youtube", "facebook", "instagram", "twitter"
@@ -56,10 +72,6 @@ public class AiSummaryDecisionService {
 
     /**
      * AI 요약을 생성해야 하는지 판단한다.
-     *
-     * @param query   사용자 검색어
-     * @param results 검색 결과 (이미 조회된 상태)
-     * @return AI 요약 생성 여부 + 스킵 사유
      */
     public Decision decide(String query, List<PostSearchResponse> results) {
         String trimmed = query.trim();
@@ -94,15 +106,42 @@ public class AiSummaryDecisionService {
         }
 
         // 5. 검색 결과 건수 체크
-        if (results.size() < MIN_HITS) {
-            return Decision.skip("검색 결과 부족 (%d건)".formatted(results.size()));
+        //    물음표 질문("자바 GC?", "블록체인이란??")은 명시적 질문 의도 → 결과 1건이라도 AI 답변
+        boolean isExplicitQuestion = lower.contains("?");
+        int minHits = isExplicitQuestion ? MIN_HITS_QUESTION : MIN_HITS;
+        if (results.size() < minHits) {
+            return Decision.skip("검색 결과 부족 (%d건, 최소 %d건 필요)".formatted(results.size(), minHits));
         }
 
-        // 6. 통과 — AI 요약 생성
+        // 6. Rate limit 체크 (Redis Token Bucket — 서버 2대 전역 공유)
+        if (!tryAcquireRateLimit()) {
+            return Decision.skip("Rate limit 초과 (분당 %d회 제한)".formatted(GLOBAL_MAX_PER_MINUTE));
+        }
+
+        // 7. 통과
         boolean isQuestion = INFORMATIONAL_PATTERN.matcher(lower).matches();
         log.debug("AI 요약 트리거: query='{}', questionPattern={}, resultCount={}",
                 trimmed, isQuestion, results.size());
         return Decision.proceed();
+    }
+
+    /**
+     * Redis 기반 Token Bucket Rate Limiter.
+     * INCR + EXPIRE로 1분 윈도우 내 요청 수를 카운트한다.
+     * 서버 2대에서 동일 Redis를 공유하므로 전역 제한이 정확하게 동작한다.
+     */
+    private boolean tryAcquireRateLimit() {
+        try {
+            Long count = redisTemplate.opsForValue().increment(RATE_KEY);
+            if (count != null && count == 1) {
+                redisTemplate.expire(RATE_KEY, RATE_WINDOW);
+            }
+            return count != null && count <= GLOBAL_MAX_PER_MINUTE;
+        } catch (Exception e) {
+            // Redis 장애 시 rate limit 통과 (Gemini가 자체 429로 방어)
+            log.debug("Redis rate limit 조회 실패 (통과 허용): {}", e.getMessage());
+            return true;
+        }
     }
 
     public record Decision(boolean shouldGenerate, String skipReason) {

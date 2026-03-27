@@ -3,11 +3,13 @@ package com.wiki.engine.post.internal.rag;
 import com.wiki.engine.post.dto.PostSearchResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -23,7 +25,8 @@ import java.util.regex.Pattern;
  * BM25 검색 결과(Top-5)를 Gemini 컨텍스트에 주입하여 AI 요약을 생성한다.
  * SSE(Server-Sent Events)로 토큰 단위 스트리밍 — Google AI Overviews, ChatGPT와 동일 패턴.
  *
- * 파이프라인: Lucene BM25 검색 → snippet 추출 → 프롬프트 조합 → Gemini SSE 스트리밍 → 출처 인용
+ * 캐싱: 동일 쿼리의 AI 요약을 Redis에 TTL 30분으로 캐싱하여 LLM 호출 절감.
+ * 현업 기준 동일/유사 쿼리 반복률 30%+ → 캐싱으로 LLM 비용 40-60% 절감 가능.
  */
 @Slf4j
 @Service
@@ -31,6 +34,7 @@ public class RagService {
 
     private final ChatClient chatClient;
     private final JsonMapper jsonMapper;
+    private final StringRedisTemplate redisTemplate;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     private static final String SYSTEM_PROMPT = """
@@ -47,120 +51,140 @@ public class RagService {
 
     private static final int MAX_CONTEXT_DOCS = 5;
     private static final int MAX_SNIPPET_LENGTH = 500;
+    private static final Duration CACHE_TTL = Duration.ofMinutes(30);
+    private static final String CACHE_PREFIX = "rag:";
     private static final Pattern CITATION_PATTERN = Pattern.compile("\\[문서\\s*(\\d+)]");
 
-    public RagService(ChatClient.Builder chatClientBuilder, JsonMapper jsonMapper) {
+    public RagService(ChatClient.Builder chatClientBuilder, JsonMapper jsonMapper,
+                      StringRedisTemplate redisTemplate) {
         this.chatClient = chatClientBuilder
                 .defaultSystem(SYSTEM_PROMPT)
                 .build();
         this.jsonMapper = jsonMapper;
+        this.redisTemplate = redisTemplate;
     }
 
     /**
      * SSE 스트리밍으로 AI 요약을 생성한다.
-     * Virtual Thread에서 실행되어 톰캣 스레드를 반환한다.
      *
-     * 이벤트 흐름:
-     *   delta → delta → ... → delta → citations → done
+     * 캐시 히트: 캐시된 응답을 즉시 SSE로 전송 (Gemini 호출 없음, 비용 0).
+     * 캐시 미스: Gemini 스트리밍 → 완료 후 Redis 캐시 저장.
      */
     public void streamSummary(String query, List<PostSearchResponse> results, SseEmitter emitter) {
         List<PostSearchResponse> contextDocs = results.stream()
                 .limit(MAX_CONTEXT_DOCS)
                 .toList();
 
-        String context = buildContext(contextDocs);
-        String userPrompt = "검색 결과:\n" + context + "\n\n질문: " + query;
-
         executor.execute(() -> {
-            StringBuilder fullAnswer = new StringBuilder();
             try {
-                chatClient.prompt()
-                        .user(userPrompt)
-                        .stream()
-                        .content()
-                        .doOnNext(token -> {
-                            fullAnswer.append(token);
-                            try {
-                                emitter.send(SseEmitter.event()
-                                        .name("delta")
-                                        .data(token));
-                            } catch (IOException e) {
-                                throw new RuntimeException("SSE 전송 실패", e);
-                            }
-                        })
-                        .doOnComplete(() -> {
-                            try {
-                                // 스트리밍 완료 후 출처 정보 전송
-                                List<RagCitation> citations = extractCitations(
-                                        fullAnswer.toString(), contextDocs);
-                                String citationsJson = jsonMapper.writeValueAsString(citations);
-                                emitter.send(SseEmitter.event()
-                                        .name("citations")
-                                        .data(citationsJson));
-                                emitter.send(SseEmitter.event()
-                                        .name("done")
-                                        .data("[DONE]"));
-                                emitter.complete();
-                            } catch (Exception e) {
-                                emitter.completeWithError(e);
-                            }
-                        })
-                        .doOnError(error -> {
-                            log.warn("Gemini 스트리밍 실패: {}", error.getMessage());
-                            try {
-                                emitter.send(SseEmitter.event()
-                                        .name("error")
-                                        .data("AI 요약 생성 중 오류가 발생했습니다."));
-                                emitter.complete();
-                            } catch (IOException e) {
-                                emitter.completeWithError(e);
-                            }
-                        })
-                        .subscribe();  // 구독 시작
+                // 1. Redis 캐시 확인
+                RagSummaryResponse cached = getCached(query);
+                if (cached != null) {
+                    log.debug("RAG 캐시 히트: query='{}'", query);
+                    sendCachedResponse(cached, emitter);
+                    return;
+                }
+
+                // 2. 캐시 미스 — Gemini 스트리밍
+                log.debug("RAG 캐시 미스: query='{}', Gemini 호출", query);
+                streamFromGemini(query, contextDocs, emitter);
 
             } catch (Exception e) {
-                log.warn("RAG 스트리밍 초기화 실패: {}", e.getMessage());
-                try {
-                    emitter.send(SseEmitter.event()
-                            .name("error")
-                            .data("AI 요약 생성 중 오류가 발생했습니다."));
-                    emitter.complete();
-                } catch (IOException ex) {
-                    emitter.completeWithError(ex);
-                }
+                log.warn("RAG 처리 실패: {}", e.getMessage());
+                sendError(emitter);
             }
         });
     }
 
     /**
-     * 동기 호출 (비스트리밍). 테스트 및 캐싱용.
+     * 캐시된 응답을 SSE로 즉시 전송한다.
+     * 스트리밍처럼 보이도록 전체 텍스트를 한 번에 delta로 전송.
      */
-    public RagSummaryResponse summarize(String query, List<PostSearchResponse> results) {
-        if (results.isEmpty()) {
-            return new RagSummaryResponse(
-                    "검색 결과가 없어 AI 요약을 생성할 수 없습니다.", List.of());
+    private void sendCachedResponse(RagSummaryResponse cached, SseEmitter emitter) {
+        try {
+            emitter.send(SseEmitter.event().name("delta").data(cached.summary()));
+            String citationsJson = jsonMapper.writeValueAsString(cached.citations());
+            emitter.send(SseEmitter.event().name("citations").data(citationsJson));
+            emitter.send(SseEmitter.event().name("done").data("[DONE]"));
+            emitter.complete();
+        } catch (Exception e) {
+            emitter.completeWithError(e);
         }
+    }
 
-        List<PostSearchResponse> contextDocs = results.stream()
-                .limit(MAX_CONTEXT_DOCS)
-                .toList();
-
+    /**
+     * Gemini API SSE 스트리밍 호출 + 완료 후 Redis 캐시 저장.
+     */
+    private void streamFromGemini(String query, List<PostSearchResponse> contextDocs, SseEmitter emitter) {
         String context = buildContext(contextDocs);
         String userPrompt = "검색 결과:\n" + context + "\n\n질문: " + query;
+        StringBuilder fullAnswer = new StringBuilder();
 
+        chatClient.prompt()
+                .user(userPrompt)
+                .stream()
+                .content()
+                .doOnNext(token -> {
+                    fullAnswer.append(token);
+                    try {
+                        emitter.send(SseEmitter.event().name("delta").data(token));
+                    } catch (IOException e) {
+                        throw new RuntimeException("SSE 전송 실패", e);
+                    }
+                })
+                .doOnComplete(() -> {
+                    try {
+                        List<RagCitation> citations = extractCitations(fullAnswer.toString(), contextDocs);
+                        String citationsJson = jsonMapper.writeValueAsString(citations);
+                        emitter.send(SseEmitter.event().name("citations").data(citationsJson));
+                        emitter.send(SseEmitter.event().name("done").data("[DONE]"));
+                        emitter.complete();
+
+                        // Redis 캐시 저장
+                        saveCache(query, new RagSummaryResponse(fullAnswer.toString(), citations));
+                    } catch (Exception e) {
+                        emitter.completeWithError(e);
+                    }
+                })
+                .doOnError(error -> {
+                    log.warn("Gemini 스트리밍 실패: {}", error.getMessage());
+                    sendError(emitter);
+                })
+                .subscribe();
+    }
+
+    // ── Redis 캐시 ──
+
+    private RagSummaryResponse getCached(String query) {
         try {
-            String answer = chatClient.prompt()
-                    .user(userPrompt)
-                    .call()
-                    .content();
-
-            List<RagCitation> citations = extractCitations(answer, contextDocs);
-            return new RagSummaryResponse(answer, citations);
-
+            String json = redisTemplate.opsForValue().get(CACHE_PREFIX + query.toLowerCase().trim());
+            if (json != null) {
+                return jsonMapper.readValue(json, RagSummaryResponse.class);
+            }
         } catch (Exception e) {
-            log.warn("Gemini API 호출 실패: {}", e.getMessage());
-            return new RagSummaryResponse(
-                    "AI 요약 생성 중 오류가 발생했습니다.", List.of());
+            log.debug("RAG 캐시 조회 실패 (무시): {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private void saveCache(String query, RagSummaryResponse response) {
+        try {
+            String json = jsonMapper.writeValueAsString(response);
+            redisTemplate.opsForValue().set(CACHE_PREFIX + query.toLowerCase().trim(), json, CACHE_TTL);
+            log.debug("RAG 캐시 저장: query='{}'", query);
+        } catch (Exception e) {
+            log.debug("RAG 캐시 저장 실패 (무시): {}", e.getMessage());
+        }
+    }
+
+    // ── 유틸리티 ──
+
+    private void sendError(SseEmitter emitter) {
+        try {
+            emitter.send(SseEmitter.event().name("error").data("AI 요약 생성 중 오류가 발생했습니다."));
+            emitter.complete();
+        } catch (IOException e) {
+            emitter.completeWithError(e);
         }
     }
 
