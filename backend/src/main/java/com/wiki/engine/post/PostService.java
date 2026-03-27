@@ -10,6 +10,7 @@ import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.internal.autocomplete.RedisAutocompleteService;
 import com.wiki.engine.post.internal.autocomplete.SpellCheckService;
 import com.wiki.engine.post.internal.category.CategoryRecommendService;
+import com.wiki.engine.post.internal.filter.ContentFilterService;
 import com.wiki.engine.post.internal.lucene.LuceneSearchService;
 import com.wiki.engine.post.internal.search.SearchLogCollector;
 import com.wiki.engine.post.internal.PostLikeRepository;
@@ -60,6 +61,7 @@ public class PostService {
     private final SpellCheckService spellCheckService;
     private final CategoryRecommendService categoryRecommendService;
     private final TieredCacheService tieredCacheService;
+    private final ContentFilterService contentFilterService;
     private final Cache<String, Object> searchResultsL1Cache;
     private final Cache<String, Object> postDetailL1Cache;
     private final ApplicationEventPublisher eventPublisher;
@@ -72,6 +74,7 @@ public class PostService {
                        SpellCheckService spellCheckService,
                        CategoryRecommendService categoryRecommendService,
                        TieredCacheService tieredCacheService,
+                       ContentFilterService contentFilterService,
                        @Qualifier("searchResultsL1Cache") Cache<String, Object> searchResultsL1Cache,
                        @Qualifier("postDetailL1Cache") Cache<String, Object> postDetailL1Cache,
                        ApplicationEventPublisher eventPublisher) {
@@ -83,6 +86,7 @@ public class PostService {
         this.spellCheckService = spellCheckService;
         this.categoryRecommendService = categoryRecommendService;
         this.tieredCacheService = tieredCacheService;
+        this.contentFilterService = contentFilterService;
         this.searchResultsL1Cache = searchResultsL1Cache;
         this.postDetailL1Cache = postDetailL1Cache;
         this.eventPublisher = eventPublisher;
@@ -323,11 +327,13 @@ public class PostService {
     }
 
     /**
-     * 자동완성: Redis flat KV → Lucene PrefixQuery fallback.
+     * 자동완성: Redis flat KV → Lucene PrefixQuery fallback → 금칙어 필터링.
      * Phase 11: Trie 퇴역, Redis prefix_topk O(1) GET으로 전환.
+     * Phase 20: 금칙어 포함 제안 필터링 (검색 품질 관리).
      */
     public List<String> autocomplete(String prefix) {
-        return redisAutocompleteService.search(prefix, 10);
+        List<String> suggestions = redisAutocompleteService.search(prefix, 10);
+        return contentFilterService.filterSuggestions(suggestions);
     }
 
 }

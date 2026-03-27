@@ -6,6 +6,7 @@ import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.apache.lucene.document.*;
+import org.apache.lucene.document.StringField;
 import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetField;
 import org.apache.lucene.index.IndexWriter;
@@ -271,6 +272,10 @@ public class LuceneIndexService {
         doc.add(new TextField("title", post.getTitle(), Field.Store.YES));
         doc.add(new TextField("content", post.getContent(), Field.Store.NO));
 
+        // Phase 20: 자동완성용 untokenized 필드 (Nori 분석 없이 raw prefix 매칭)
+        // "성매" → PrefixQuery → "성매매" 매칭. Nori-analyzed title 필드로는 불가.
+        doc.add(new StringField("title_raw", post.getTitle().toLowerCase(), Field.Store.NO));
+
         // Phase 18: snippet용 본문 앞 500자 저장 (UnifiedHighlighter 용)
         // content 전체를 Store.YES로 하면 인덱스 100GB+ 폭증하므로, 앞 500자만 별도 저장
         String content = post.getContent();
@@ -289,6 +294,9 @@ public class LuceneIndexService {
         }
         doc.add(new LongField("viewCount", post.getViewCount(), Field.Store.YES));
         doc.add(new LongField("createdAt", post.getCreatedAt().toEpochMilli(), Field.Store.YES));
+
+        // Phase 20: 블라인드 필드 (검색 제외용)
+        doc.add(new KeywordField("blinded", String.valueOf(post.isBlinded()), Field.Store.NO));
 
         // Phase 19.2: 태그 인덱싱 — 검색용 (Facet 집계는 216만 고유 태그라 비실용적)
         List<String> tags = batchTagCache.getOrDefault(post.getId(), List.of());

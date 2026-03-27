@@ -1,0 +1,12 @@
+-- Phase 20: 금칙어 테이블 + 블라인드 필드
+
+CREATE TABLE IF NOT EXISTS banned_words (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    word VARCHAR(100) NOT NULL UNIQUE,
+    category ENUM('PROFANITY', 'HATE_SPEECH', 'SPAM', 'ADULT', 'PERSONAL_INFO') NOT NULL DEFAULT 'PROFANITY',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_category (category)
+);
+
+ALTER TABLE posts ADD COLUMN blinded BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE posts ADD INDEX idx_posts_blinded (blinded);

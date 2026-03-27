@@ -20,6 +20,7 @@ import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetCounts;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesReaderState;
 import org.apache.lucene.facet.sortedset.DefaultSortedSetDocValuesReaderState;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.index.StoredFields;
@@ -152,19 +153,27 @@ public class LuceneSearchService {
     }
 
     /**
-     * 자동완성: title 필드에서 prefix 매칭으로 상위 10건 반환.
-     * Lucene PrefixQuery로 역색인에서 즉시 조회한다.
+     * 자동완성: title_raw 필드에서 prefix 매칭으로 상위 10건 반환.
+     *
+     * title_raw = StringField(untokenized, lowercased) — Nori 분석 없이 원본 제목 그대로.
+     * "성매" → PrefixQuery → "성매매" 정확 매칭. 한국어/영어 모두 동작.
+     *
+     * Nori-analyzed title 필드를 쓰면 "성매" → "성"으로 분해되어
+     * "성악가", "남한산성" 등 무관한 결과가 나오는 문제 해결.
+     *
+     * 이 경로는 Redis 자동완성(메인)의 fallback으로만 사용.
+     * Redis: 검색 로그 기반 인기 검색어 제안 (CQRS 읽기 경로)
+     * Lucene: Redis 미스 시 문서 제목 기반 보조 제안
      */
     public List<String> autocomplete(String prefix, int limit) throws IOException {
         IndexSearcher searcher = searcherManager.acquire();
         try {
-            // Nori로 prefix를 분석하여 첫 번째 토큰으로 PrefixQuery 생성
-            String analyzed = analyzeFirstToken(prefix);
-            if (analyzed.isEmpty()) {
+            String normalized = prefix.toLowerCase().trim();
+            if (normalized.isEmpty()) {
                 return List.of();
             }
 
-            Query query = new PrefixQuery(new Term("title", analyzed));
+            Query query = new PrefixQuery(new Term("title_raw", normalized));
             TopDocs topDocs = searcher.search(query, limit);
 
             StoredFields storedFields = searcher.storedFields();
@@ -265,6 +274,9 @@ public class LuceneSearchService {
         if (categoryId != null) {
             builder.add(LongField.newExactQuery("categoryId", categoryId), BooleanClause.Occur.FILTER);
         }
+
+        // Phase 20: 블라인드 게시글 검색 제외
+        builder.add(new TermQuery(new Term("blinded", "true")), BooleanClause.Occur.MUST_NOT);
 
         return builder.build();
     }

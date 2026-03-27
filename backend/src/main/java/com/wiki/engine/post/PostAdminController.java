@@ -281,4 +281,24 @@ public class PostAdminController {
         }
         return tokens;
     }
+
+    /**
+     * Phase 20: 게시글 블라인드 처리 (관리자용).
+     * 유해 콘텐츠를 검색 결과에서 제외한다.
+     * CDC 이벤트로 Lucene 인덱스에 blinded=true가 반영되면 검색에서 자동 제외.
+     */
+    @PutMapping("/posts/{id}/blind")
+    public ResponseEntity<Map<String, Object>> blindPost(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "true") boolean blinded) {
+        Post post = postRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        post.setBlinded(blinded);
+        postRepository.save(post);
+        return ResponseEntity.ok(Map.of(
+                "postId", id,
+                "blinded", blinded,
+                "message", blinded ? "블라인드 처리됨 — 검색에서 제외" : "블라인드 해제됨 — 검색에 복원"
+        ));
+    }
 }

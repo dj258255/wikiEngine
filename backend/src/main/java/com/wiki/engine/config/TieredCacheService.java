@@ -52,7 +52,7 @@ public class TieredCacheService {
      * @param l1Cache  Caffeine 캐시 인스턴스
      * @param redisKey Redis 키 (예: "search:keyword:0:20")
      * @param type     역직렬화 대상 타입
-     * @param l2Ttl    Redis TTL
+     * @param l2Ttl    Redis TTL (빈 결과는 자동으로 1/5 TTL 적용 — negative caching)
      * @param loader   캐시 미스 시 원본 데이터 로더
      */
     public <T> T get(String region,
@@ -88,9 +88,11 @@ public class TieredCacheService {
         T value = loader.get();
 
         // 4. L1 + L2 양쪽에 저장
+        // 빈 결과(negative cache)는 짧은 TTL — 인덱스 로딩 지연/일시적 장애 시 빠른 복구
+        Duration effectiveTtl = isEmpty(value) ? Duration.ofSeconds(30) : l2Ttl;
         l1Cache.put(redisKey, value);
         try {
-            redisFor(redisKey).opsForValue().set(redisKey, jsonMapper.writeValueAsString(value), l2Ttl);
+            redisFor(redisKey).opsForValue().set(redisKey, jsonMapper.writeValueAsString(value), effectiveTtl);
         } catch (RedisConnectionFailureException e) {
             log.warn("Redis L2 저장 실패 ({}), L1에만 캐싱: {}", redisKey, e.getMessage());
         } catch (Exception e) {
@@ -99,6 +101,18 @@ public class TieredCacheService {
 
         meterRegistry.counter("tiered_cache", "region", region, "level", "origin").increment();
         return value;
+    }
+
+    /**
+     * 결과가 비어있는지 판단 (negative caching용).
+     * CachedSearchResult의 content가 비어있으면 빈 결과로 간주.
+     */
+    private boolean isEmpty(Object value) {
+        if (value == null) return true;
+        if (value instanceof com.wiki.engine.post.dto.CachedSearchResult cached) {
+            return cached.content() == null || cached.content().isEmpty();
+        }
+        return false;
     }
 
     /**

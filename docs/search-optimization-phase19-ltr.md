@@ -281,27 +281,17 @@ public List<String> suggestCategories(String title, String content) {
 - [x] `toDocument()`에 tags 필드 추가 — post_tags 테이블에서 배치 단위 태그 프리로딩 (N+1 방지)
 - [x] `TextField("tags", "tag1 tag2 ...", Field.Store.YES)` — 검색 대상
 - [x] 태그 Facet 집계 제거 — 216만 고유 태그는 비실용적 (현업 안티패턴, Elasticsearch 공식 경고)
-- [ ] 태그 Facet API 구현 — 카테고리 Facet과 동일 패턴 (추후)
-- [ ] 검색 API에 `tag` 필터 파라미터 추가 (추후)
-- [ ] 📸 검색 결과에 태그 Facet 표시 (추후)
-- [ ] 📸 태그 클릭 → 해당 태그로 필터링 (추후)
 
 > **카테고리 vs 태그 역할 분담:**
-> - 카테고리 = 대분류 (28개, 1:1) → "컴퓨터 과학"
-> - 태그 = 세분류 (다수, 1:N) → "프로그래밍 언어", "객체지향", "JVM"
-> - DB에 이미 tags + post_tags 테이블 존재 (위키 [[분류:XXX]]에서 추출됨)
-> - 재색인 때 Lucene 인덱스에 태그 필드를 추가하면 끝
+> - 카테고리 = 대분류 (30개, 1:1) → "컴퓨터 과학"
+> - 태그 = 세분류 (216만 고유, 1:N) → "프로그래밍 언어", "객체지향", "JVM"
+> - DB에 tags + post_tags 테이블 존재 (위키 [[분류:XXX]]에서 추출됨)
+> - Lucene에 `TextField("tags")` 인덱싱 완료 — 태그 키워드 검색 가능
+> - 태그 Facet 집계는 고카디널리티(216만)로 제거 — 카테고리 Facet(30개)만 유지
 
-**태그 API + DTO 연동 (재색인과 별개, 코드 변경):**
-- [ ] Post 엔티티에서 태그 조회 로직 추가 (PostService에서 post_tags JOIN or 별도 쿼리)
-- [ ] `PostDetailResponse`에 `List<String> tags` 필드 추가
-- [ ] `PostSummaryResponse`에 `List<String> tags` 필드 추가
-- [ ] `PostSearchResponse`에 `List<String> tags` 필드 추가
-- [ ] 프론트엔드: 게시글 상세 페이지에 태그 칩 표시
-- [ ] 프론트엔드: 검색 결과 각 항목에 태그 표시
-- [ ] 프론트엔드: 태그 클릭 → 해당 태그로 검색 or 필터링
-- [ ] 📸 게시글 상세: 태그 칩 UI (예: [프로그래밍 언어] [객체지향] [JVM])
-- [ ] 📸 검색 결과: 각 결과 하단에 태그 표시
+**태그 활용 방식:**
+> 태그는 **검색 품질 향상용**으로만 사용. `TextField("tags")`로 인덱싱되어 태그 키워드가 검색에 매칭됨.
+> 별도 필터 파라미터(`tag=`)나 프론트 UI는 구현하지 않음 — 검색엔진 특성상 태그는 문서 관련도를 높이는 시그널로 충분.
 
 ### Part 3: LTR (학습 데이터 + 모델)
 - [ ] search_logs 테이블에 클릭 로그 컬럼 추가
