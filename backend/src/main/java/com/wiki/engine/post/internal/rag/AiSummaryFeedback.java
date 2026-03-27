@@ -16,7 +16,7 @@ public class AiSummaryFeedback {
 
     private Long userId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TINYINT")
     private int rating;  // 1=thumbs_up, -1=thumbs_down
 
     @Column(length = 32)
