@@ -3,11 +3,15 @@ package com.wiki.engine.post;
 import com.wiki.engine.auth.JwtTokenProvider;
 import com.wiki.engine.auth.TokenBlacklist;
 import com.wiki.engine.post.internal.ViewCountService;
+import com.wiki.engine.post.internal.rag.AiFeedbackService;
+import com.wiki.engine.post.internal.rag.AiSummaryDecisionService;
+import com.wiki.engine.post.internal.rag.RagService;
 import com.wiki.engine.auth.UserPrincipal;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.dto.CreatePostRequest;
 import com.wiki.engine.post.dto.UpdatePostRequest;
+import com.wiki.engine.post.internal.rag.AiFeedbackRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,6 +23,7 @@ import com.wiki.engine.post.dto.SearchResponseWithSuggestion;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -32,8 +37,10 @@ import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -58,6 +65,15 @@ class PostControllerTest {
 
     @MockitoBean
     private TokenBlacklist tokenBlacklist;
+
+    @MockitoBean
+    private RagService ragService;
+
+    @MockitoBean
+    private AiSummaryDecisionService aiSummaryDecisionService;
+
+    @MockitoBean
+    private AiFeedbackService aiFeedbackService;
 
     private static final String BASE = "/api/v1.0/posts";
 
@@ -475,6 +491,143 @@ class PostControllerTest {
                             .param("size", "5")
                             .param("page", "0"))
                     .andExpect(status().isOk());
+        }
+    }
+
+    // ========== GET /posts/search/ai-summary (AI 요약 SSE) ==========
+
+    @Nested
+    @DisplayName("GET /posts/search/ai-summary")
+    class AiSummaryStream {
+
+        @Test
+        @DisplayName("[해피] 트리거 충족 — 200 SSE 스트림 반환")
+        void success() throws Exception {
+            PostSearchResponse response = new PostSearchResponse(
+                    1L, "테스트", "본문...", 0L, 0L, java.time.Instant.now());
+            given(postService.search(eq("테스트"), isNull(), any(Pageable.class)))
+                    .willReturn(new SearchResponseWithSuggestion(
+                            new SliceImpl<>(List.of(response)), null, Map.of()));
+            given(aiSummaryDecisionService.decide(eq("테스트"), anyList()))
+                    .willReturn(new AiSummaryDecisionService.Decision(true, null));
+
+            mockMvc.perform(get(BASE + "/search/ai-summary")
+                            .param("q", "테스트")
+                            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+                    .andExpect(status().isOk());
+
+            verify(ragService).streamSummary(eq("테스트"), anyList(), any());
+        }
+
+        @Test
+        @DisplayName("[코너] 트리거 미충족 — skip 이벤트 반환")
+        void skipWhenNotTriggered() throws Exception {
+            given(postService.search(eq("ㅋ"), isNull(), any(Pageable.class)))
+                    .willReturn(new SearchResponseWithSuggestion(
+                            new SliceImpl<>(Collections.emptyList()), null, Map.of()));
+            given(aiSummaryDecisionService.decide(eq("ㅋ"), anyList()))
+                    .willReturn(new AiSummaryDecisionService.Decision(false, "query_too_short"));
+
+            MvcResult result = mockMvc.perform(get(BASE + "/search/ai-summary")
+                            .param("q", "ㅋ")
+                            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            verify(ragService, never()).streamSummary(any(), anyList(), any());
+        }
+
+        @Test
+        @DisplayName("[임계] q 파라미터 없음 — 에러 반환")
+        void missingParam() throws Exception {
+            mockMvc.perform(get(BASE + "/search/ai-summary")
+                            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+                    .andExpect(result -> {
+                        int status = result.getResponse().getStatus();
+                        assert status >= 400 : "Expected error status but got " + status;
+                    });
+        }
+
+        @Test
+        @DisplayName("[코너] 검색 결과 없음 — skip 이벤트 (결과 부족)")
+        void skipWhenNoResults() throws Exception {
+            given(postService.search(eq("없는키워드xyz"), isNull(), any(Pageable.class)))
+                    .willReturn(new SearchResponseWithSuggestion(
+                            new SliceImpl<>(Collections.emptyList()), null, Map.of()));
+            given(aiSummaryDecisionService.decide(eq("없는키워드xyz"), eq(Collections.emptyList())))
+                    .willReturn(new AiSummaryDecisionService.Decision(false, "no_results"));
+
+            mockMvc.perform(get(BASE + "/search/ai-summary")
+                            .param("q", "없는키워드xyz")
+                            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+                    .andExpect(status().isOk());
+
+            verify(ragService, never()).streamSummary(any(), anyList(), any());
+        }
+    }
+
+    // ========== POST /posts/search/ai-summary/feedback (AI 피드백) ==========
+
+    @Nested
+    @DisplayName("POST /posts/search/ai-summary/feedback")
+    class AiSummaryFeedback {
+
+        @Test
+        @DisplayName("[해피] thumbs up 피드백 — 200 OK")
+        void thumbsUp() throws Exception {
+            mockMvc.perform(post(BASE + "/search/ai-summary/feedback")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(jsonMapper.writeValueAsString(
+                                    new AiFeedbackRequest("테스트", 1, null, null))))
+                    .andExpect(status().isOk());
+
+            verify(aiFeedbackService).saveFeedback(any(AiFeedbackRequest.class), isNull());
+        }
+
+        @Test
+        @DisplayName("[해피] thumbs down + 카테고리 + 코멘트 — 200 OK")
+        void thumbsDownWithDetails() throws Exception {
+            mockMvc.perform(post(BASE + "/search/ai-summary/feedback")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(jsonMapper.writeValueAsString(
+                                    new AiFeedbackRequest("테스트", -1, "inaccurate", "잘못된 정보"))))
+                    .andExpect(status().isOk());
+
+            verify(aiFeedbackService).saveFeedback(any(AiFeedbackRequest.class), isNull());
+        }
+
+        @Test
+        @DisplayName("[임계] query 빈값 — 400 Validation 실패")
+        void blankQuery() throws Exception {
+            mockMvc.perform(post(BASE + "/search/ai-summary/feedback")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"query":"","rating":1}
+                                    """))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("[임계] rating null — 400 Validation 실패")
+        void nullRating() throws Exception {
+            mockMvc.perform(post(BASE + "/search/ai-summary/feedback")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"query":"테스트"}
+                                    """))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("[임계] body 없음 — 400")
+        void emptyBody() throws Exception {
+            mockMvc.perform(post(BASE + "/search/ai-summary/feedback")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(""))
+                    .andExpect(result -> {
+                        int status = result.getResponse().getStatus();
+                        assert status >= 400 : "Expected error status but got " + status;
+                    });
         }
     }
 
