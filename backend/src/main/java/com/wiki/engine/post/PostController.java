@@ -4,6 +4,8 @@ import com.wiki.engine.auth.CurrentUser;
 import com.wiki.engine.auth.UserPrincipal;
 import com.wiki.engine.post.dto.*;
 import com.wiki.engine.post.internal.ViewCountService;
+import com.wiki.engine.post.internal.rag.AiFeedbackRequest;
+import com.wiki.engine.post.internal.rag.AiFeedbackService;
 import com.wiki.engine.post.internal.rag.AiSummaryDecisionService;
 import com.wiki.engine.post.internal.rag.RagService;
 import com.wiki.engine.post.internal.rag.RagSummaryResponse;
@@ -44,6 +46,7 @@ public class PostController {
     private final ViewCountService viewCountService;
     private final RagService ragService;
     private final AiSummaryDecisionService aiSummaryDecisionService;
+    private final AiFeedbackService aiFeedbackService;
 
     /** 최신 게시글 목록 조회 (Deferred Join + Slice, COUNT(*) 제거) */
     @GetMapping
@@ -181,6 +184,19 @@ public class PostController {
         ragService.streamSummary(q, results, emitter);
 
         return emitter;
+    }
+
+    /**
+     * AI 요약 피드백 — "이 답변이 도움이 되었나요?"
+     * Google/ChatGPT/Perplexity 동일 패턴: thumbs up/down + 카테고리 + 코멘트.
+     * Grafana에서 ai_summary_feedback_total{rating=up/down} 메트릭으로 품질 추이 모니터링.
+     */
+    @PostMapping("/search/ai-summary/feedback")
+    public ResponseEntity<Void> aiSummaryFeedback(
+            @Valid @RequestBody AiFeedbackRequest request) {
+
+        aiFeedbackService.saveFeedback(request, null);
+        return ResponseEntity.ok().build();
     }
 
     /**
