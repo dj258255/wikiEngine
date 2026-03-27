@@ -364,6 +364,8 @@ class PostServiceTest {
         void success() {
             given(redisAutocompleteService.search("삼성", 10))
                     .willReturn(List.of("삼성전자", "삼성물산"));
+            given(contentFilterService.filterSuggestions(List.of("삼성전자", "삼성물산")))
+                    .willReturn(List.of("삼성전자", "삼성물산"));
 
             List<String> result = postService.autocomplete("삼성");
 
@@ -374,6 +376,8 @@ class PostServiceTest {
         @DisplayName("[코너] 결과 없음 — 빈 리스트")
         void empty() {
             given(redisAutocompleteService.search("zzz", 10))
+                    .willReturn(Collections.emptyList());
+            given(contentFilterService.filterSuggestions(Collections.emptyList()))
                     .willReturn(Collections.emptyList());
 
             List<String> result = postService.autocomplete("zzz");
