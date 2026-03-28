@@ -202,7 +202,7 @@ public class RedisAutocompleteService {
                 redisFor(key).opsForValue().set(key, jsonMapper.writeValueAsString(topK), KEY_TTL);
                 keyCount++;
             } catch (Exception e) {
-                log.debug("prefix_topk Redis 저장 스킵: prefix={}, error={}", entry.getKey(), e.getMessage());
+                log.warn("prefix_topk Redis 저장 실패: prefix={}, error={}", entry.getKey(), e.getMessage());
             }
         }
 
