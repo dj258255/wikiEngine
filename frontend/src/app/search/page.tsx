@@ -67,14 +67,25 @@ function SearchPageContent() {
         const citation = citationMap.get(docNum);
         if (citation) {
           return (
-            <Link key={i} href={`/posts/${citation.postId}`}
+            <Link key={i} href={`/wiki/${citation.postId}`}
               className="mx-0.5 inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-800/50">
               {citation.title.length > 15 ? citation.title.slice(0, 15) + "…" : citation.title}
             </Link>
           );
         }
       }
-      return <span key={i}>{part}</span>;
+      // 텍스트 부분 — 문장 끝(. 뒤)에서 줄바꿈하여 가독성 향상
+      const sentences = part.split(/(?<=\.\s)/);
+      return (
+        <span key={i}>
+          {sentences.map((s, j) => (
+            <span key={j}>
+              {s}
+              {j < sentences.length - 1 && <br />}
+            </span>
+          ))}
+        </span>
+      );
     });
   };
 
