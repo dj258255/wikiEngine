@@ -67,7 +67,7 @@ function SearchPageContent() {
         const citation = citationMap.get(docNum);
         if (citation) {
           return (
-            <Link key={i} href={`/wiki/${citation.postId}`}
+            <Link key={i} href={`/posts/${citation.postId}`}
               className="mx-0.5 inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-800/50">
               {citation.title.length > 15 ? citation.title.slice(0, 15) + "…" : citation.title}
             </Link>
@@ -538,7 +538,7 @@ function SearchPageContent() {
               {results.map((result) => (
                 <li key={result.id}>
                   <Link
-                    href={`/wiki/${result.id}`}
+                    href={`/posts/${result.id}`}
                     className="block rounded-lg border border-zinc-200 bg-white px-5 py-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700 dark:hover:bg-zinc-800"
                   >
                     <h2 className="text-base font-medium text-blue-600 dark:text-blue-400">
