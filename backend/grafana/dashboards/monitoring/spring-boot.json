@@ -843,7 +843,7 @@
       },
       "targets": [
         {
-          "expr": "increase(gen_ai_client_token_usage_total{application=\"wiki-engine\", gen_ai_token_type=\"input\"}[24h]) * 0.0000001 + increase(gen_ai_client_token_usage_total{application=\"wiki-engine\", gen_ai_token_type=\"output\"}[24h]) * 0.0000004",
+          "expr": "sum(increase(gen_ai_client_token_usage_total{application=\"wiki-engine\", gen_ai_token_type=\"input\"}[24h])) * 0.0000001 + sum(increase(gen_ai_client_token_usage_total{application=\"wiki-engine\", gen_ai_token_type=\"output\"}[24h])) * 0.0000004",
           "legendFormat": "Estimated Cost (24h)",
           "refId": "A"
         }
