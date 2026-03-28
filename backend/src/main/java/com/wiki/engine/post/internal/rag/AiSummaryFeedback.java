@@ -26,7 +26,7 @@ public class AiSummaryFeedback {
     private String comment;
 
     @Column(length = 64)
-    private String modelName = "gemini-2.0-flash";
+    private String modelName = "gemini-2.5-flash-lite";
 
     @Column(length = 32)
     private String promptVersion = "v1";

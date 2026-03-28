@@ -23,7 +23,7 @@ spring.ai:
       api-key: test-key
       chat:
         options:
-          model: gemini-2.0-flash
+          model: gemini-2.5-flash-lite
 
 server:
   port: 0
