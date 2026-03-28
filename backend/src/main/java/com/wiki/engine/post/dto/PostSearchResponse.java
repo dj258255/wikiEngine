@@ -168,7 +168,11 @@ public record PostSearchResponse(
      * 검색 결과 응답용.
      */
     public static String createSnippet(String content) {
-        String plain = stripMarkup(content);
+        // 전체 content에 stripMarkup 적용 시 수만 자에서 정규식 backtracking 성능 문제
+        // 앞 1500자만 잘라서 처리 — 150자 snippet에 충분하고, 정규식도 안정적
+        String truncated = (content != null && content.length() > 1500)
+                ? content.substring(0, 1500) : content;
+        String plain = stripMarkup(truncated);
         if (plain.length() <= SNIPPET_LENGTH) {
             return plain;
         }
