@@ -170,5 +170,5 @@ logging:
     org.apache.kafka: ${KAFKA_LOG_LEVEL:WARN}
     org.springframework.kafka: ${KAFKA_LOG_LEVEL:WARN}
     io.lettuce.core: ${REDIS_LOG_LEVEL:WARN}
+    org.springframework.data.redis: ${REDIS_LOG_LEVEL:WARN}  # 로컬에서 Redis 미실행 시 연결 에러 숨김
     org.springframework.scheduling.support: ${REDIS_LOG_LEVEL:WARN}
-    org.springframework.data.redis: ${REDIS_LOG_LEVEL:WARN}
