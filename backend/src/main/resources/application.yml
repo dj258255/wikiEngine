@@ -22,7 +22,7 @@ spring:
         maximum-pool-size: ${DB_PRIMARY_POOL_SIZE}
         pool-name: primary-pool
         connection-timeout: 5000
-        leak-detection-threshold: 10000
+        leak-detection-threshold: 60000
     replica:
       hikari:
         jdbc-url: jdbc:mysql://${DB_REPLICA_HOST}:${DB_PORT}/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
@@ -31,7 +31,7 @@ spring:
         maximum-pool-size: ${DB_REPLICA_POOL_SIZE}
         pool-name: replica-pool
         connection-timeout: 5000
-        leak-detection-threshold: 10000
+        leak-detection-threshold: 60000
         read-only: true
 
   # Redis (Phase 11: L2 캐시 + 자동완성 flat KV)
