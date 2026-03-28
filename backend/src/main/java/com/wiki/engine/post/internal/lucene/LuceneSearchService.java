@@ -134,7 +134,7 @@ public class LuceneSearchService {
         Map<Integer, String> result = new HashMap<>();
         try {
             UnifiedHighlighter highlighter = UnifiedHighlighter.builder(searcher, analyzer)
-                    .withMaxLength(500)
+                    .withMaxLength(10_000)  // Lucene 기본값 — snippetSource가 clean text라 성능 문제 없음
                     .build();
 
             // snippetSource 필드에서 하이라이트 추출
