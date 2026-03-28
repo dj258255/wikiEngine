@@ -150,6 +150,10 @@ export default function Home() {
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               placeholder="검색어를 입력하세요..."
               className="w-full rounded-full border border-zinc-300 bg-white px-6 py-4 text-lg text-zinc-900 shadow-sm outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"
+              autoComplete="off"
+              role="combobox"
+              aria-expanded={showSuggestions}
+              aria-autocomplete="list"
               autoFocus
             />
             <button
