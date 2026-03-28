@@ -11,7 +11,7 @@ package com.wiki.engine.post.internal.autocomplete;
  * - 초성 추출: "삼성" → "ㅅㅅ" (초성 검색)
  * - 입력 판별: 자모 문자 포함 여부로 자모 Trie vs 원본 Trie 선택
  */
-final class JamoDecomposer {
+public final class JamoDecomposer {
 
     private static final int HANGUL_BASE = 0xAC00;
     private static final int HANGUL_END = 0xD7AF;
@@ -39,7 +39,7 @@ final class JamoDecomposer {
      * "삼성" → "ㅅㅏㅁㅅㅓㅇ"
      * 비한글 문자는 그대로 유지.
      */
-    static String decompose(String text) {
+    public static String decompose(String text) {
         StringBuilder sb = new StringBuilder(text.length() * 3);
         for (char c : text.toCharArray()) {
             if (isHangulSyllable(c)) {
@@ -82,7 +82,7 @@ final class JamoDecomposer {
      * 입력에 자모(ㄱ~ㅎ, ㅏ~ㅣ)가 포함되어 있는지 판별.
      * 자모가 포함되면 자모 Trie에서 검색, 없으면 원본 Trie에서 검색.
      */
-    static boolean containsJamo(String text) {
+    public static boolean containsJamo(String text) {
         for (char c : text.toCharArray()) {
             if (isChoseong(c) || isJungseong(c)) {
                 return true;

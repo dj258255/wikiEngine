@@ -30,11 +30,12 @@ export default function Home() {
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const composingRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // 자동완성 fetch — onChange/compositionEnd에서 직접 호출
+  // 자동완성 — 조합 중에도 debounce로 요청 (네이버/구글 패턴)
+  // 백엔드가 title_jamo 필드에서 자모 분해 PrefixQuery로 매칭하므로
+  // "자ㅂ" → "ㅈㅏㅂ" → "자바", "자본" 등 매칭 가능
   const fetchSuggestions = (value: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     abortRef.current?.abort();
@@ -65,10 +66,9 @@ export default function Home() {
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
       }
-    }, 200);
+    }, 150);
   };
 
-  // cleanup
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -145,38 +145,8 @@ export default function Home() {
               ref={inputRef}
               type="text"
               value={query}
-              onChange={(e) => {
-                const v = e.target.value;
-                setQuery(v);
-                if (!composingRef.current) fetchSuggestions(v);
-              }}
+              onChange={(e) => { setQuery(e.target.value); fetchSuggestions(e.target.value); }}
               onKeyDown={handleKeyDown}
-              onCompositionStart={() => { composingRef.current = true; }}
-              onCompositionEnd={(e) => {
-                composingRef.current = false;
-                const v = (e.target as HTMLInputElement).value;
-                setQuery(v);
-                // 조합 완료 — 즉시 fetch (debounce 없이)
-                if (debounceRef.current) clearTimeout(debounceRef.current);
-                abortRef.current?.abort();
-                const controller = new AbortController();
-                abortRef.current = controller;
-                (async () => {
-                  try {
-                    const res = await fetch(
-                      `${API_URL}/api/v1.0/posts/autocomplete?prefix=${encodeURIComponent(v.trim())}`,
-                      { signal: controller.signal }
-                    );
-                    if (res.ok && !controller.signal.aborted) {
-                      const json = await res.json();
-                      const data: string[] = json.data || [];
-                      setSuggestions(data);
-                      setShowSuggestions(data.length > 0);
-                      setSelectedIdx(-1);
-                    }
-                  } catch {}
-                })();
-              }}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               placeholder="검색어를 입력하세요..."
               className="w-full rounded-full border border-zinc-300 bg-white px-6 py-4 text-lg text-zinc-900 shadow-sm outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"

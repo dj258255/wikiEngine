@@ -277,6 +277,12 @@ public class LuceneIndexService {
         // "성매" → PrefixQuery → "성매매" 매칭. Nori-analyzed title 필드로는 불가.
         doc.add(new StringField("title_raw", post.getTitle().toLowerCase(), Field.Store.NO));
 
+        // Phase 21: 자모 분해 자동완성 필드 — 네이버/구글처럼 조합 중에도 매칭
+        // "자바" → "ㅈㅏㅂㅏ", 사용자가 "자ㅂ"(→"ㅈㅏㅂ") 입력 시 PrefixQuery로 매칭
+        String titleJamo = com.wiki.engine.post.internal.autocomplete.JamoDecomposer.decompose(
+                post.getTitle().toLowerCase());
+        doc.add(new StringField("title_jamo", titleJamo, Field.Store.NO));
+
         // Phase 18: snippet용 plain text 저장 (UnifiedHighlighter 용)
         // 위키 마크업을 정리한 clean text를 저장해야 하이라이터가 정확하게 동작한다.
         // raw 마크업을 저장하면 마크업 토큰에서 매칭 시도 → 빈 snippet 발생.

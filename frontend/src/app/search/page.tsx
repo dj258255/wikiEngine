@@ -97,7 +97,6 @@ function SearchPageContent() {
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const composingRef = useRef(false);
 
   // 카테고리 목록 로드 (1회)
   useEffect(() => {
@@ -157,7 +156,7 @@ function SearchPageContent() {
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
       }
-    }, 200);
+    }, 150);
   };
 
   useEffect(() => {
@@ -330,39 +329,8 @@ function SearchPageContent() {
                 ref={inputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setSearchQuery(v);
-                  if (!composingRef.current) fetchAutocompleteSuggestions(v);
-                }}
+                onChange={(e) => { setSearchQuery(e.target.value); fetchAutocompleteSuggestions(e.target.value); }}
                 onKeyDown={handleKeyDown}
-                onCompositionStart={() => { composingRef.current = true; }}
-                onCompositionEnd={(e) => {
-                  composingRef.current = false;
-                  const v = (e.target as HTMLInputElement).value;
-                  setSearchQuery(v);
-                  if (acDebounceRef.current) clearTimeout(acDebounceRef.current);
-                  acAbortRef.current?.abort();
-                  const controller = new AbortController();
-                  acAbortRef.current = controller;
-                  (async () => {
-                    try {
-                      const trimmed = v.trim();
-                      if (trimmed.length < 1 || trimmed === query) return;
-                      const res = await fetch(
-                        `${API_URL}/api/v1.0/posts/autocomplete?prefix=${encodeURIComponent(trimmed)}`,
-                        { signal: controller.signal }
-                      );
-                      if (res.ok && !controller.signal.aborted) {
-                        const json = await res.json();
-                        const data: string[] = json.data || [];
-                        setSuggestions(data);
-                        setShowSuggestions(data.length > 0);
-                        setSelectedIdx(-1);
-                      }
-                    } catch {}
-                  })();
-                }}
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="검색어를 입력하세요..."
                 className="w-full rounded-full border border-zinc-300 bg-white px-5 py-2.5 text-zinc-900 outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"
