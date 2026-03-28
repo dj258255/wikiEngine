@@ -47,7 +47,7 @@ export default function NewPostPage() {
 
       const json = await res.json();
       const postId = json.data?.id;
-      router.push(postId ? `/wiki/${postId}` : "/posts");
+      router.push(postId ? `/posts/${postId}` : "/posts");
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {

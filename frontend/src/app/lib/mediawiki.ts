@@ -186,13 +186,13 @@ export function parseMediaWiki(raw: string): ParseResult {
 
     // Internal links
     line = line.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_m, href, display) => {
-      return `<a class="wiki-link" href="/wiki/${encodeURIComponent(href.trim())}">${processInline(display.trim())}</a>`;
+      return `<a class="wiki-link" href="/posts/${encodeURIComponent(href.trim())}">${processInline(display.trim())}</a>`;
     });
     line = line.replace(/\[\[([^\]]+)\]\]/g, (_m, href) => {
       if (href.startsWith("http://") || href.startsWith("https://")) {
         return `<a class="wiki-ext-link" href="${escapeHtml(href.trim())}" rel="noopener noreferrer">${escapeHtml(href.trim())}</a>`;
       }
-      return `<a class="wiki-link" href="/wiki/${encodeURIComponent(href.trim())}">${escapeHtml(href.trim())}</a>`;
+      return `<a class="wiki-link" href="/posts/${encodeURIComponent(href.trim())}">${escapeHtml(href.trim())}</a>`;
     });
 
     // External links

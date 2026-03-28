@@ -112,7 +112,7 @@ function PostListContent() {
                     <tr key={post.id} className="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
                       <td className="px-4 py-3">
                         <Link
-                          href={`/wiki/${post.id}`}
+                          href={`/posts/${post.id}`}
                           className="font-medium text-zinc-900 hover:text-blue-600 dark:text-zinc-100 dark:hover:text-blue-400"
                         >
                           {post.title}

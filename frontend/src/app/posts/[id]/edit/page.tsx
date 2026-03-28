@@ -66,7 +66,7 @@ export default function EditPostPage({
         throw new Error(message);
       }
 
-      router.push(`/wiki/${id}`);
+      router.push(`/posts/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
@@ -144,7 +144,7 @@ export default function EditPostPage({
 
           <div className="flex items-center justify-end gap-3">
             <Link
-              href={`/wiki/${id}`}
+              href={`/posts/${id}`}
               className="rounded-lg border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               취소

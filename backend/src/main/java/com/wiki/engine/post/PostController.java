@@ -161,7 +161,11 @@ public class PostController {
      *   - "error": 오류 발생 시
      */
     @GetMapping(value = "/search/ai-summary", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter aiSummaryStream(@RequestParam String q) {
+    public SseEmitter aiSummaryStream(@RequestParam String q,
+                                      jakarta.servlet.http.HttpServletResponse response) {
+        // Nginx SSE 버퍼링 비활성화 — 토큰 단위 스트리밍이 즉시 전달되도록
+        response.setHeader("X-Accel-Buffering", "no");
+        response.setHeader("Cache-Control", "no-cache");
         SseEmitter emitter = new SseEmitter(60_000L);
 
         // 1. 검색 실행 (Top-5)
