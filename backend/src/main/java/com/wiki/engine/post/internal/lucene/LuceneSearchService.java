@@ -173,23 +173,10 @@ public class LuceneSearchService {
                 return List.of();
             }
 
-            Query query;
-            if (normalized.contains(" ")) {
-                // 띄어쓰기 포함 ("자바 가비지") → BM25 title 검색으로 fallback
-                // PrefixQuery는 단일 토큰만 매칭하므로 다중 단어 불가
-                try {
-                    var parser = new org.apache.lucene.queryparser.classic.MultiFieldQueryParser(
-                            new String[]{"title"}, analyzer);
-                    parser.setDefaultOperator(org.apache.lucene.queryparser.classic.QueryParser.Operator.AND);
-                    query = parser.parse(
-                            org.apache.lucene.queryparser.classic.QueryParser.escape(normalized));
-                } catch (org.apache.lucene.queryparser.classic.ParseException e) {
-                    return List.of();
-                }
-            } else {
-                // 단일 단어 ("자바") → title_raw PrefixQuery (Nori 분석 없이 원본 매칭)
-                query = new PrefixQuery(new Term("title_raw", normalized));
-            }
+            // 자모 분해하여 title_jamo 필드에서 PrefixQuery (네이버/구글 패턴)
+            // "자바" → "ㅈㅏㅂㅏ", "자ㅂ" → "ㅈㅏㅂ" — 조합 중에도 매칭
+            String decomposed = com.wiki.engine.post.internal.autocomplete.JamoDecomposer.decompose(normalized);
+            Query query = new PrefixQuery(new Term("title_jamo", decomposed));
 
             TopDocs topDocs = searcher.search(query, limit);
 
