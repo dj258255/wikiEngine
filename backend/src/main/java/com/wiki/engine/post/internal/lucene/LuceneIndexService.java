@@ -1,6 +1,7 @@
 package com.wiki.engine.post.internal.lucene;
 
 import com.wiki.engine.post.Post;
+import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.post.internal.PostRepository;
 import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
@@ -276,14 +277,22 @@ public class LuceneIndexService {
         // "성매" → PrefixQuery → "성매매" 매칭. Nori-analyzed title 필드로는 불가.
         doc.add(new StringField("title_raw", post.getTitle().toLowerCase(), Field.Store.NO));
 
-        // Phase 18: snippet용 본문 앞 500자 저장 (UnifiedHighlighter 용)
-        // content 전체를 Store.YES로 하면 인덱스 100GB+ 폭증하므로, 앞 500자만 별도 저장
+        // Phase 18: snippet용 plain text 저장 (UnifiedHighlighter 용)
+        // 위키 마크업을 정리한 clean text를 저장해야 하이라이터가 정확하게 동작한다.
+        // raw 마크업을 저장하면 마크업 토큰에서 매칭 시도 → 빈 snippet 발생.
+        // (위키피디아 CirrusSearch도 동일 패턴: wikitext → plain text → 인덱싱)
         String content = post.getContent();
         if (content != null && !content.isBlank()) {
-            String snippetSource = content.length() <= SNIPPET_SOURCE_LENGTH
-                    ? content
-                    : content.substring(0, SNIPPET_SOURCE_LENGTH);
-            doc.add(new TextField("snippetSource", snippetSource, Field.Store.YES));
+            String cleaned = PostSearchResponse.stripMarkup(
+                    content.length() <= SNIPPET_SOURCE_LENGTH * 3
+                            ? content
+                            : content.substring(0, SNIPPET_SOURCE_LENGTH * 3));
+            if (!cleaned.isEmpty()) {
+                String snippetSource = cleaned.length() <= SNIPPET_SOURCE_LENGTH
+                        ? cleaned
+                        : cleaned.substring(0, SNIPPET_SOURCE_LENGTH);
+                doc.add(new TextField("snippetSource", snippetSource, Field.Store.YES));
+            }
         }
 
         if (post.getCategoryId() != null) {

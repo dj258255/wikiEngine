@@ -72,22 +72,29 @@ public record PostSearchResponse(
 
     /**
      * Phase 18: UnifiedHighlighter가 생성한 snippet을 직접 사용.
-     * Highlighter snippet에는 <b> 태그가 포함될 수 있으며, 위키 마크업도 이미 정리된 상태.
+     * snippetSource에 이미 clean text가 저장되어 있으므로 이중 정리 불필요.
+     * 하이라이터의 &lt;b&gt; 태그는 보존하여 프론트엔드에서 강조 표시 가능.
      */
     public static PostSearchResponse fromWithSnippet(Post post, String highlightedSnippet) {
-        // Highlighter snippet에서도 위키 마크업 잔해가 있을 수 있으므로 정리
-        String cleaned = createSnippet(highlightedSnippet);
+        String snippet = highlightedSnippet;
+        if (snippet.length() > SNIPPET_LENGTH) {
+            snippet = snippet.substring(0, SNIPPET_LENGTH);
+        }
         return new PostSearchResponse(
                 post.getId(),
                 post.getTitle(),
-                cleaned,
+                snippet,
                 post.getViewCount(),
                 post.getLikeCount(),
                 post.getCreatedAt()
         );
     }
 
-    static String createSnippet(String content) {
+    /**
+     * 위키 마크업을 제거하여 plain text를 반환한다.
+     * 길이 제한 없이 정리만 수행 — 인덱싱 시 snippetSource 저장에 사용.
+     */
+    public static String stripMarkup(String content) {
         if (content == null || content.isBlank()) {
             return "";
         }
@@ -136,8 +143,15 @@ public record PostSearchResponse(
         plain = REMAINING_BRACES.matcher(plain).replaceAll(" ");
 
         // 9. 정리: 다중 공백 → 단일 공백
-        plain = MULTI_SPACES.matcher(plain).replaceAll(" ").strip();
+        return MULTI_SPACES.matcher(plain).replaceAll(" ").strip();
+    }
 
+    /**
+     * 위키 마크업 제거 + 150자 잘라서 snippet 반환.
+     * 검색 결과 응답용.
+     */
+    public static String createSnippet(String content) {
+        String plain = stripMarkup(content);
         if (plain.length() <= SNIPPET_LENGTH) {
             return plain;
         }
