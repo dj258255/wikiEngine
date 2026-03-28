@@ -123,26 +123,31 @@ function SearchPageContent() {
     }
   }, [query, pageParam, categoryParam]);
 
-  // 자동완성 debounce + AbortController
-  useEffect(() => {
-    if (composingRef.current) return; // 한국어 IME 조합 중이면 스킵
+  // 자동완성 — onChange/compositionEnd에서 직접 호출
+  const acDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const acAbortRef = useRef<AbortController | null>(null);
 
-    const trimmed = searchQuery.trim();
+  const fetchAutocompleteSuggestions = (value: string) => {
+    if (acDebounceRef.current) clearTimeout(acDebounceRef.current);
+    acAbortRef.current?.abort();
+
+    const trimmed = value.trim();
     if (trimmed.length < 1 || trimmed === query) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
+
     const controller = new AbortController();
-    const timer = setTimeout(async () => {
+    acAbortRef.current = controller;
+
+    acDebounceRef.current = setTimeout(async () => {
       try {
-        const timeout = setTimeout(() => controller.abort(), 5000);
         const res = await fetch(
           `${API_URL}/api/v1.0/posts/autocomplete?prefix=${encodeURIComponent(trimmed)}`,
           { signal: controller.signal }
         );
-        clearTimeout(timeout);
-        if (res.ok) {
+        if (res.ok && !controller.signal.aborted) {
           const json = await res.json();
           const data: string[] = json.data || [];
           setSuggestions(data);
@@ -152,9 +157,15 @@ function SearchPageContent() {
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
       }
-    }, 300);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [searchQuery, query]);
+    }, 200);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (acDebounceRef.current) clearTimeout(acDebounceRef.current);
+      acAbortRef.current?.abort();
+    };
+  }, []);
 
   // 외부 클릭 시 닫기
   useEffect(() => {
@@ -319,10 +330,39 @@ function SearchPageContent() {
                 ref={inputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSearchQuery(v);
+                  if (!composingRef.current) fetchAutocompleteSuggestions(v);
+                }}
                 onKeyDown={handleKeyDown}
                 onCompositionStart={() => { composingRef.current = true; }}
-                onCompositionEnd={(e) => { composingRef.current = false; setSearchQuery((e.target as HTMLInputElement).value); }}
+                onCompositionEnd={(e) => {
+                  composingRef.current = false;
+                  const v = (e.target as HTMLInputElement).value;
+                  setSearchQuery(v);
+                  if (acDebounceRef.current) clearTimeout(acDebounceRef.current);
+                  acAbortRef.current?.abort();
+                  const controller = new AbortController();
+                  acAbortRef.current = controller;
+                  (async () => {
+                    try {
+                      const trimmed = v.trim();
+                      if (trimmed.length < 1 || trimmed === query) return;
+                      const res = await fetch(
+                        `${API_URL}/api/v1.0/posts/autocomplete?prefix=${encodeURIComponent(trimmed)}`,
+                        { signal: controller.signal }
+                      );
+                      if (res.ok && !controller.signal.aborted) {
+                        const json = await res.json();
+                        const data: string[] = json.data || [];
+                        setSuggestions(data);
+                        setShowSuggestions(data.length > 0);
+                        setSelectedIdx(-1);
+                      }
+                    } catch {}
+                  })();
+                }}
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="검색어를 입력하세요..."
                 className="w-full rounded-full border border-zinc-300 bg-white px-5 py-2.5 text-zinc-900 outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"
