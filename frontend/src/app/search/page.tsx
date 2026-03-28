@@ -345,6 +345,10 @@ function SearchPageContent() {
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="검색어를 입력하세요..."
                 className="w-full rounded-full border border-zinc-300 bg-white px-5 py-2.5 text-zinc-900 outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={showSuggestions}
+                aria-autocomplete="list"
               />
               <button
                 type="submit"
