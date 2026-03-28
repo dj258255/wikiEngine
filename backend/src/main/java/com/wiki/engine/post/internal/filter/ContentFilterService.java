@@ -86,7 +86,9 @@ public class ContentFilterService {
         Set<String> koreanWords = new HashSet<>();
         for (String word : dbWords) {
             String trimmed = word.trim().toLowerCase();
-            if (!trimmed.isEmpty()) {
+            // 1글자 한글 금칙어 제외 — "자","년","왕","질" 등이 "자바","올해","왕국","품질"을 오탐
+            // 1글자 자모(ㅄ)나 특수문자(凸)는 검색 쿼리에 단독으로 나올 확률이 극히 낮아 무시해도 안전
+            if (trimmed.length() >= 2) {
                 koreanWords.add(trimmed);
             }
         }
