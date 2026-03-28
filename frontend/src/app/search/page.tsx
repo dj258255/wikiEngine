@@ -56,6 +56,28 @@ function SearchPageContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
 
+  // AI 요약 텍스트에서 [문서 N]을 인라인 링크로 변환 (네이버 AI 브리핑 패턴)
+  const renderAiSummaryWithLinks = (text: string, citations: { docNumber: number; postId: number; title: string }[]) => {
+    const citationMap = new Map(citations.map(c => [c.docNumber, c]));
+    const parts = text.split(/(\[문서\s*\d+\])/g);
+    return parts.map((part, i) => {
+      const match = part.match(/\[문서\s*(\d+)\]/);
+      if (match) {
+        const docNum = parseInt(match[1], 10);
+        const citation = citationMap.get(docNum);
+        if (citation) {
+          return (
+            <Link key={i} href={`/posts/${citation.postId}`}
+              className="mx-0.5 inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-800/50">
+              {citation.title.length > 15 ? citation.title.slice(0, 15) + "…" : citation.title}
+            </Link>
+          );
+        }
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
   // 자동완성 — 입력 prefix를 볼드 하이라이트
   const highlightMatch = (text: string, prefix: string) => {
     if (!prefix) return text;
@@ -75,6 +97,7 @@ function SearchPageContent() {
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const composingRef = useRef(false);
 
   // 카테고리 목록 로드 (1회)
   useEffect(() => {
@@ -102,6 +125,8 @@ function SearchPageContent() {
 
   // 자동완성 debounce + AbortController
   useEffect(() => {
+    if (composingRef.current) return; // 한국어 IME 조합 중이면 스킵
+
     const trimmed = searchQuery.trim();
     if (trimmed.length < 1 || trimmed === query) {
       setSuggestions([]);
@@ -296,6 +321,8 @@ function SearchPageContent() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onCompositionStart={() => { composingRef.current = true; }}
+                onCompositionEnd={(e) => { composingRef.current = false; setSearchQuery((e.target as HTMLInputElement).value); }}
                 onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="검색어를 입력하세요..."
                 className="w-full rounded-full border border-zinc-300 bg-white px-5 py-2.5 text-zinc-900 outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"
@@ -378,18 +405,23 @@ function SearchPageContent() {
               </div>
             ) : aiSummary ? (
               <div>
-                <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{aiSummary}</p>
+                <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+                  {renderAiSummaryWithLinks(aiSummary, aiCitations)}
+                </p>
                 {aiCitations.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {aiCitations.map((c) => (
-                      <Link
-                        key={c.postId}
-                        href={`/posts/${c.postId}`}
-                        className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-800/50"
-                      >
-                        [문서 {c.docNumber}] {c.title.length > 20 ? c.title.slice(0, 20) + "..." : c.title}
-                      </Link>
-                    ))}
+                  <div className="mt-3 border-t border-blue-100 pt-3 dark:border-blue-800">
+                    <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">출처</span>
+                    <div className="mt-1.5 flex flex-col gap-1">
+                      {aiCitations.map((c) => (
+                        <Link
+                          key={c.postId}
+                          href={`/posts/${c.postId}`}
+                          className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                          {c.title}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {/* 피드백 UI — "이 답변이 도움이 되었나요?" */}

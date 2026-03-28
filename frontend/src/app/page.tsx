@@ -30,9 +30,13 @@ export default function Home() {
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const composingRef = useRef(false); // 한국어 IME 조합 중인지 추적
 
   // 자동완성 debounce + AbortController
   useEffect(() => {
+    // IME 조합 중이면 자동완성 요청 안 함 (한국어 타이핑 중간 상태 방지)
+    if (composingRef.current) return;
+
     const trimmed = query.trim();
     if (trimmed.length < 1) {
       setSuggestions([]);
@@ -133,6 +137,8 @@ export default function Home() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={(e) => { composingRef.current = false; setQuery((e.target as HTMLInputElement).value); }}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               placeholder="검색어를 입력하세요..."
               className="w-full rounded-full border border-zinc-300 bg-white px-6 py-4 text-lg text-zinc-900 shadow-sm outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"
