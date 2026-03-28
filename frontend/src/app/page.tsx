@@ -30,29 +30,32 @@ export default function Home() {
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const composingRef = useRef(false); // 한국어 IME 조합 중인지 추적
+  const composingRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // 자동완성 debounce + AbortController
-  useEffect(() => {
-    // IME 조합 중이면 자동완성 요청 안 함 (한국어 타이핑 중간 상태 방지)
-    if (composingRef.current) return;
+  // 자동완성 fetch — onChange/compositionEnd에서 직접 호출
+  const fetchSuggestions = (value: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    abortRef.current?.abort();
 
-    const trimmed = query.trim();
+    const trimmed = value.trim();
     if (trimmed.length < 1) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
+
     const controller = new AbortController();
-    const timer = setTimeout(async () => {
+    abortRef.current = controller;
+
+    debounceRef.current = setTimeout(async () => {
       try {
-        const timeout = setTimeout(() => controller.abort(), 5000);
         const res = await fetch(
           `${API_URL}/api/v1.0/posts/autocomplete?prefix=${encodeURIComponent(trimmed)}`,
           { signal: controller.signal }
         );
-        clearTimeout(timeout);
-        if (res.ok) {
+        if (res.ok && !controller.signal.aborted) {
           const json = await res.json();
           const data: string[] = json.data || [];
           setSuggestions(data);
@@ -62,9 +65,16 @@ export default function Home() {
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
       }
-    }, 300);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [query]);
+    }, 200);
+  };
+
+  // cleanup
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+    };
+  }, []);
 
   // 외부 클릭 시 닫기
   useEffect(() => {
@@ -135,10 +145,38 @@ export default function Home() {
               ref={inputRef}
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setQuery(v);
+                if (!composingRef.current) fetchSuggestions(v);
+              }}
               onKeyDown={handleKeyDown}
               onCompositionStart={() => { composingRef.current = true; }}
-              onCompositionEnd={(e) => { composingRef.current = false; setQuery((e.target as HTMLInputElement).value); }}
+              onCompositionEnd={(e) => {
+                composingRef.current = false;
+                const v = (e.target as HTMLInputElement).value;
+                setQuery(v);
+                // 조합 완료 — 즉시 fetch (debounce 없이)
+                if (debounceRef.current) clearTimeout(debounceRef.current);
+                abortRef.current?.abort();
+                const controller = new AbortController();
+                abortRef.current = controller;
+                (async () => {
+                  try {
+                    const res = await fetch(
+                      `${API_URL}/api/v1.0/posts/autocomplete?prefix=${encodeURIComponent(v.trim())}`,
+                      { signal: controller.signal }
+                    );
+                    if (res.ok && !controller.signal.aborted) {
+                      const json = await res.json();
+                      const data: string[] = json.data || [];
+                      setSuggestions(data);
+                      setShowSuggestions(data.length > 0);
+                      setSelectedIdx(-1);
+                    }
+                  } catch {}
+                })();
+              }}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               placeholder="검색어를 입력하세요..."
               className="w-full rounded-full border border-zinc-300 bg-white px-6 py-4 text-lg text-zinc-900 shadow-sm outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"
