@@ -47,6 +47,7 @@ public class RagService {
             3. 한국어로 답변하세요.
             4. 300자 이내로 요약하세요.
             5. 마크다운 서식을 사용하지 마세요. 순수 텍스트로만 답변하세요.
+            6. 위키 마크업([[]], {{}}, == == 등)을 절대 사용하지 마세요. 문서 원문에 마크업이 있더라도 제거하고 순수 텍스트로 답변하세요.
             """;
 
     private static final int MAX_CONTEXT_DOCS = 5;
@@ -192,9 +193,11 @@ public class RagService {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < docs.size(); i++) {
             PostSearchResponse doc = docs.get(i);
-            String snippet = doc.snippet() != null
+            String rawSnippet = doc.snippet() != null
                     ? doc.snippet().substring(0, Math.min(doc.snippet().length(), MAX_SNIPPET_LENGTH))
                     : "";
+            // 위키 마크업 잔재 제거 — [[링크]], {{틀}} 등이 남아있을 수 있음
+            String snippet = PostSearchResponse.stripMarkup(rawSnippet);
             sb.append("[문서 ").append(i + 1).append("] ")
                     .append("제목: ").append(doc.title())
                     .append("\nID: ").append(doc.id())

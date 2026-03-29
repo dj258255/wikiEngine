@@ -56,6 +56,8 @@ public class LuceneSearchService {
     private final PostRepository postRepository;
     private final QueryExpansionService queryExpansionService;
     private final FacetsConfig facetsConfig;
+    private final LTRRescorer ltrRescorer;
+    private final LTRFeatureExtractor ltrFeatureExtractor;
 
     /**
      * 검색 결과 + snippet + Facet 정보를 함께 담는 record.
@@ -79,8 +81,21 @@ public class LuceneSearchService {
             int offset = (int) pageable.getOffset();
             int limit = pageable.getPageSize();
 
-            // limit + 1 조회하여 hasNext 판단
-            TopDocs topDocs = searcher.search(query, offset + limit + 1);
+            // Phase 19 LTR: rescore 활성화 시 더 많은 후보를 가져와서 재랭킹
+            int fetchSize = ltrRescorer.isEnabled() && ltrRescorer.isModelLoaded()
+                    ? Math.max(ltrRescorer.getRescoreWindow(), offset + limit + 1)
+                    : offset + limit + 1;
+            TopDocs topDocs = searcher.search(query, fetchSize);
+
+            // Phase 19 LTR: BM25 Top-N → LTR Rescore → Top-K
+            ScoreDoc[] finalDocs;
+            if (ltrRescorer.isEnabled() && ltrRescorer.isModelLoaded()) {
+                ScoreDoc[] rescored = ltrRescorer.rescore(
+                        searcher, topDocs, keyword, ltrFeatureExtractor, offset + limit + 1);
+                finalDocs = rescored;
+            } else {
+                finalDocs = topDocs.scoreDocs;
+            }
 
             // Phase 19.2: 카테고리 Facet 집계 (전체 매칭 문서 대상, 페이징 무관)
             FacetsCollector facetsCollector = searcher.search(query, new FacetsCollectorManager());
@@ -91,19 +106,20 @@ public class LuceneSearchService {
             List<Long> postIds = new ArrayList<>();
             Map<Long, String> snippetMap = new HashMap<>();
 
-            // UnifiedHighlighter로 검색어 주변 snippet 추출
+            // UnifiedHighlighter로 검색어 주변 snippet 추출 (원본 topDocs 기반)
             Map<Integer, String> highlightedSnippets = extractHighlightedSnippets(
                     searcher, query, topDocs, offset, limit);
 
-            for (int i = offset; i < Math.min(topDocs.scoreDocs.length, offset + limit); i++) {
-                Document doc = storedFields.document(topDocs.scoreDocs[i].doc);
+            for (int i = offset; i < Math.min(finalDocs.length, offset + limit); i++) {
+                Document doc = storedFields.document(finalDocs[i].doc);
                 long postId = Long.parseLong(doc.get("id"));
                 postIds.add(postId);
 
-                // Highlighter snippet이 있으면 사용, 없으면 null (fallback은 PostSearchResponse에서)
-                String highlighted = highlightedSnippets.get(i);
-                if (highlighted != null && !highlighted.isBlank()) {
-                    snippetMap.put(postId, highlighted);
+                // LTR 재랭킹 시 highlightedSnippets 매핑이 달라질 수 있으므로
+                // stored snippetSource에서 직접 추출
+                String snippetSource = doc.get("snippetSource");
+                if (snippetSource != null && !snippetSource.isBlank()) {
+                    snippetMap.put(postId, snippetSource);
                 }
             }
 
@@ -114,7 +130,7 @@ public class LuceneSearchService {
             List<Post> posts = postRepository.findAllById(postIds);
             posts.sort((a, b) -> postIds.indexOf(a.getId()) - postIds.indexOf(b.getId()));
 
-            boolean hasNext = topDocs.scoreDocs.length > offset + limit;
+            boolean hasNext = finalDocs.length > offset + limit;
             return new SearchResult(new SliceImpl<>(posts, pageable, hasNext), snippetMap, categoryFacets);
 
         } catch (ParseException e) {
@@ -261,6 +277,45 @@ public class LuceneSearchService {
     }
 
     public record EvalDoc(long id, String title, float score, long viewCount) {}
+
+    /**
+     * LTR 학습 데이터 추출 — 주어진 키워드에 대해 BM25 Top-N 문서의 피처를 추출한다.
+     *
+     * @param keyword 검색어
+     * @param topN    추출할 문서 수 (기본 20)
+     * @return 문서별 (postId, title, snippet, features) 목록
+     */
+    public List<LTRDocFeatures> extractLTRFeatures(String keyword, int topN,
+                                                    LTRFeatureExtractor featureExtractor) throws IOException {
+        IndexSearcher searcher = searcherManager.acquire();
+        try {
+            Query query = buildQuery(keyword, null);
+            TopDocs topDocs = searcher.search(query, topN);
+            StoredFields storedFields = searcher.storedFields();
+
+            List<LTRDocFeatures> results = new ArrayList<>();
+            for (ScoreDoc sd : topDocs.scoreDocs) {
+                Document doc = storedFields.document(sd.doc);
+                long postId = Long.parseLong(doc.get("id"));
+                String title = doc.get("title");
+                String snippet = doc.get("snippetSource");
+
+                float[] features = featureExtractor.extractFeatures(searcher, sd.doc, keyword);
+                results.add(new LTRDocFeatures(postId, title,
+                        snippet != null ? snippet.substring(0, Math.min(snippet.length(), 300)) : "",
+                        features, sd.score));
+            }
+            return results;
+        } catch (ParseException e) {
+            log.warn("LTR 피처 추출 파싱 실패: keyword={}", keyword, e);
+            return List.of();
+        } finally {
+            searcherManager.release(searcher);
+        }
+    }
+
+    public record LTRDocFeatures(long postId, String title, String snippet,
+                                  float[] features, float bm25Score) {}
 
     /**
      * BM25 텍스트 관련성 + 인기도(viewCount, likeCount) + 최신성(recency decay)을 결합한 쿼리.
