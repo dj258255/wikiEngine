@@ -63,6 +63,9 @@ dependencies {
     implementation 'org.apache.lucene:lucene-suggest:10.3.2'      // Phase 18: DirectSpellChecker (오타 교정)
     implementation 'org.apache.lucene:lucene-facet:10.3.2'        // Phase 19.2: Faceted Search (카테고리별 건수 집계)
 
+    // Phase 19: LTR — ONNX Runtime for XGBoost LambdaMART inference (ARM64 지원)
+    implementation 'com.microsoft.onnxruntime:onnxruntime:1.21.0'
+
     // Spring Cache + Caffeine: @Cacheable/@CacheEvict 추상화 + Caffeine 로컬 캐시
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.2.0'

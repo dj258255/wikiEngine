@@ -5,6 +5,8 @@ import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.dto.PostSummaryResponse;
 import com.wiki.engine.post.internal.category.CategoryClassificationService;
 import com.wiki.engine.post.internal.lucene.LuceneIndexService;
+import com.wiki.engine.post.internal.lucene.LTRDataGenerationService;
+import com.wiki.engine.post.internal.lucene.LTRFeatureExtractor;
 import com.wiki.engine.post.internal.lucene.LuceneSearchService;
 import com.wiki.engine.post.internal.PostRepository;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,7 @@ public class PostAdminController {
     private final CategoryClassificationService categoryClassificationService;
     private final PostRepository postRepository;
     private final Analyzer analyzer;
+    private final LTRFeatureExtractor ltrFeatureExtractor;
 
     /**
      * 전체 배치 인덱싱 트리거.
@@ -299,6 +302,85 @@ public class PostAdminController {
                 "postId", id,
                 "blinded", blinded,
                 "message", blinded ? "블라인드 처리됨 — 검색에서 제외" : "블라인드 해제됨 — 검색에 복원"
+        ));
+    }
+
+    // === Phase 19: LTR 학습 데이터 추출 ===
+
+    private final LTRDataGenerationService ltrDataGenerationService;
+
+    /**
+     * Phase 19: LTR 학습 데이터 생성 시작 — Gemini LLM-as-a-Judge.
+     * 비동기로 실행되며, /ltr/status로 진행 상태를 확인할 수 있다.
+     *
+     * @param queries     검색어 목록 (JSON 배열)
+     * @param topN        쿼리당 추출할 문서 수 (기본 20)
+     * @param delayMillis Gemini 호출 간 대기 시간 ms (기본 4500, 15 RPM 대응)
+     */
+    @PostMapping("/ltr/generate")
+    public ResponseEntity<Map<String, Object>> generateLTRData(
+            @RequestBody List<String> queries,
+            @RequestParam(defaultValue = "20") int topN,
+            @RequestParam(defaultValue = "4500") long delayMillis) {
+        ltrDataGenerationService.generateAsync(queries, topN, delayMillis);
+        return ResponseEntity.accepted().body(Map.of(
+                "message", "LTR 데이터 생성 시작",
+                "queries", queries.size(),
+                "totalDocs", queries.size() * topN,
+                "estimatedMinutes", (queries.size() * topN * delayMillis) / 60000
+        ));
+    }
+
+    /**
+     * Phase 19: LTR 데이터 생성 진행 상태 확인.
+     */
+    @GetMapping("/ltr/status")
+    public ResponseEntity<Map<String, Object>> getLTRStatus() {
+        return ResponseEntity.ok(ltrDataGenerationService.getStatus());
+    }
+
+    /**
+     * Phase 19: 생성된 학습 데이터를 CSV로 다운로드.
+     * XGBoost LambdaMART 학습용 포맷 (qid, relevance, features...).
+     */
+    @GetMapping(value = "/ltr/export", produces = "text/csv")
+    public ResponseEntity<String> exportLTRData() {
+        String csv = ltrDataGenerationService.exportCSV();
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=ltr_training_data.csv")
+                .body(csv);
+    }
+
+    /**
+     * Phase 19: LTR 피처 추출 — 주어진 키워드에 대해 BM25 Top-N 문서의 14개 피처를 반환한다.
+     * Gemini LLM-as-a-Judge 레이블링과 결합하여 학습 데이터를 구성한다.
+     */
+    @GetMapping("/ltr/features")
+    public ResponseEntity<Map<String, Object>> extractLTRFeatures(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "20") int topN) throws IOException {
+        var docs = luceneSearchService.extractLTRFeatures(q, topN, ltrFeatureExtractor);
+
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (var doc : docs) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("postId", doc.postId());
+            entry.put("title", doc.title());
+            entry.put("snippet", doc.snippet());
+            entry.put("bm25Score", doc.bm25Score());
+
+            Map<String, Float> featureMap = new LinkedHashMap<>();
+            for (int i = 0; i < LTRFeatureExtractor.FEATURE_COUNT; i++) {
+                featureMap.put(LTRFeatureExtractor.FEATURE_NAMES[i], doc.features()[i]);
+            }
+            entry.put("features", featureMap);
+            results.add(entry);
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "query", q,
+                "featureNames", LTRFeatureExtractor.FEATURE_NAMES,
+                "documents", results
         ));
     }
 }

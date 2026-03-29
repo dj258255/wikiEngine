@@ -161,6 +161,12 @@ lucene:
   batch-size: ${LUCENE_BATCH_SIZE}    # DB에서 한 번에 읽어올 건수 (1만 건씩 → Lucene에 쓰기 → 다음 1만 건)
   mode: ${LUCENE_MODE:primary}        # primary: IndexWriter+NRT, replica: SearcherManager only (Phase 13)
 
+# Phase 19: LTR (Learning to Rank) — XGBoost LambdaMART + ONNX Runtime
+ltr:
+  enabled: ${LTR_ENABLED:false}        # true로 변경 시 LTR rescore 활성화
+  model-path: classpath:ltr/model.onnx # ONNX 모델 파일 경로
+  rescore-window: 200                  # BM25 Top-N에서 rescore할 문서 수
+
 # 로깅 레벨 설정
 logging:
   level:
