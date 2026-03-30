@@ -122,7 +122,7 @@ public class LuceneSearchService {
             int offset = (int) pageable.getOffset();
             int limit = pageable.getPageSize();
 
-            // Phase 19 LTR: rescore 활성화 시 더 많은 후보를 가져와서 재랭킹
+            // LTR: rescore 활성화 시 더 많은 후보를 가져와서 재랭킹
             int fetchSize = ltrRescorer.isEnabled() && ltrRescorer.isModelLoaded()
                     ? Math.max(ltrRescorer.getRescoreWindow(), offset + limit + 1)
                     : offset + limit + 1;
@@ -135,7 +135,7 @@ public class LuceneSearchService {
             TopDocs topDocs = (TopDocs) multiResult[0];
             FacetsCollector facetsCollector = (FacetsCollector) multiResult[1];
 
-            // Phase 19 LTR: BM25 Top-N → LTR Rescore → Top-K
+            // LTR: BM25 Top-N → LTR Rescore → Top-K
             ScoreDoc[] finalDocs;
             if (ltrRescorer.isEnabled() && ltrRescorer.isModelLoaded()) {
                 ScoreDoc[] rescored = ltrRescorer.rescore(
@@ -145,7 +145,7 @@ public class LuceneSearchService {
                 finalDocs = topDocs.scoreDocs;
             }
 
-            // Phase 19.2: 카테고리 Facet 집계 (전체 매칭 문서 대상, 페이징 무관)
+            // 카테고리 Facet 집계 (전체 매칭 문서 대상, 페이징 무관)
             Map<String, Long> categoryFacets = collectCategoryFacets(searcher, facetsCollector);
 
             // offset 이후의 결과에서 ID + snippet 추출 (limit개까지만)
@@ -373,7 +373,7 @@ public class LuceneSearchService {
      *             + recencyBoost(createdAt)             // SHOULD: 최신성 감쇠
      */
     private Query buildQuery(String keyword, Long categoryId) throws ParseException {
-        // 1. BM25 텍스트 관련성 쿼리 + 동의어 확장 (Phase 18)
+        // 1. BM25 텍스트 관련성 쿼리 + 동의어 확장
         Query textQuery = buildTextQueryWithSynonyms(keyword);
 
         // 2. 인기도 부스트 (FeatureField saturation — BlockMaxWAND 호환)
@@ -390,19 +390,19 @@ public class LuceneSearchService {
                 .add(likeBoost, BooleanClause.Occur.SHOULD)
                 .add(recencyBoost, BooleanClause.Occur.SHOULD);
 
-        // Phase 17: 카테고리 필터 — FILTER는 스코어 미영향, bitset 캐싱 대상
+        // 카테고리 필터 — FILTER는 스코어 미영향, bitset 캐싱 대상
         if (categoryId != null) {
             builder.add(LongField.newExactQuery("categoryId", categoryId), BooleanClause.Occur.FILTER);
         }
 
-        // Phase 20: 블라인드 게시글 검색 제외
+        // 블라인드 게시글 검색 제외
         builder.add(new TermQuery(new Term("blinded", "true")), BooleanClause.Occur.MUST_NOT);
 
         return builder.build();
     }
 
     /**
-     * Phase 18: 동의어 확장이 적용된 텍스트 쿼리를 생성한다.
+     * 동의어 확장이 적용된 텍스트 쿼리를 생성한다.
      *
      * 원래 키워드: "AI"
      * → 동의어 확장: ["AI" (boost=1.0), "인공지능" (boost=1.0)]
@@ -482,7 +482,7 @@ public class LuceneSearchService {
     }
 
     /**
-     * Phase 19.2: 카테고리 Facet 집계.
+     * 카테고리 Facet 집계.
      * SortedSetDocValuesFacetField("category")가 인덱스에 있으면 집계, 없으면 빈 맵 반환.
      * 재색인 전에는 Facet 필드가 없으므로 graceful fallback.
      */

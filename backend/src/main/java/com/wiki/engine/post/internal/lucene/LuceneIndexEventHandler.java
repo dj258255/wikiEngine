@@ -16,7 +16,7 @@ import java.io.IOException;
  * <p>멱등성: IndexWriter.updateDocument()는 Term 기준 삭제 후 재삽입이므로 자연 멱등.
  * deleteFromIndex()도 없는 문서 삭제 시 no-op.
  *
- * <p>Phase 14-3: Kafka CDC Consumer가 활성화되면 이 핸들러는 비활성화된다.
+ * <p>Kafka CDC Consumer가 활성화되면 이 핸들러는 비활성화된다.
  * Kafka가 없는 환경(로컬 개발 등)에서만 fallback으로 동작.
  */
 @Slf4j

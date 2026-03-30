@@ -19,7 +19,7 @@ import java.io.IOException;
  * Debezium CDC Consumer — MySQL binlog 변경 이벤트를 Kafka에서 소비하여
  * Lucene 인덱스와 캐시를 갱신한다.
  *
- * <p>Phase 14-3: @ApplicationModuleListener(앱 이벤트 기반)에서
+ * <p>@ApplicationModuleListener(앱 이벤트 기반)에서
  * Debezium + Kafka(binlog 기반 CDC)로 전환.
  *
  * <p>Debezium이 발행하는 메시지 구조:

@@ -73,7 +73,7 @@ public class Post {
         this.createdAt = Instant.now();
     }
 
-    /** 블라인드 처리 (Phase 20: 유해 콘텐츠 검색 제외) */
+    /** 블라인드 처리 (유해 콘텐츠 검색 제외) */
     public void setBlinded(boolean blinded) {
         this.blinded = blinded;
     }

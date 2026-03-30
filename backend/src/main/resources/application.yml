@@ -62,6 +62,9 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
         spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
     listener:
       concurrency: 1  # 단일 파티션이므로 1개 스레드로 충분
       ack-mode: RECORD  # 메시지 단위 offset 커밋 (BATCH보다 안전, CDC 처리량이 낮으므로 적합)

@@ -4,6 +4,7 @@ import com.wiki.engine.auth.CurrentUser;
 import com.wiki.engine.auth.UserPrincipal;
 import com.wiki.engine.post.dto.*;
 import com.wiki.engine.post.internal.ViewCountService;
+import com.wiki.engine.post.internal.search.ClickLogService;
 import com.wiki.engine.post.internal.rag.AiFeedbackRequest;
 import com.wiki.engine.post.internal.rag.AiFeedbackService;
 import com.wiki.engine.post.internal.rag.AiSummaryDecisionService;
@@ -47,6 +48,7 @@ public class PostController {
     private final RagService ragService;
     private final AiSummaryDecisionService aiSummaryDecisionService;
     private final AiFeedbackService aiFeedbackService;
+    private final ClickLogService clickLogService;
 
     /** 최신 게시글 목록 조회 (Deferred Join + Slice, COUNT(*) 제거) */
     @GetMapping
@@ -133,8 +135,8 @@ public class PostController {
 
     /**
      * 검색 — 검색 결과 + 오타 교정 제안 반환.
-     * Phase 17: categoryId 선택적 파라미터.
-     * Phase 18: 결과 < 3건이면 오타 교정 제안 ("혹시 OO을 찾으셨나요?") 포함.
+     * categoryId 선택적 파라미터.
+     * 결과 < 3건이면 오타 교정 제안 ("혹시 OO을 찾으셨나요?") 포함.
      */
     @GetMapping("/search")
     public SearchResponseWithSuggestion search(
@@ -214,5 +216,36 @@ public class PostController {
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5))
                         .staleWhileRevalidate(Duration.ofSeconds(60)))
                 .body(suggestions);
+    }
+
+    /**
+     * 검색 결과 클릭 이벤트를 기록한다.
+     * 프론트엔드에서 검색 결과 클릭 시 호출.
+     * Kafka topic "search.clicks"에 produce + DB 저장.
+     */
+    @PostMapping("/{id}/click")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void recordClick(
+            @PathVariable Long id,
+            @RequestParam String q,
+            @RequestParam short position,
+            @RequestParam(required = false) String sessionId,
+            @CurrentUser UserPrincipal user) {
+        clickLogService.recordClick(
+                q, id, position, sessionId,
+                user != null ? user.userId() : null);
+    }
+
+    /**
+     * Dwell time(체류시간)을 업데이트한다.
+     * 프론트엔드에서 페이지 이탈 시 Beacon API(navigator.sendBeacon)로 호출.
+     */
+    @PostMapping("/{id}/dwell")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void recordDwell(
+            @PathVariable Long id,
+            @RequestParam String sessionId,
+            @RequestParam long dwellTimeMs) {
+        clickLogService.updateDwellTime(sessionId, id, dwellTimeMs);
     }
 }

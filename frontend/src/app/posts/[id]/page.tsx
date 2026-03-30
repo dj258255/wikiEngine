@@ -60,6 +60,33 @@ export default function WikiArticlePage({
     fetchArticle();
   }, [id]);
 
+  // Phase 19: Dwell time 추적 — 페이지 이탈 시 Beacon API로 전송
+  useEffect(() => {
+    const pageLoadTime = Date.now();
+    const sessionId = sessionStorage.getItem("search_session_id");
+    if (!sessionId) return; // 검색에서 진입하지 않은 경우 추적 불필요
+
+    const sendDwell = () => {
+      const dwellTimeMs = Date.now() - pageLoadTime;
+      if (dwellTimeMs < 500) return; // 0.5초 미만 = misclick 필터링
+      navigator.sendBeacon(
+        `${API_URL}/api/v1.0/posts/${id}/dwell?sessionId=${sessionId}&dwellTimeMs=${dwellTimeMs}`
+      );
+    };
+
+    // visibilitychange가 pagehide보다 신뢰도 높음 (82.3% vs 73.4%, NicJ.net 벤치마크)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") sendDwell();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", sendDwell);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", sendDwell);
+    };
+  }, [id]);
+
   // NOTE: parseWikiContent is a local parser that converts wiki markup to HTML.
   // The content comes from the backend (user-authored wiki text), and the parser
   // handles HTML escaping internally before applying markup transformations.

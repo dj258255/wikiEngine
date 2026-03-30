@@ -261,7 +261,7 @@ public class LuceneIndexService {
      * - id: KeywordField (정확 매칭, 업데이트/삭제용)
      * - title: TextField (형태소 분석 + 검색 대상, stored)
      * - content: TextField (형태소 분석 + 검색 대상, not stored — 본문은 DB에서 조회)
-     * - snippetSource: StoredField (앞 500자, UnifiedHighlighter용 — Phase 18)
+     * - snippetSource: StoredField (앞 500자, UnifiedHighlighter용)
      * - categoryId: LongField (필터링/범위 쿼리용)
      * - viewCount: LongField (stored, 조회용) + FeatureField (랭킹 부스트용)
      * - likeCount: FeatureField (랭킹 부스트용)
@@ -273,17 +273,17 @@ public class LuceneIndexService {
         doc.add(new TextField("title", post.getTitle(), Field.Store.YES));
         doc.add(new TextField("content", post.getContent(), Field.Store.NO));
 
-        // Phase 20: 자동완성용 untokenized 필드 (Nori 분석 없이 raw prefix 매칭)
+        // 자동완성용 untokenized 필드 (Nori 분석 없이 raw prefix 매칭)
         // "성매" → PrefixQuery → "성매매" 매칭. Nori-analyzed title 필드로는 불가.
         doc.add(new StringField("title_raw", post.getTitle().toLowerCase(), Field.Store.NO));
 
-        // Phase 21: 자모 분해 자동완성 필드 — 네이버/구글처럼 조합 중에도 매칭
+        // 자모 분해 자동완성 필드 — 네이버/구글처럼 조합 중에도 매칭
         // "자바" → "ㅈㅏㅂㅏ", 사용자가 "자ㅂ"(→"ㅈㅏㅂ") 입력 시 PrefixQuery로 매칭
         String titleJamo = com.wiki.engine.post.internal.autocomplete.JamoDecomposer.decompose(
                 post.getTitle().toLowerCase());
         doc.add(new StringField("title_jamo", titleJamo, Field.Store.NO));
 
-        // Phase 18: snippet용 plain text 저장 (UnifiedHighlighter 용)
+        // snippet용 plain text 저장 (UnifiedHighlighter 용)
         // 위키 마크업을 정리한 clean text를 저장해야 하이라이터가 정확하게 동작한다.
         // raw 마크업을 저장하면 마크업 토큰에서 매칭 시도 → 빈 snippet 발생.
         // (위키피디아 CirrusSearch도 동일 패턴: wikitext → plain text → 인덱싱)
@@ -303,18 +303,18 @@ public class LuceneIndexService {
 
         if (post.getCategoryId() != null) {
             doc.add(new LongField("categoryId", post.getCategoryId(), Field.Store.YES));
-            // Phase 19.2: 카테고리 Facet — SortedSetDocValues로 집계
+            // 카테고리 Facet — SortedSetDocValues로 집계
             String categoryName = categoryNameCache.getOrDefault(post.getCategoryId(), "기타");
             doc.add(new SortedSetDocValuesFacetField("category", categoryName));
         }
         doc.add(new LongField("viewCount", post.getViewCount(), Field.Store.YES));
-        doc.add(new LongField("likeCount", post.getLikeCount(), Field.Store.YES));  // Phase 19: LTR 피처용
+        doc.add(new LongField("likeCount", post.getLikeCount(), Field.Store.YES));  // LTR 피처용
         doc.add(new LongField("createdAt", post.getCreatedAt().toEpochMilli(), Field.Store.YES));
 
-        // Phase 20: 블라인드 필드 (검색 제외용)
+        // 블라인드 필드 (검색 제외용)
         doc.add(new KeywordField("blinded", String.valueOf(post.isBlinded()), Field.Store.NO));
 
-        // Phase 19.2: 태그 인덱싱 — 검색용 (Facet 집계는 216만 고유 태그라 비실용적)
+        // 태그 인덱싱 — 검색용 (Facet 집계는 216만 고유 태그라 비실용적)
         List<String> tags = batchTagCache.getOrDefault(post.getId(), List.of());
         if (!tags.isEmpty()) {
             doc.add(new TextField("tags", String.join(" ", tags), Field.Store.YES));

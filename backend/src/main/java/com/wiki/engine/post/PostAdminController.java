@@ -69,7 +69,7 @@ public class PostAdminController {
     }
 
     /**
-     * Phase 19: 카테고리 자동 분류 트리거.
+     * 카테고리 자동 분류 트리거.
      * category_keywords 테이블 기반으로 전체 게시글을 주제별 카테고리로 분류한다.
      * 1,425만 건 UPDATE는 수 분 걸리므로 비동기 실행 — 즉시 202 반환.
      */
@@ -286,7 +286,7 @@ public class PostAdminController {
     }
 
     /**
-     * Phase 20: 게시글 블라인드 처리 (관리자용).
+     * 게시글 블라인드 처리 (관리자용).
      * 유해 콘텐츠를 검색 결과에서 제외한다.
      * CDC 이벤트로 Lucene 인덱스에 blinded=true가 반영되면 검색에서 자동 제외.
      */
@@ -305,12 +305,12 @@ public class PostAdminController {
         ));
     }
 
-    // === Phase 19: LTR 학습 데이터 추출 ===
+    // === LTR 학습 데이터 추출 ===
 
     private final LTRDataGenerationService ltrDataGenerationService;
 
     /**
-     * Phase 19: LTR 학습 데이터 생성 시작 — Gemini LLM-as-a-Judge.
+     * LTR 학습 데이터 생성 시작 — Gemini LLM-as-a-Judge.
      * 비동기로 실행되며, /ltr/status로 진행 상태를 확인할 수 있다.
      *
      * @param queries     검색어 목록 (JSON 배열)
@@ -332,7 +332,7 @@ public class PostAdminController {
     }
 
     /**
-     * Phase 19: LTR 데이터 생성 진행 상태 확인.
+     * LTR 데이터 생성 진행 상태 확인.
      */
     @GetMapping("/ltr/status")
     public ResponseEntity<Map<String, Object>> getLTRStatus() {
@@ -340,7 +340,7 @@ public class PostAdminController {
     }
 
     /**
-     * Phase 19: 생성된 학습 데이터를 CSV로 다운로드.
+     * 생성된 학습 데이터를 CSV로 다운로드.
      * XGBoost LambdaMART 학습용 포맷 (qid, relevance, features...).
      */
     @GetMapping(value = "/ltr/export", produces = "text/csv")
@@ -352,7 +352,7 @@ public class PostAdminController {
     }
 
     /**
-     * Phase 19: LTR 피처 추출 — 주어진 키워드에 대해 BM25 Top-N 문서의 14개 피처를 반환한다.
+     * LTR 피처 추출 — 주어진 키워드에 대해 BM25 Top-N 문서의 14개 피처를 반환한다.
      * Gemini LLM-as-a-Judge 레이블링과 결합하여 학습 데이터를 구성한다.
      */
     @GetMapping("/ltr/features")

@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * - 현업은 Kafka 큐 기반 비동기 파이프라인 (Airbnb: Kafka → Spark → Airflow)이지만,
  *   LTR 데이터 생성은 1회성 배치 작업이고 병목이 Gemini rate limit(15 RPM)이므로
  *   consumer를 늘려도 처리량이 증가하지 않음. CSV append + resume로 crash-safe 내구성 확보.
- *   Kafka는 Phase 19 Part 3-5 클릭 로그 기반 재학습(실시간 이벤트 수집)에서 활용 예정.
+ *   Kafka는 클릭 로그 기반 재학습(실시간 이벤트 수집)에서 활용 예정.
  *
  * <p>Rate limit 대응 (Gemini 무료 티어 15 RPM):
  * - 라운드 간 5초 딜레이 (분당 12 요청 → 15 RPM 이내)

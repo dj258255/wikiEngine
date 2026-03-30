@@ -85,7 +85,7 @@ public record PostSearchResponse(
     }
 
     /**
-     * Phase 18: UnifiedHighlighter가 생성한 snippet을 직접 사용.
+     * UnifiedHighlighter가 생성한 snippet을 직접 사용.
      * snippetSource에 이미 clean text가 저장되어 있으므로 이중 정리 불필요.
      * 하이라이터의 &lt;b&gt; 태그는 보존하여 프론트엔드에서 강조 표시 가능.
      */
