@@ -126,16 +126,29 @@ public class AiSummaryDecisionService {
     }
 
     /**
-     * Redis 기반 Token Bucket Rate Limiter.
-     * INCR + EXPIRE로 1분 윈도우 내 요청 수를 카운트한다.
-     * 서버 2대에서 동일 Redis를 공유하므로 전역 제한이 정확하게 동작한다.
+     * Redis 기반 Token Bucket Rate Limiter — Lua 스크립트로 INCR + EXPIRE를 atomic 실행.
+     *
+     * <p>이전 구현(INCR 후 count==1이면 EXPIRE)은 INCR과 EXPIRE 사이에 크래시하면
+     * 키가 TTL 없이 영구 존재하여 rate limit이 영구 차단됨.
+     * Lua 스크립트는 Redis 서버에서 단일 원자적 연산으로 실행되어 이 문제를 방지.
+     *
+     * <p>현업 표준: Stripe, AWS API Gateway, Spring Cloud Gateway 모두 Token Bucket 사용.
      */
+    private static final String RATE_LIMIT_LUA = """
+            local count = redis.call('INCR', KEYS[1])
+            if count == 1 then
+                redis.call('EXPIRE', KEYS[1], ARGV[1])
+            end
+            return count
+            """;
+
     private boolean tryAcquireRateLimit() {
         try {
-            Long count = redisTemplate.opsForValue().increment(RATE_KEY);
-            if (count != null && count == 1) {
-                redisTemplate.expire(RATE_KEY, RATE_WINDOW);
-            }
+            var script = org.springframework.data.redis.core.script.RedisScript.of(
+                    RATE_LIMIT_LUA, Long.class);
+            Long count = redisTemplate.execute(script,
+                    List.of(RATE_KEY),
+                    String.valueOf(RATE_WINDOW.toSeconds()));
             return count != null && count <= GLOBAL_MAX_PER_MINUTE;
         } catch (Exception e) {
             // Redis 장애 시 rate limit 통과 (Gemini가 자체 429로 방어)

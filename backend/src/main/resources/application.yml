@@ -44,18 +44,27 @@ spring:
       lettuce:
         shutdown-timeout: 200ms
 
+  # Spring Batch (자동완성 prefix_topk 배치 빌드)
+  batch:
+    jdbc:
+      initialize-schema: always  # JobRepository 테이블 자동 생성
+    job:
+      enabled: false  # 앱 기동 시 자동 실행 비활성 (스케줄러가 매시간 트리거)
+
   # Kafka (Phase 14-3: CDC Consumer)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP_ID:wiki-cdc-consumer}
       auto-offset-reset: earliest
+      enable-auto-commit: false  # Spring Kafka가 offset 관리 (AckMode.BATCH 기본)
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       properties:
         spring.json.trusted.packages: "*"
     listener:
       concurrency: 1  # 단일 파티션이므로 1개 스레드로 충분
+      ack-mode: RECORD  # 메시지 단위 offset 커밋 (BATCH보다 안전, CDC 처리량이 낮으므로 적합)
 
   # Flyway: DB 스키마 버전 관리 및 마이그레이션
   # spring.datasource.url (Primary)을 자동으로 사용하므로 별도 URL 불필요
@@ -161,11 +170,12 @@ lucene:
   batch-size: ${LUCENE_BATCH_SIZE}    # DB에서 한 번에 읽어올 건수 (1만 건씩 → Lucene에 쓰기 → 다음 1만 건)
   mode: ${LUCENE_MODE:primary}        # primary: IndexWriter+NRT, replica: SearcherManager only (Phase 13)
 
-# Phase 19: LTR (Learning to Rank) — XGBoost LambdaMART + ONNX Runtime
+# Phase 19: LTR (Learning to Rank) — XGBoost4J LambdaMART inference
 ltr:
   enabled: ${LTR_ENABLED:false}        # true로 변경 시 LTR rescore 활성화
-  model-path: classpath:ltr/model.onnx # ONNX 모델 파일 경로
+  model-path: classpath:ltr/model.xgb  # XGBoost 네이티브 모델 파일 경로
   rescore-window: 200                  # BM25 Top-N에서 rescore할 문서 수
+  data-path: ${LTR_DATA_PATH:ltr_training_data.csv}  # 학습 데이터 CSV 저장 경로
 
 # 로깅 레벨 설정
 logging:

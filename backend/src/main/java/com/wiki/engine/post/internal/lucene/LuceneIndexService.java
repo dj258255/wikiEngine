@@ -308,6 +308,7 @@ public class LuceneIndexService {
             doc.add(new SortedSetDocValuesFacetField("category", categoryName));
         }
         doc.add(new LongField("viewCount", post.getViewCount(), Field.Store.YES));
+        doc.add(new LongField("likeCount", post.getLikeCount(), Field.Store.YES));  // Phase 19: LTR 피처용
         doc.add(new LongField("createdAt", post.getCreatedAt().toEpochMilli(), Field.Store.YES));
 
         // Phase 20: 블라인드 필드 (검색 제외용)

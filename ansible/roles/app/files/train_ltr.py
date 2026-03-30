@@ -1,18 +1,15 @@
 """
-LTR(Learning to Rank) 학습 스크립트 — XGBoost LambdaMART.
+LTR(Learning to Rank) 학습 스크립트 — XGBoost LambdaMART + ONNX 변환.
 
 사용법:
-    pip install xgboost pandas scikit-learn
+    pip install xgboost pandas scikit-learn onnxmltools skl2onnx onnxruntime
     python train_ltr.py ltr_training_data.csv
 
 출력:
-    - model.xgb: XGBoost4J에서 직접 로드할 네이티브 모델
+    - model.onnx: Java ONNX Runtime에서 로드할 모델 파일
+    - model.xgb: XGBoost 네이티브 모델 (백업)
     - evaluation_report.txt: NDCG@10 Before/After 비교
     - feature_importance.csv: 피처 중요도
-
-Java 추론:
-    XGBoost4J (ml.dmlc:xgboost4j_2.12:2.1.4) — Python save_model() 포맷 직접 로드.
-    ONNX Runtime 경로는 onnxmltools가 XGBRanker 변환을 미지원하여 탈락 (Issue #382).
 
 현업 근거:
     - Booking.com KDD 2019: "GBDT models are hard to beat for tabular features"
@@ -25,6 +22,17 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.model_selection import GroupKFold
+
+# ONNX 변환용 (없으면 건너뜀)
+try:
+    import onnxmltools
+    from onnxmltools.convert import convert_xgboost
+    from onnxconverter_common import FloatTensorType
+    HAS_ONNX = True
+except ImportError:
+    HAS_ONNX = False
+    print("WARNING: onnxmltools 미설치. ONNX 변환 건너뜁니다.")
+    print("         pip install onnxmltools skl2onnx onnxruntime")
 
 
 FEATURE_NAMES = [
@@ -141,11 +149,18 @@ def save_model(model, imp_df, baseline_ndcg, ltr_ndcg, cv_ndcg, output_dir):
     """모델과 평가 결과를 저장한다."""
     os.makedirs(output_dir, exist_ok=True)
 
-    # XGBoost 네이티브 모델 — XGBoost4J에서 직접 로드
+    # XGBoost 네이티브 모델
     xgb_path = os.path.join(output_dir, "model.xgb")
     model.save_model(xgb_path)
     print(f"\nXGBoost 모델 저장: {xgb_path} ({os.path.getsize(xgb_path) / 1024:.1f} KB)")
-    print(f"  → Java: XGBoost.loadModel(inputStream) 으로 직접 로드")
+
+    # ONNX 변환
+    if HAS_ONNX:
+        onnx_path = os.path.join(output_dir, "model.onnx")
+        initial_type = [("features", FloatTensorType([None, len(FEATURE_NAMES)]))]
+        onnx_model = convert_xgboost(model, initial_types=initial_type)
+        onnxmltools.utils.save_model(onnx_model, onnx_path)
+        print(f"ONNX 모델 저장: {onnx_path} ({os.path.getsize(onnx_path) / 1024:.1f} KB)")
 
     # Feature importance CSV
     imp_path = os.path.join(output_dir, "feature_importance.csv")
@@ -156,16 +171,13 @@ def save_model(model, imp_df, baseline_ndcg, ltr_ndcg, cv_ndcg, output_dir):
     with open(report_path, "w") as f:
         f.write("LTR Evaluation Report\n")
         f.write("=" * 50 + "\n\n")
-        f.write(f"Training data: {model.n_features_in_} features\n")
         f.write(f"Baseline NDCG@10 (BM25): {baseline_ndcg:.4f}\n")
         f.write(f"LTR NDCG@10 (LambdaMART): {ltr_ndcg:.4f}\n")
         f.write(f"개선폭: +{(ltr_ndcg - baseline_ndcg) * 100:.1f}%p\n")
         f.write(f"Cross-validation NDCG@10: {cv_ndcg:.4f}\n\n")
-        f.write("Feature Importance (gain):\n")
+        f.write("Feature Importance:\n")
         for _, row in imp_df.iterrows():
             f.write(f"  {row['name']:30s} {row['importance']:.1f}\n")
-        f.write(f"\nJava inference: XGBoost4J inplace_predict (thread-safe)\n")
-        f.write(f"ONNX 미사용 사유: onnxmltools XGBRanker 변환 미지원 (Issue #382)\n")
     print(f"평가 리포트: {report_path}")
 
 
@@ -181,8 +193,8 @@ def main():
     model, baseline_ndcg, ltr_ndcg, cv_ndcg, imp_df = train_model(df)
     save_model(model, imp_df, baseline_ndcg, ltr_ndcg, cv_ndcg, output_dir)
 
-    print(f"\n완료! 모델 파일: {output_dir}/model.xgb")
-    print("다음 단계: model.xgb를 backend/src/main/resources/ltr/ 에 복사 후 LTR_ENABLED=true")
+    print(f"\n완료! 모델 파일: {output_dir}/model.onnx")
+    print("다음 단계: model.onnx를 Spring Boot resources에 복사 후 LTRRescorer 적용")
 
 
 if __name__ == "__main__":

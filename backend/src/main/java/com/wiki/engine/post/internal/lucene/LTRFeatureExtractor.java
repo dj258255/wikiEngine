@@ -13,6 +13,7 @@ import org.apache.lucene.search.similarities.BM25Similarity;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.io.StringReader;
 import java.time.Instant;
 import java.util.*;
@@ -105,9 +106,9 @@ public class LTRFeatureExtractor {
         String viewCountStr = doc.get("viewCount");
         features[10] = (float) Math.log1p(viewCountStr != null ? Long.parseLong(viewCountStr) : 0);
 
-        // 12. Like count — not stored in Lucene, use 0 as default
-        // likeCount is only in FeatureField (not stored). Use DB value in batch export.
-        features[11] = 0;
+        // 12. Like count (log1p) — LongField(Store.YES)로 인덱싱됨 (재색인 후 사용 가능)
+        String likeCountStr = doc.get("likeCount");
+        features[11] = (float) Math.log1p(likeCountStr != null ? Long.parseLong(likeCountStr) : 0);
 
         // 13. Category ID (ordinal, 0 = uncategorized)
         String categoryIdStr = doc.get("categoryId");
@@ -135,29 +136,49 @@ public class LTRFeatureExtractor {
     /**
      * BM25 score를 특정 필드에 대해 계산한다.
      * Weight.scorer()로 추출 — explain()보다 대량 처리에 효율적.
+     *
+     * <p>Weight 캐싱: 동일 (field, keyword) 조합에 대해 Weight를 1회만 생성하고
+     * 200문서에 재사용한다. Weight 생성(IDF 계산 포함)이 비용이 높으므로,
+     * 매 문서마다 생성하면 200 x 3필드 = 600회 → 캐싱 시 3회로 감소.
      */
-    private float computeBM25(IndexSearcher searcher, int docId,
-                              String field, String keyword) throws IOException {
+    private final Map<String, Weight> weightCache = new ConcurrentHashMap<>();
+
+    Weight getOrCreateWeight(IndexSearcher searcher, String field, String keyword) throws IOException {
+        String cacheKey = field + ":" + keyword;
+        Weight cached = weightCache.get(cacheKey);
+        if (cached != null) return cached;
+
         try {
             var boosts = Map.of(field, 1.0f);
             var parser = new MultiFieldQueryParser(new String[]{field}, analyzer, boosts);
             Query query = parser.parse(MultiFieldQueryParser.escape(keyword));
-
-            Weight weight = searcher.createWeight(
-                    searcher.rewrite(query), ScoreMode.COMPLETE, 1.0f);
-
-            for (LeafReaderContext ctx : searcher.getIndexReader().leaves()) {
-                int localDoc = docId - ctx.docBase;
-                if (localDoc >= 0 && localDoc < ctx.reader().maxDoc()) {
-                    Scorer scorer = weight.scorer(ctx);
-                    if (scorer != null && scorer.iterator().advance(localDoc) == localDoc) {
-                        return scorer.score();
-                    }
-                    return 0.0f;
-                }
-            }
+            Weight weight = searcher.createWeight(searcher.rewrite(query), ScoreMode.COMPLETE, 1.0f);
+            weightCache.put(cacheKey, weight);
+            return weight;
         } catch (ParseException e) {
-            // 파싱 실패 시 0 반환
+            return null;
+        }
+    }
+
+    /** 배치 시작 전 Weight 캐시를 초기화한다. */
+    public void clearWeightCache() {
+        weightCache.clear();
+    }
+
+    private float computeBM25(IndexSearcher searcher, int docId,
+                              String field, String keyword) throws IOException {
+        Weight weight = getOrCreateWeight(searcher, field, keyword);
+        if (weight == null) return 0.0f;
+
+        for (LeafReaderContext ctx : searcher.getIndexReader().leaves()) {
+            int localDoc = docId - ctx.docBase;
+            if (localDoc >= 0 && localDoc < ctx.reader().maxDoc()) {
+                Scorer scorer = weight.scorer(ctx);
+                if (scorer != null && scorer.iterator().advance(localDoc) == localDoc) {
+                    return scorer.score();
+                }
+                return 0.0f;
+            }
         }
         return 0.0f;
     }
