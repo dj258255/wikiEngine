@@ -6,6 +6,7 @@ import com.wiki.engine.post.internal.ViewCountService;
 import com.wiki.engine.post.internal.rag.AiFeedbackService;
 import com.wiki.engine.post.internal.rag.AiSummaryDecisionService;
 import com.wiki.engine.post.internal.rag.RagService;
+import com.wiki.engine.post.internal.search.ClickLogService;
 import com.wiki.engine.auth.UserPrincipal;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
@@ -74,6 +75,9 @@ class PostControllerTest {
 
     @MockitoBean
     private AiFeedbackService aiFeedbackService;
+
+    @MockitoBean
+    private ClickLogService clickLogService;
 
     private static final String BASE = "/api/v1.0/posts";
 
