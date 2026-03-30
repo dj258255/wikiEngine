@@ -1,0 +1,27 @@
+LTR Evaluation Report
+==================================================
+
+Training data: 14 features
+Baseline NDCG@10 (BM25): 0.6910
+LTR NDCG@10 (LambdaMART): 0.9228
+개선폭: +23.2%p
+Cross-validation NDCG@10: 0.7387
+
+Feature Importance (gain):
+  titleLength                    1.0
+  tagOverlap                     0.9
+  bm25Title                      0.8
+  categoryId                     0.7
+  contentLength                  0.6
+  bm25Snippet                    0.6
+  bm25Content                    0.6
+  freshnessDays                  0.6
+  queryTermCoverageTitle         0.0
+  queryTermCoverageContent       0.0
+  exactTitleMatch                0.0
+  viewCount                      0.0
+  likeCount                      0.0
+  queryLength                    0.0
+
+Java inference: XGBoost4J inplace_predict (thread-safe)
+ONNX 미사용 사유: onnxmltools XGBRanker 변환 미지원 (Issue #382)
