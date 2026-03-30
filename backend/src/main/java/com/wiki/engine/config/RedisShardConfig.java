@@ -12,7 +12,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.List;
 
 /**
- * Redis 샤딩 설정 (Phase 15).
+ * Redis 샤딩 설정.
  *
  * <p>redis.sharding.enabled=true이면 3개 독립 Redis 인스턴스에 대한
  * ConsistentHashRouter Bean을 생성한다.

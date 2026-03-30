@@ -5,7 +5,7 @@ package com.wiki.engine.auth;
  * 로그아웃된 토큰을 저장하여 재사용을 방지한다.
  *
  * 구현체:
- * - RedisTokenBlacklist: Redis 기반 (다중 인스턴스 환경, Phase 13+)
+ * - RedisTokenBlacklist: Redis 기반 (다중 인스턴스 환경)
  */
 public interface TokenBlacklist {
 

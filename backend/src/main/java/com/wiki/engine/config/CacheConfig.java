@@ -25,7 +25,7 @@ public class CacheConfig {
                         .recordStats()
                         .build());
 
-        // autocomplete: Phase 11에서 Redis flat KV로 전환, Caffeine 캐시 불필요
+        // autocomplete: Redis flat KV로 전환, Caffeine 캐시 불필요
 
         manager.registerCustomCache("postDetail",
                 Caffeine.newBuilder()

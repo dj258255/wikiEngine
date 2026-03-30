@@ -31,7 +31,7 @@ import java.nio.file.Path;
 /**
  * Lucene 검색엔진 설정.
  *
- * Primary/Replica 모드 분리 (Phase 13):
+ * Primary/Replica 모드 분리:
  * - primary (기본): IndexWriter + SnapshotDeletionPolicy + NRT SearcherManager
  * - replica: SearcherManager only (읽기 전용, rsync 동기화 감지)
  *

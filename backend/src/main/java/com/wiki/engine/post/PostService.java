@@ -36,10 +36,10 @@ import java.util.Optional;
  * 게시글 CRUD, 조회수 증가, 좋아요/좋아요취소 기능을 제공한다.
  * 기본적으로 읽기 전용 트랜잭션이며, 쓰기 작업은 별도 @Transactional로 관리한다.
  *
- * <p>Phase 11: @Cacheable/@CacheEvict 제거 → TieredCacheService(L1+L2) 직접 호출.
+ * <p>@Cacheable/@CacheEvict 제거 → TieredCacheService(L1+L2) 직접 호출.
  * 자동완성: Trie → RedisAutocompleteService(Redis flat KV) 전환.
  *
- * <p>Phase 14-1: 쓰기 작업의 Read Model 직접 호출 제거.
+ * <p>쓰기 작업의 Read Model 직접 호출 제거.
  * Lucene 인덱싱, 캐시 무효화를 ApplicationEvent로 디커플링.
  * LuceneIndexEventHandler, CacheInvalidationEventHandler, SearchCacheEventHandler가 소비.
  */
@@ -103,7 +103,7 @@ public class PostService {
      */
     @Transactional
     public Post createPost(String title, String content, Long authorId, Long categoryId) {
-        // Phase 19: 카테고리 미지정 시 MoreLikeThis로 자동 추천
+        // 카테고리 미지정 시 MoreLikeThis로 자동 추천
         Long resolvedCategoryId = categoryId;
         if (resolvedCategoryId == null) {
             resolvedCategoryId = categoryRecommendService.recommendCategory(title, content);
@@ -271,8 +271,8 @@ public class PostService {
      * L1(Caffeine) + L2(Redis) 2계층 캐시.
      * 검색 로그는 캐시 히트/미스와 무관하게 항상 기록한다.
      *
-     * Phase 18: 오타 교정 — 결과가 적으면 DirectSpellChecker로 교정 제안.
-     * @param categoryId null이면 전체 검색, 값이 있으면 해당 카테고리만 필터링 (Phase 17).
+     * 오타 교정 — 결과가 적으면 DirectSpellChecker로 교정 제안.
+     * @param categoryId null이면 전체 검색, 값이 있으면 해당 카테고리만 필터링.
      */
     public SearchResponseWithSuggestion search(String keyword, Long categoryId, Pageable pageable) {
         validatePageLimit(pageable, MAX_SEARCH_PAGE);
@@ -305,7 +305,7 @@ public class PostService {
                 });
         Slice<PostSearchResponse> results = new SliceImpl<>(cached.content(), pageable, cached.hasNext());
 
-        // Phase 18: 오타 교정 제안 (첫 페이지에서만)
+        // 오타 교정 제안 (첫 페이지에서만)
         // 전략: 항상 교정 시도 → 교정된 검색어가 원본과 다르면 제안
         // "프로그래링" → "프로그래밍" 제안 (결과가 있어도 관련도가 낮은 경우)
         String suggestion = null;
@@ -328,8 +328,8 @@ public class PostService {
 
     /**
      * 자동완성: Redis flat KV → Lucene PrefixQuery fallback → 금칙어 필터링.
-     * Phase 11: Trie 퇴역, Redis prefix_topk O(1) GET으로 전환.
-     * Phase 20: 금칙어 포함 제안 필터링 (검색 품질 관리).
+     * Trie 퇴역, Redis prefix_topk O(1) GET으로 전환.
+     * 금칙어 포함 제안 필터링 (검색 품질 관리).
      */
     public List<String> autocomplete(String prefix) {
         List<String> suggestions = redisAutocompleteService.search(prefix, 10);

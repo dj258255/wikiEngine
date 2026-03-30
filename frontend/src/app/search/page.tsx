@@ -8,6 +8,16 @@ import { useAuth } from "../contexts/AuthContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
+// Phase 19: 클릭 로그용 세션 ID (탭 단위, sessionStorage)
+function getOrCreateSessionId(): string {
+  let sid = sessionStorage.getItem("search_session_id");
+  if (!sid) {
+    sid = crypto.randomUUID();
+    sessionStorage.setItem("search_session_id", sid);
+  }
+  return sid;
+}
+
 interface SearchResult {
   id: string;
   title: string;
@@ -539,10 +549,18 @@ function SearchPageContent() {
         ) : results.length > 0 ? (
           <>
             <ul className="space-y-3">
-              {results.map((result) => (
+              {results.map((result, index) => (
                 <li key={result.id}>
                   <Link
                     href={`/posts/${result.id}`}
+                    onClick={() => {
+                      // Phase 19: 클릭 로그 수집 (LTR implicit feedback)
+                      const sessionId = getOrCreateSessionId();
+                      const position = currentPage * 20 + index;
+                      navigator.sendBeacon(
+                        `${API_URL}/api/v1.0/posts/${result.id}/click?q=${encodeURIComponent(query)}&position=${position}&sessionId=${sessionId}`
+                      );
+                    }}
                     className="block rounded-lg border border-zinc-200 bg-white px-5 py-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700 dark:hover:bg-zinc-800"
                   >
                     <h2 className="text-base font-medium text-blue-600 dark:text-blue-400">

@@ -16,7 +16,7 @@ import java.util.List;
  * "AI" 검색 시 → ["AI", "인공지능"] 으로 확장하여 BooleanQuery(SHOULD)로 검색.
  * 동의어 사전은 DB에서 관리하며, Caffeine 캐시(30분 TTL)로 DB 조회를 최소화한다.
  *
- * Phase 18: DB 기반 쿼리 타임 확장.
+ * DB 기반 쿼리 타임 확장.
  * 향후: SynonymGraphFilter(파일 기반)로 전환 가능.
  */
 @Slf4j

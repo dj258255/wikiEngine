@@ -12,7 +12,7 @@ import javax.sql.DataSource;
 import java.util.Map;
 
 /**
- * Primary/Replica DataSource 라우팅 설정 (Phase 12).
+ * Primary/Replica DataSource 라우팅 설정.
  *
  * <p>Spring Boot의 단일 DataSource 자동설정을 대체한다.
  * {@code @Transactional(readOnly=true)} → Replica, {@code @Transactional} → Primary.

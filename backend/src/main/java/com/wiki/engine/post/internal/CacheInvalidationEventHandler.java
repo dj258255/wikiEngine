@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>멱등성: evict()는 키가 없으면 no-op. 여러 번 호출해도 부작용 없음.
  *
- * <p>Phase 14-3: Kafka CDC Consumer가 활성화되면 이 핸들러는 비활성화된다.
+ * <p>Kafka CDC Consumer가 활성화되면 이 핸들러는 비활성화된다.
  */
 @Slf4j
 @Component
