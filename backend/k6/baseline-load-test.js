@@ -43,6 +43,8 @@ const searchDuration = new Trend('search_duration', true);
 const searchRareDuration = new Trend('search_rare_duration', true);
 const searchMediumDuration = new Trend('search_medium_duration', true);
 const searchHighDuration = new Trend('search_high_duration', true);
+const searchWithCategoryDuration = new Trend('search_with_category_duration', true);   // Phase 17
+const searchWithoutCategoryDuration = new Trend('search_without_category_duration', true); // Phase 17
 const autocompleteDuration = new Trend('autocomplete_duration', true);
 const listDuration = new Trend('list_duration', true);
 const detailDuration = new Trend('detail_duration', true);
@@ -164,10 +166,12 @@ const RARE_QUERIES = [
 ];
 
 // 중빈도 토큰 — 일반 사용자 검색 패턴
+// Phase 18: AI, ML, DB 등 동의어 확장 대상 키워드 포함
 const MEDIUM_QUERIES = [
     '삼성전자', '인공지능', '프로그래밍', '축구', '물리학',
     'computer', 'science', 'programming', 'database', 'philosophy',
     '서울특별시', '경제', '컴퓨터', '영화', '문학',
+    'AI', 'ML', 'DB', 'OS', '자바', '파이썬',  // Phase 18: 동의어 확장 대상
 ];
 
 // 고빈도 토큰 — posting list 길음, Lucene 스트레스 테스트
@@ -182,6 +186,9 @@ const AUTOCOMPLETE_PREFIXES = [
     'comp', 'sci', 'hist', 'math', 'prog',
     '서울', '경제', '과학', 'art', 'uni',
 ];
+
+// Phase 17: 카테고리 필터 테스트용 ID (30개 카테고리 중 주요 10개)
+const CATEGORY_IDS = [1, 2, 3, 8, 13, 17, 20, 21, 26, 30]; // 컴퓨터,수학,물리,역사,교육,음악,스포츠,게임,인물,웹
 
 // 빈도별 가중치 — 실제 트래픽 패턴 반영
 // 커뮤니티에서 대부분의 검색은 중빈도 키워드
@@ -288,7 +295,13 @@ function testSearch() {
     group('검색', function () {
         const { query, freq } = pickSearchQuery();
         const page = randomInt(0, 15);  // 서버 MAX_SEARCH_PAGE=15에 맞춤
-        const url = `${API_PREFIX}/posts/search?q=${encodeURIComponent(query)}&page=${page}&size=20`;
+
+        // Phase 17: 30% 확률로 카테고리 필터 적용 — 필터 유무에 따른 성능 비교
+        const useCategory = randomInt(1, 100) <= 30;
+        let url = `${API_PREFIX}/posts/search?q=${encodeURIComponent(query)}&page=${page}&size=20`;
+        if (useCategory) {
+            url += `&categoryId=${randomItem(CATEGORY_IDS)}`;
+        }
 
         const res = http.get(url, { tags: { name: 'search' } });
         searchDuration.add(res.timings.duration);
@@ -297,12 +310,29 @@ function testSearch() {
         const freqMetrics = { rare: searchRareDuration, medium: searchMediumDuration, high: searchHighDuration };
         freqMetrics[freq].add(res.timings.duration);
 
+        // Phase 17: 카테고리 필터 유무별 별도 메트릭
+        if (useCategory) {
+            searchWithCategoryDuration.add(res.timings.duration);
+        } else {
+            searchWithoutCategoryDuration.add(res.timings.duration);
+        }
+
         const success = check(res, {
             '검색 응답 200': (r) => r.status === 200,
             '검색 결과 존재': (r) => {
                 try {
                     const body = JSON.parse(r.body);
-                    return body.data && body.data.content !== undefined;
+                    // 응답 구조: body.data.results.content (SearchResponseWithSuggestion)
+                    return body.data && body.data.results && body.data.results.content !== undefined;
+                } catch (e) {
+                    return false;
+                }
+            },
+            // Phase 19.2: Facet 집계 응답 확인
+            'Facet 응답 존재': (r) => {
+                try {
+                    const body = JSON.parse(r.body);
+                    return body.data && body.data.categoryFacets !== undefined;
                 } catch (e) {
                     return false;
                 }
@@ -432,6 +462,8 @@ export function handleSummary(data) {
     const searchRare = m('search_rare_duration');
     const searchMedium = m('search_medium_duration');
     const searchHigh = m('search_high_duration');
+    const searchWithCat = m('search_with_category_duration');
+    const searchWithoutCat = m('search_without_category_duration');
     const autocomplete = m('autocomplete_duration');
     const list = m('list_duration');
     const detail = m('detail_duration');
@@ -452,6 +484,10 @@ export function handleSummary(data) {
     console.log(`    평균: ${fmt(searchMedium, 'avg')}ms  P95: ${fmt(searchMedium, 'p(95)')}ms  P99: ${fmt(searchMedium, 'p(99)')}ms`);
     console.log('  ── 검색 (고빈도 토큰 30%) ──');
     console.log(`    평균: ${fmt(searchHigh, 'avg')}ms  P95: ${fmt(searchHigh, 'p(95)')}ms  P99: ${fmt(searchHigh, 'p(99)')}ms`);
+    console.log('  ── 검색 (카테고리 필터 ON, 30%) ──');
+    console.log(`    평균: ${fmt(searchWithCat, 'avg')}ms  P95: ${fmt(searchWithCat, 'p(95)')}ms`);
+    console.log('  ── 검색 (카테고리 필터 OFF, 70%) ──');
+    console.log(`    평균: ${fmt(searchWithoutCat, 'avg')}ms  P95: ${fmt(searchWithoutCat, 'p(95)')}ms`);
     console.log('  ── 자동완성 ──');
     console.log(`    평균: ${fmt(autocomplete, 'avg')}ms  P95: ${fmt(autocomplete, 'p(95)')}ms  P99: ${fmt(autocomplete, 'p(99)')}ms`);
     console.log('  ── 최신 게시글 목록 ──');

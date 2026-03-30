@@ -1,7 +1,9 @@
 package com.wiki.engine.post.internal.lucene;
 
-import ai.onnxruntime.*;
 import lombok.extern.slf4j.Slf4j;
+import ml.dmlc.xgboost4j.java.Booster;
+import ml.dmlc.xgboost4j.java.XGBoost;
+import ml.dmlc.xgboost4j.java.XGBoostError;
 import org.apache.lucene.search.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -13,24 +15,25 @@ import java.io.IOException;
 import java.util.*;
 
 /**
- * LTR Rescorer — ONNX Runtime으로 XGBoost LambdaMART 모델 추론.
+ * LTR Rescorer — XGBoost4J로 LambdaMART 모델 추론.
  *
- * <p>Two-Phase Ranking 패턴:
- * Phase 1: BM25로 Top-N(200) 후보 추출 (ms 단위)
- * Phase 2: LTR 모델로 재랭킹 → Top-K 반환
+ * <p>Two-Phase Ranking:
+ * Phase 1: BM25로 Top-N(200) 후보 추출
+ * Phase 2: XGBoost 모델로 재랭킹 → Top-K 반환
  *
- * <p>현업 기준:
- * - Rescore window N=200이 표준 (Elasticsearch 공식 문서 기본값)
- * - ONNX Runtime 추론: ~0.2ms / 200 documents
- * - 총 추가 latency: 피처 추출 2~5ms + 추론 ~0.5ms = 3~6ms
+ * <p>ONNX Runtime 대신 XGBoost4J를 선택한 이유:
+ * - onnxmltools가 XGBRanker ONNX 변환 미지원 (onnxmltools Issue #382)
+ * - XGBoost4J는 Python save_model() 포맷을 변환 없이 직접 로드
+ * - ARM64 Linux (OCI Ampere A1) 네이티브 라이브러리 JAR에 번들 포함
+ * - inplace_predict()가 thread-safe — 웹서버 동시 요청 처리에 적합
  *
- * <p>모델 파일이 없으면 LTR을 건너뛰고 BM25 순위를 그대로 사용한다 (graceful degradation).
+ * <p>모델 파일이 없으면 BM25 순위를 그대로 사용 (graceful degradation).
  */
 @Slf4j
 @Component
 public class LTRRescorer {
 
-    @Value("${ltr.model-path:classpath:ltr/model.onnx}")
+    @Value("${ltr.model-path:classpath:ltr/model.xgb}")
     private Resource modelResource;
 
     @Value("${ltr.enabled:false}")
@@ -39,8 +42,7 @@ public class LTRRescorer {
     @Value("${ltr.rescore-window:200}")
     private int rescoreWindow;
 
-    private OrtEnvironment env;
-    private OrtSession session;
+    private Booster booster;
     private boolean modelLoaded = false;
 
     @PostConstruct
@@ -56,12 +58,9 @@ public class LTRRescorer {
                 return;
             }
 
-            env = OrtEnvironment.getEnvironment();
-            byte[] modelBytes = modelResource.getInputStream().readAllBytes();
-            session = env.createSession(modelBytes, new OrtSession.SessionOptions());
+            booster = XGBoost.loadModel(modelResource.getInputStream());
             modelLoaded = true;
-            log.info("LTR 모델 로드 완료: {} ({} KB)",
-                    modelResource.getFilename(), modelBytes.length / 1024);
+            log.info("LTR XGBoost 모델 로드 완료: {}", modelResource.getFilename());
         } catch (Exception e) {
             log.error("LTR 모델 로드 실패: {} — BM25 순위 유지", e.getMessage());
         }
@@ -69,26 +68,16 @@ public class LTRRescorer {
 
     @PreDestroy
     void destroy() {
-        if (session != null) {
-            try { session.close(); } catch (Exception ignored) {}
-        }
+        // XGBoost4J Booster는 별도 close 불필요 (GC가 네이티브 리소스 해제)
     }
 
     /**
-     * BM25 Top-N 결과를 LTR 모델로 재랭킹한다.
-     *
-     * @param searcher         IndexSearcher
-     * @param firstPassTopDocs BM25 검색 결과
-     * @param keyword          검색어
-     * @param featureExtractor 피처 추출기
-     * @param topK             반환할 상위 결과 수
-     * @return 재랭킹된 ScoreDoc 배열 (topK개)
+     * BM25 Top-N 결과를 XGBoost 모델로 재랭킹한다.
      */
     public ScoreDoc[] rescore(IndexSearcher searcher, TopDocs firstPassTopDocs,
                               String keyword, LTRFeatureExtractor featureExtractor,
                               int topK) throws IOException {
         if (!modelLoaded) {
-            // 모델 없으면 원래 순위 유지
             return Arrays.copyOf(firstPassTopDocs.scoreDocs,
                     Math.min(topK, firstPassTopDocs.scoreDocs.length));
         }
@@ -97,14 +86,22 @@ public class LTRRescorer {
         ScoreDoc[] docs = Arrays.copyOf(firstPassTopDocs.scoreDocs, docsToRescore);
 
         // 피처 추출
-        float[][] featureMatrix = new float[docsToRescore][LTRFeatureExtractor.FEATURE_COUNT];
+        float[] flatFeatures = new float[docsToRescore * LTRFeatureExtractor.FEATURE_COUNT];
         for (int i = 0; i < docsToRescore; i++) {
-            featureMatrix[i] = featureExtractor.extractFeatures(
-                    searcher, docs[i].doc, keyword);
+            float[] docFeatures = featureExtractor.extractFeatures(searcher, docs[i].doc, keyword);
+            System.arraycopy(docFeatures, 0, flatFeatures,
+                    i * LTRFeatureExtractor.FEATURE_COUNT, LTRFeatureExtractor.FEATURE_COUNT);
         }
 
-        // ONNX Runtime 추론
-        float[] ltrScores = predict(featureMatrix);
+        // XGBoost4J 추론
+        float[] ltrScores = predict(flatFeatures, docsToRescore);
+
+        // 추론 실패(null) 시 BM25 원본 순위 유지
+        if (ltrScores == null) {
+            log.warn("LTR 추론 실패 — BM25 원본 순위 유지");
+            return Arrays.copyOf(firstPassTopDocs.scoreDocs,
+                    Math.min(topK, firstPassTopDocs.scoreDocs.length));
+        }
 
         // LTR 점수로 재정렬
         for (int i = 0; i < docsToRescore; i++) {
@@ -116,33 +113,25 @@ public class LTRRescorer {
     }
 
     /**
-     * ONNX Runtime으로 배치 추론한다.
+     * XGBoost4J inplace_predict로 배치 추론한다.
+     *
+     * <p>DMatrix + predict()는 Booster 내부 상태를 변경하여 thread-safe가 아니다.
+     * inplace_predict()는 DMatrix 생성 없이 flat float[]로 직접 추론하며,
+     * 공유 상태를 변경하지 않아 thread-safe — 웹서버 동시 요청 처리에 적합.
      */
-    private float[] predict(float[][] features) {
+    private float[] predict(float[] flatFeatures, int numRows) {
         try {
-            OnnxTensor inputTensor = OnnxTensor.createTensor(env, features);
-            try (OrtSession.Result result = session.run(
-                    Map.of(session.getInputNames().iterator().next(), inputTensor))) {
-                // XGBoost ONNX는 보통 (N, 1) 또는 (N,) 형태로 출력
-                Object output = result.get(0).getValue();
-                if (output instanceof float[][] matrix) {
-                    float[] scores = new float[matrix.length];
-                    for (int i = 0; i < matrix.length; i++) {
-                        scores[i] = matrix[i][0];
-                    }
-                    return scores;
-                } else if (output instanceof float[] array) {
-                    return array;
-                } else {
-                    log.warn("예상치 못한 ONNX 출력 타입: {}", output.getClass());
-                    return new float[features.length];
-                }
-            } finally {
-                inputTensor.close();
+            float[][] predictions = booster.inplace_predict(
+                    flatFeatures, numRows, LTRFeatureExtractor.FEATURE_COUNT, Float.NaN);
+            // predictions[i][0] = i번째 문서의 LTR 점수
+            float[] scores = new float[numRows];
+            for (int i = 0; i < numRows; i++) {
+                scores[i] = predictions[i][0];
             }
-        } catch (OrtException e) {
-            log.error("ONNX 추론 실패: {}", e.getMessage());
-            return new float[features.length]; // 실패 시 0점 (원래 순위 유지)
+            return scores;
+        } catch (XGBoostError e) {
+            log.error("XGBoost 추론 실패: {}", e.getMessage());
+            return null;
         }
     }
 

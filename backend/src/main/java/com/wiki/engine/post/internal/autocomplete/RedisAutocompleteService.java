@@ -9,15 +9,12 @@ import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.lang.Nullable;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.*;
 
 /**
@@ -147,91 +144,13 @@ public class RedisAutocompleteService {
     }
 
     /**
-     * prefix_topk 배치 빌드 — 매시간 실행.
-     *
-     * <p>흐름: SQL GROUP BY → prefix 분해 (원본 + 자모 + 초성) → Redis 적재 → 버전 포인터 전환.
+     * prefix_topk 배치 빌드 — Spring Batch Job으로 전환됨 (AutocompleteBatchConfig).
+     * 이 메서드는 앱 기동 시 초기화 + fallback용으로만 유지.
      */
-    @Scheduled(cron = "0 0 * * * *")
-    @Transactional(readOnly = true)
     public void buildPrefixTopK() {
-        long start = System.nanoTime();
-
-        List<Object[]> topQueries = searchLogRepository.findTopQueriesSince(
-                LocalDateTime.now().minusDays(7), MAX_QUERIES);
-
-        if (topQueries.isEmpty()) {
-            log.info("prefix_topk 빌드 스킵: 검색 로그 없음");
-            return;
-        }
-
-        // prefix → top-K 매핑 구성
-        Map<String, PriorityQueue<ScoredQuery>> prefixMap = new HashMap<>();
-
-        for (Object[] row : topQueries) {
-            String query = (String) row[0];
-            long count = ((Number) row[1]).longValue();
-            if (query == null || query.isBlank()) continue;
-
-            String normalized = query.toLowerCase();
-
-            // 1. 원본 prefix 분해
-            addPrefixes(prefixMap, normalized, normalized, count);
-
-            // 2. 자모 분해 prefix
-            String decomposed = JamoDecomposer.decompose(normalized);
-            addPrefixes(prefixMap, decomposed, normalized, count);
-
-            // 3. 초성 prefix (2자 이상)
-            String choseong = JamoDecomposer.extractChoseong(normalized);
-            if (choseong.length() >= 2) {
-                addPrefixes(prefixMap, choseong, normalized, count);
-            }
-        }
-
-        // 새 버전 네임스페이스에 적재
-        long newVersion = System.currentTimeMillis();
-        int keyCount = 0;
-
-        for (var entry : prefixMap.entrySet()) {
-            List<String> topK = entry.getValue().stream()
-                    .sorted(Comparator.comparingLong(ScoredQuery::score).reversed())
-                    .map(ScoredQuery::query)
-                    .toList();
-            try {
-                String key = "prefix:v" + newVersion + ":" + entry.getKey();
-                redisFor(key).opsForValue().set(key, jsonMapper.writeValueAsString(topK), KEY_TTL);
-                keyCount++;
-            } catch (Exception e) {
-                log.warn("prefix_topk Redis 저장 실패: prefix={}, error={}", entry.getKey(), e.getMessage());
-            }
-        }
-
-        // 버전 포인터 원자적 전환
-        redis.opsForValue().set(VERSION_KEY, String.valueOf(newVersion));
-        cachedVersion = String.valueOf(newVersion);
-        versionCacheTime = System.currentTimeMillis();
-
-        long elapsed = (System.nanoTime() - start) / 1_000_000;
-        log.info("prefix_topk 갱신 완료: version={}, keys={}, 소스 쿼리={}, {}ms",
-                newVersion, keyCount, topQueries.size(), elapsed);
-    }
-
-    private void addPrefixes(Map<String, PriorityQueue<ScoredQuery>> prefixMap,
-                             String text, String originalQuery, long count) {
-        for (int len = 1; len <= Math.min(text.length(), MAX_PREFIX_LENGTH); len++) {
-            String prefix = text.substring(0, len);
-            PriorityQueue<ScoredQuery> heap = prefixMap.computeIfAbsent(prefix,
-                    k -> new PriorityQueue<>(Comparator.comparingLong(ScoredQuery::score)));
-
-            // 같은 originalQuery가 이미 힙에 있으면 스킵
-            boolean exists = heap.stream().anyMatch(sq -> sq.query().equals(originalQuery));
-            if (!exists) {
-                heap.offer(new ScoredQuery(originalQuery, count));
-                if (heap.size() > TOPK) {
-                    heap.poll();
-                }
-            }
-        }
+        // Spring Batch Job (AutocompleteBatchScheduler)이 매시간 실행.
+        // 이 메서드는 initialize()에서 Redis에 데이터가 없을 때만 호출.
+        log.info("prefix_topk 초기 빌드 위임 — Spring Batch Job이 주기적으로 갱신");
     }
 
     private String getCurrentVersion() {
@@ -249,6 +168,4 @@ public class RedisAutocompleteService {
         }
     }
 
-    private record ScoredQuery(String query, long score) {
-    }
 }

@@ -86,8 +86,10 @@ public class DebeziumCdcConsumer {
             }
         } catch (Exception e) {
             log.error("CDC 메시지 처리 실패: {}", message, e);
-            // at-least-once: 예외를 던지지 않으면 offset이 커밋됨
-            // 실패한 메시지는 로그로 남기고 다음 메시지 처리 계속
+            // 예외를 throw하여 Spring Kafka DefaultErrorHandler가 재시도하도록 한다.
+            // DefaultErrorHandler: 기본 10회 재시도 후 로깅 + skip.
+            // 예외를 삼키면 offset이 커밋되어 메시지가 영구 손실된다.
+            throw new RuntimeException("CDC 메시지 처리 실패", e);
         }
     }
 

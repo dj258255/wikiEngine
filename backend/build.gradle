@@ -37,6 +37,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'     // JPA, Hibernate
     implementation 'org.springframework.boot:spring-boot-starter-validation'   // Bean Validation (@NotBlank, @Size 등)
     implementation 'org.springframework.boot:spring-boot-starter-security'     // Spring Security (JWT 인증용)
+    implementation 'org.springframework.boot:spring-boot-starter-batch'       // Spring Batch (자동완성 prefix_topk 배치 빌드)
 
     // Spring Modulith: 모듈 간 의존성 관리 및 검증
     implementation 'org.springframework.modulith:spring-modulith-starter-core'
@@ -63,8 +64,8 @@ dependencies {
     implementation 'org.apache.lucene:lucene-suggest:10.3.2'      // Phase 18: DirectSpellChecker (오타 교정)
     implementation 'org.apache.lucene:lucene-facet:10.3.2'        // Phase 19.2: Faceted Search (카테고리별 건수 집계)
 
-    // Phase 19: LTR — ONNX Runtime for XGBoost LambdaMART inference (ARM64 지원)
-    implementation 'com.microsoft.onnxruntime:onnxruntime:1.21.0'
+    // Phase 19: LTR — XGBoost4J for LambdaMART inference (ARM64 native lib 번들)
+    implementation 'ml.dmlc:xgboost4j_2.12:2.1.4'
 
     // Spring Cache + Caffeine: @Cacheable/@CacheEvict 추상화 + Caffeine 로컬 캐시
     implementation 'org.springframework.boot:spring-boot-starter-cache'

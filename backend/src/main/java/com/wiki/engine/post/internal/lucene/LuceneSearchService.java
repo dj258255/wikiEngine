@@ -60,6 +60,47 @@ public class LuceneSearchService {
     private final LTRFeatureExtractor ltrFeatureExtractor;
 
     /**
+     * SortedSetDocValuesReaderState 캐싱 — SearcherManager.RefreshListener로 reader 갱신 시 재생성.
+     *
+     * <p>DefaultSortedSetDocValuesReaderState 구축 비용이 높으므로(per-segment ordinal map 계산),
+     * 검색 경로에서 생성하지 않고 RefreshListener.afterRefresh()에서 미리 생성하여 volatile에 저장.
+     * 검색 경로에서는 lock 없이 volatile read만 수행 → lock contention 제거.
+     *
+     * <p>현업 근거: Lucene 공식 Javadoc — "create it once and re-use for a given IndexReader".
+     * Mike McCandless LUCENE-7905: OrdinalMap 빌드 비용 26.6M terms에 ~106초.
+     */
+    private volatile SortedSetDocValuesReaderState cachedFacetState;
+
+    /**
+     * SearcherManager에 RefreshListener를 등록하여,
+     * IndexReader가 갱신될 때 FacetState를 미리 재생성한다.
+     */
+    @jakarta.annotation.PostConstruct
+    void registerFacetStateRefreshListener() {
+        searcherManager.addListener(new ReferenceManager.RefreshListener() {
+            @Override
+            public void beforeRefresh() {}
+
+            @Override
+            public void afterRefresh(boolean didRefresh) {
+                if (didRefresh) {
+                    try {
+                        IndexSearcher searcher = searcherManager.acquire();
+                        try {
+                            cachedFacetState = new DefaultSortedSetDocValuesReaderState(
+                                    searcher.getIndexReader(), facetsConfig);
+                        } finally {
+                            searcherManager.release(searcher);
+                        }
+                    } catch (Exception e) {
+                        log.debug("FacetState 사전 빌드 실패 (재색인 전일 수 있음): {}", e.getMessage());
+                    }
+                }
+            }
+        });
+    }
+
+    /**
      * 검색 결과 + snippet + Facet 정보를 함께 담는 record.
      * postId → highlightedSnippet 매핑으로 UnifiedHighlighter 결과를 전달.
      * categoryFacets: 카테고리명 → 매칭 건수 (전체 매칭 문서 기준, 페이징 무관).
@@ -85,7 +126,14 @@ public class LuceneSearchService {
             int fetchSize = ltrRescorer.isEnabled() && ltrRescorer.isModelLoaded()
                     ? Math.max(ltrRescorer.getRescoreWindow(), offset + limit + 1)
                     : offset + limit + 1;
-            TopDocs topDocs = searcher.search(query, fetchSize);
+
+            // TopDocs + FacetsCollector를 단일 패스로 수집 (이전: searcher.search 2회 → 1회)
+            // MultiCollectorManager로 동일 쿼리의 이중 검색을 제거하여 I/O 절감.
+            var topDocsManager = new TopScoreDocCollectorManager(fetchSize, null, fetchSize);
+            var facetsManager = new FacetsCollectorManager();
+            var multiResult = searcher.search(query, new MultiCollectorManager(topDocsManager, facetsManager));
+            TopDocs topDocs = (TopDocs) multiResult[0];
+            FacetsCollector facetsCollector = (FacetsCollector) multiResult[1];
 
             // Phase 19 LTR: BM25 Top-N → LTR Rescore → Top-K
             ScoreDoc[] finalDocs;
@@ -98,7 +146,6 @@ public class LuceneSearchService {
             }
 
             // Phase 19.2: 카테고리 Facet 집계 (전체 매칭 문서 대상, 페이징 무관)
-            FacetsCollector facetsCollector = searcher.search(query, new FacetsCollectorManager());
             Map<String, Long> categoryFacets = collectCategoryFacets(searcher, facetsCollector);
 
             // offset 이후의 결과에서 ID + snippet 추출 (limit개까지만)
@@ -442,8 +489,7 @@ public class LuceneSearchService {
     private Map<String, Long> collectCategoryFacets(IndexSearcher searcher, FacetsCollector fc) {
         Map<String, Long> result = new LinkedHashMap<>();
         try {
-            SortedSetDocValuesReaderState state = new DefaultSortedSetDocValuesReaderState(
-                    searcher.getIndexReader(), facetsConfig);
+            SortedSetDocValuesReaderState state = getOrCreateFacetState(searcher);
             Facets facets = new SortedSetDocValuesFacetCounts(state, fc);
             FacetResult facetResult = facets.getTopChildren(30, "category");
             if (facetResult != null) {
@@ -456,6 +502,21 @@ public class LuceneSearchService {
             log.debug("카테고리 Facet 집계 실패 (재색인 전일 수 있음): {}", e.getMessage());
         }
         return result;
+    }
+
+    /**
+     * 캐싱된 FacetState를 반환한다. RefreshListener가 reader 갱신 시 미리 빌드.
+     * 아직 빌드 안 됐으면 (앱 기동 직후) 여기서 fallback 생성.
+     */
+    private SortedSetDocValuesReaderState getOrCreateFacetState(IndexSearcher searcher) throws IOException {
+        SortedSetDocValuesReaderState state = cachedFacetState;
+        if (state != null) {
+            return state;
+        }
+        // fallback: RefreshListener가 아직 호출 안 된 경우 (앱 기동 직후)
+        state = new DefaultSortedSetDocValuesReaderState(searcher.getIndexReader(), facetsConfig);
+        cachedFacetState = state;
+        return state;
     }
 
     /**
