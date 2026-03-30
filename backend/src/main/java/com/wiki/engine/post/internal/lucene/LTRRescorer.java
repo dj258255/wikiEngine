@@ -83,6 +83,9 @@ public class LTRRescorer {
         }
 
         int docsToRescore = Math.min(rescoreWindow, firstPassTopDocs.scoreDocs.length);
+        if (docsToRescore == 0) {
+            return new ScoreDoc[0];
+        }
         ScoreDoc[] docs = Arrays.copyOf(firstPassTopDocs.scoreDocs, docsToRescore);
 
         // 피처 추출
