@@ -75,7 +75,7 @@ public class LTRDataGenerationService {
             Respond with ONLY a JSON object: {"reasoning": "brief explanation", "score": N}
             """;
 
-    private static final int JUDGE_ROUNDS = 3;
+    private static final int JUDGE_ROUNDS = 1;  // 테스트: RPD 500 제한 대응. 본실행 시 3으로 변경
     private static final long ROUND_DELAY_MS = 5_000;       // 15 RPM 대응: 분당 12 요청
     private static final int MAX_RETRIES = 2;                // 라운드당 최대 2회 재시도
     private static final long RETRY_BASE_DELAY_MS = 10_000;  // 재시도 백오프: 10초 → 20초
