@@ -1,0 +1,15 @@
+feature,name,importance
+f7,titleLength,1.0119678974151611
+f6,tagOverlap,0.8936642408370972
+f0,bm25Title,0.7940926551818848
+f12,categoryId,0.6678882837295532
+f8,contentLength,0.6137860417366028
+f2,bm25Snippet,0.5760140419006348
+f1,bm25Content,0.5729579329490662
+f9,freshnessDays,0.5594599843025208
+f3,queryTermCoverageTitle,0.0
+f4,queryTermCoverageContent,0.0
+f5,exactTitleMatch,0.0
+f10,viewCount,0.0
+f11,likeCount,0.0
+f13,queryLength,0.0
