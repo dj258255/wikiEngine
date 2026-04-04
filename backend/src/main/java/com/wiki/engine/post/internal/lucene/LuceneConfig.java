@@ -4,7 +4,11 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.ko.KoreanAnalyzer;
 import org.apache.lucene.analysis.ko.KoreanPartOfSpeechStopFilter;
 import org.apache.lucene.analysis.ko.KoreanTokenizer;
+import org.apache.lucene.analysis.ko.POS;
 import org.apache.lucene.analysis.ko.dict.UserDictionary;
+
+import java.util.EnumSet;
+import java.util.Set;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -53,13 +57,28 @@ class LuceneConfig {
         return MMapDirectory.open(path);
     }
 
+    /**
+     * IC(감탄사)를 stop tags에서 제거한 커스텀 Nori 분석기.
+     *
+     * DEFAULT_STOP_TAGS에 IC가 포함되어 있으면, standalone '안녕'이
+     * IC로 태깅 → 필터링 → 빈 쿼리 → 0건이 되는 문제가 발생한다.
+     * 같은 '안녕'이 '안녕하세요'에서는 NNG(명사)로 태깅되어 정상 인덱싱되므로,
+     * 인덱스에는 존재하지만 검색이 안 되는 비대칭 현상이 생긴다.
+     *
+     * IC 제거 시 '아', '와' 같은 노이즈 감탄사도 인덱싱되지만,
+     * BM25 IDF가 고빈도 토큰의 가중치를 자연 감쇄시키므로 랭킹 영향은 무시할 수 있다.
+     */
     @Bean
     Analyzer luceneAnalyzer() {
         UserDictionary userDict = loadUserDictionary();
+
+        Set<POS.Tag> stopTags = EnumSet.copyOf(KoreanPartOfSpeechStopFilter.DEFAULT_STOP_TAGS);
+        stopTags.remove(POS.Tag.IC);
+
         return new KoreanAnalyzer(
                 userDict,
                 KoreanTokenizer.DEFAULT_DECOMPOUND,
-                KoreanPartOfSpeechStopFilter.DEFAULT_STOP_TAGS,
+                stopTags,
                 false
         );
     }
