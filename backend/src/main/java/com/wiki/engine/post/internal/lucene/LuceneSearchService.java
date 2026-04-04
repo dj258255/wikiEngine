@@ -249,10 +249,16 @@ public class LuceneSearchService {
                 } catch (org.apache.lucene.queryparser.classic.ParseException e) {
                     return List.of();
                 }
-            } else {
-                // 단일 단어/자모 ("자바", "자ㅂ") → title_jamo PrefixQuery (네이버/구글 패턴)
+            } else if (com.wiki.engine.post.internal.autocomplete.JamoDecomposer.containsJamo(normalized)) {
+                // 자모 포함 ("자ㅂ", "ㅅㅅ") → title_jamo PrefixQuery
                 String decomposed = com.wiki.engine.post.internal.autocomplete.JamoDecomposer.decompose(normalized);
                 query = new PrefixQuery(new Term("title_jamo", decomposed));
+            } else {
+                // 완성된 한글/영어 ("황치열", "java") → title_raw PrefixQuery
+                // title_raw는 원본 제목 lowercase — StringField PrefixQuery로 직접 매칭
+                // title_jamo에서 완성 한글을 자모 분해하면 prefix 매칭 범위가 너무 넓어
+                // BooleanQuery.maxClauseCount를 초과할 수 있음
+                query = new PrefixQuery(new Term("title_raw", normalized));
             }
 
             TopDocs topDocs = searcher.search(query, limit);
