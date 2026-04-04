@@ -362,6 +362,7 @@ function SearchPageContent() {
               />
               <button
                 type="submit"
+                aria-label="검색"
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-blue-500 p-2 text-white transition-colors hover:bg-blue-600"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
@@ -489,7 +490,7 @@ function SearchPageContent() {
                     </svg>
                   </button>
                   {aiFeedback && (
-                    <span className="text-xs text-zinc-400">피드백 감사합니다!</span>
+                    <span className="text-xs text-zinc-500">피드백 감사합니다!</span>
                   )}
                 </div>
               </div>
@@ -571,7 +572,7 @@ function SearchPageContent() {
                         {result.snippet}
                       </p>
                     )}
-                    <div className="mt-1.5 flex items-center gap-4 text-xs text-zinc-400 dark:text-zinc-500">
+                    <div className="mt-1.5 flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
                       <span className="flex items-center gap-1">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-3.5 w-3.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />

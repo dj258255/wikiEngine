@@ -22,7 +22,6 @@ interface SliceData {
   content: PostSummary[];
   number: number;
   size: number;
-  hasNext: boolean;
   first: boolean;
   last: boolean;
 }
@@ -117,7 +116,7 @@ function PostListContent() {
                         >
                           {post.title}
                         </Link>
-                        <div className="mt-1 flex items-center gap-3 text-xs text-zinc-400 sm:hidden dark:text-zinc-500">
+                        <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500 sm:hidden dark:text-zinc-400">
                           <span>조회 {(post.viewCount ?? 0).toLocaleString()}</span>
                           <span>좋아요 {(post.likeCount ?? 0).toLocaleString()}</span>
                           <span>{formatDate(post.createdAt)}</span>
@@ -153,7 +152,7 @@ function PostListContent() {
                 </span>
                 <button
                   onClick={() => goToPage(page + 1)}
-                  disabled={!sliceData.hasNext}
+                  disabled={sliceData.last}
                   className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 >
                   다음

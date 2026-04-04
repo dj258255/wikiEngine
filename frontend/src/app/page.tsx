@@ -136,7 +136,7 @@ export default function Home() {
         <h1 className="text-4xl font-bold text-zinc-900 dark:text-zinc-100">
           위키 검색
         </h1>
-        <div className="flex flex-col items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
+        <div className="flex flex-col items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
           <p>위키피디아(한/영) + 나무위키 — 총 1,425만 건</p>
         </div>
         <form onSubmit={handleSearch} className="relative w-full min-w-[600px] max-w-4xl px-4">
@@ -158,6 +158,7 @@ export default function Home() {
             />
             <button
               type="submit"
+              aria-label="검색"
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-blue-500 p-3 text-white transition-colors hover:bg-blue-600"
             >
               <svg
