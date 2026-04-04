@@ -101,7 +101,9 @@ public class LuceneIndexService {
     private static final int COMMIT_INTERVAL = 1_000_000;
     private static final int LOG_INTERVAL = 100_000;
     private static final double BULK_RAM_BUFFER_MB = 512.0;
-    private static final int INDEX_THREADS = Runtime.getRuntime().availableProcessors();
+    private static final int INDEX_THREADS = Math.max(1,
+            Integer.parseInt(System.getenv().getOrDefault("INDEX_THREADS",
+                    String.valueOf(Runtime.getRuntime().availableProcessors()))));
     private static final List<Post> POISON_PILL = List.of();
 
     /**
@@ -174,8 +176,10 @@ public class LuceneIndexService {
 
         // Consumer: 큐에서 배치를 꺼내 멀티스레드로 Lucene에 인덱싱
         // IndexWriter.addDocument()는 thread-safe — 스레드별 DocumentsWriterPerThread로 병렬 분석
-        log.info("인덱싱: Virtual Thread (available processors={})", INDEX_THREADS);
+        // Semaphore로 동시 실행 스레드를 INDEX_THREADS로 제한 (CPU 과부하 방지)
+        log.info("인덱싱: Virtual Thread (INDEX_THREADS={})", INDEX_THREADS);
         ExecutorService indexPool = Executors.newVirtualThreadPerTaskExecutor();
+        var semaphore = new java.util.concurrent.Semaphore(INDEX_THREADS);
         var totalIndexed = new AtomicLong(0);
         var skipped = new AtomicLong(0);
         long lastCommitCount = 0;
@@ -198,15 +202,19 @@ public class LuceneIndexService {
             for (Post post : batch) {
                 indexPool.submit(() -> {
                     try {
+                        semaphore.acquire();
                         if (post.getContent() == null || post.getContent().isBlank()) {
                             skipped.incrementAndGet();
                             return;
                         }
                         indexWriter.addDocument(facetsConfig.build(toDocument(post)));
                         totalIndexed.incrementAndGet();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                     } catch (IOException e) {
                         log.error("인덱싱 실패: postId={}", post.getId(), e);
                     } finally {
+                        semaphore.release();
                         latch.countDown();
                     }
                 });
