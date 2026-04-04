@@ -417,6 +417,15 @@ public class LuceneSearchService {
 
         // 원래 키워드를 토큰화하여 동의어 확장
         List<String> tokens = tokenize(keyword);
+
+        // 토큰 전멸 폴백: Nori가 모든 토큰을 stop filter로 제거한 경우
+        // (예: 미지의 품사 태깅 엣지 케이스)
+        // title 필드의 term dictionary에서 prefix 매칭으로 결과를 반환한다.
+        if (tokens.isEmpty()) {
+            log.info("토큰 전멸 폴백 적용: keyword={}", keyword);
+            return new PrefixQuery(new Term("title", keyword));
+        }
+
         List<QueryExpansionService.ExpandedTerm> expanded = queryExpansionService.expand(tokens);
 
         // 동의어가 없으면 (원래 term만) 기존 방식
