@@ -386,13 +386,11 @@ public class LuceneSearchService {
         Query ngramQuery = buildNgramBoost(keyword);
 
         // 3. dis_max: 형태소 OR n-gram 중 높은 점수 채택
-        // 기존: textQuery(MUST) + ngram(SHOULD) → MUST에서 탈락하면 ngram이 구제 불가
-        // 수정: dis_max로 둘 중 하나만 매칭되면 통과 → 불완전 입력도 n-gram으로 커버
+        // textQuery 내부에 이미 title^3 boost가 있으므로, dis_max에서는 1.0으로 유지.
+        // 추가 boost를 걸면 title 매칭이 과도하게 높아져 n-gram 결과가 묻힌다.
+        // (기존 3.0 → "하세" 완전 일치가 "안녕하세요" n-gram을 압도하던 원인)
         Query textOrNgram = new DisjunctionMaxQuery(
-                List.of(
-                        new BoostQuery(textQuery, 3.0f),
-                        new BoostQuery(ngramQuery, 1.0f)
-                ),
+                List.of(textQuery, ngramQuery),
                 0.3f
         );
 
