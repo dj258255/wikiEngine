@@ -273,6 +273,11 @@ public class LuceneIndexService {
         doc.add(new TextField("title", post.getTitle(), Field.Store.YES));
         doc.add(new TextField("content", post.getContent(), Field.Store.NO));
 
+        // N-gram 필드 — 형태소 분석 우회, 문자 시퀀스 직접 매칭
+        // "안녕하세" 검색 시 Nori가 불완전 입력을 비표준 토큰화하는 문제를 보완한다.
+        // PerFieldAnalyzerWrapper가 이 필드에 NGramAnalyzer(2-3gram)를 자동 적용.
+        doc.add(new TextField("title_ngram", post.getTitle(), Field.Store.NO));
+
         // 자동완성용 untokenized 필드 (Nori 분석 없이 raw prefix 매칭)
         // "성매" → PrefixQuery → "성매매" 매칭. Nori-analyzed title 필드로는 불가.
         doc.add(new StringField("title_raw", post.getTitle().toLowerCase(), Field.Store.NO));
