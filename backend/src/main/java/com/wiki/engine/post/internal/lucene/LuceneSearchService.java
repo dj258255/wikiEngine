@@ -383,9 +383,15 @@ public class LuceneSearchService {
         // 3. 최신성 감쇠 (exponential decay, 반감기 30일)
         Query recencyBoost = buildRecencyBoost(5.0f, 30);
 
-        // 4. MUST(텍스트) + SHOULD(인기도 + 최신성) + FILTER(카테고리)
+        // 4. N-gram 부스트 — 형태소 분석 우회, 문자 시퀀스 직접 매칭
+        // Nori가 불완전 입력("안녕하세")을 비표준 토큰화할 때,
+        // n-gram 오버랩이 높은 문서("안녕하세요")를 상위로 끌어올린다.
+        Query ngramBoost = buildNgramBoost(keyword);
+
+        // 5. MUST(텍스트) + SHOULD(n-gram + 인기도 + 최신성) + FILTER(카테고리)
         BooleanQuery.Builder builder = new BooleanQuery.Builder()
                 .add(textQuery, BooleanClause.Occur.MUST)
+                .add(new BoostQuery(ngramBoost, 0.3f), BooleanClause.Occur.SHOULD)
                 .add(viewBoost, BooleanClause.Occur.SHOULD)
                 .add(likeBoost, BooleanClause.Occur.SHOULD)
                 .add(recencyBoost, BooleanClause.Occur.SHOULD);
@@ -476,6 +482,44 @@ public class LuceneSearchService {
             tokens.add(text); // fallback: 원본 그대로
         }
         return tokens;
+    }
+
+    /**
+     * N-gram 부스트 쿼리.
+     * PerFieldAnalyzerWrapper의 title_ngram 분석기(2-3gram)로 키워드를 토큰화하여
+     * title_ngram 필드에서 문자 시퀀스 매칭.
+     *
+     * "안녕하세" → ngrams: ["안녕","녕하","하세","안녕하","녕하세"]
+     * "안녕하세요" 문서의 title_ngram: ["안녕","녕하","하세","세요","안녕하","녕하세","하세요"]
+     * → 오버랩 5/5 (높은 점수)
+     *
+     * "하세" 문서의 title_ngram: ["하세"]
+     * → 오버랩 1/5 (낮은 점수)
+     */
+    private Query buildNgramBoost(String keyword) {
+        List<String> ngrams = new ArrayList<>();
+        try (var stream = analyzer.tokenStream("title_ngram", keyword)) {
+            var termAttr = stream.addAttribute(
+                    org.apache.lucene.analysis.tokenattributes.CharTermAttribute.class);
+            stream.reset();
+            while (stream.incrementToken()) {
+                ngrams.add(termAttr.toString());
+            }
+            stream.end();
+        } catch (IOException e) {
+            log.warn("N-gram 토큰화 실패: keyword={}", keyword);
+        }
+
+        if (ngrams.isEmpty()) {
+            return new MatchAllDocsQuery(); // 부스트 없음과 동일
+        }
+
+        BooleanQuery.Builder builder = new BooleanQuery.Builder();
+        for (String ngram : ngrams) {
+            builder.add(new TermQuery(new Term("title_ngram", ngram)),
+                    BooleanClause.Occur.SHOULD);
+        }
+        return builder.build();
     }
 
     /**

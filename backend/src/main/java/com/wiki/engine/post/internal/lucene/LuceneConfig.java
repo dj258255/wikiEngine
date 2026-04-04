@@ -1,13 +1,19 @@
 package com.wiki.engine.post.internal.lucene;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.LowerCaseFilter;
+import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.ko.KoreanAnalyzer;
 import org.apache.lucene.analysis.ko.KoreanPartOfSpeechStopFilter;
 import org.apache.lucene.analysis.ko.KoreanTokenizer;
 import org.apache.lucene.analysis.ko.POS;
 import org.apache.lucene.analysis.ko.dict.UserDictionary;
+import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
+import org.apache.lucene.analysis.ngram.NGramTokenFilter;
+import org.apache.lucene.analysis.standard.StandardTokenizer;
 
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Set;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
@@ -58,29 +64,51 @@ class LuceneConfig {
     }
 
     /**
-     * IC(감탄사)를 stop tags에서 제거한 커스텀 Nori 분석기.
+     * PerFieldAnalyzerWrapper: 필드별 분석기 분리.
      *
-     * DEFAULT_STOP_TAGS에 IC가 포함되어 있으면, standalone '안녕'이
-     * IC로 태깅 → 필터링 → 빈 쿼리 → 0건이 되는 문제가 발생한다.
-     * 같은 '안녕'이 '안녕하세요'에서는 NNG(명사)로 태깅되어 정상 인덱싱되므로,
-     * 인덱스에는 존재하지만 검색이 안 되는 비대칭 현상이 생긴다.
+     * - 기본(title, content 등): Nori 한국어 형태소 분석기 (IC 제거)
+     * - title_ngram: 2-3gram 문자 단위 분석기 (형태소 분석 우회)
      *
-     * IC 제거 시 '아', '와' 같은 노이즈 감탄사도 인덱싱되지만,
-     * BM25 IDF가 고빈도 토큰의 가중치를 자연 감쇄시키므로 랭킹 영향은 무시할 수 있다.
+     * Nori가 불완전한 입력("안녕하세")을 비표준적으로 토큰화하는 문제를
+     * N-gram 필드로 보완한다. 검색 시 Nori 매칭(MUST) + N-gram 부스트(SHOULD)를
+     * 결합하면, "안녕하세요" 문서가 n-gram 오버랩 점수로 "하세" 문서보다 상위에 노출된다.
+     *
+     * PerFieldAnalyzerWrapper 덕분에 analyzer.tokenStream("title_ngram", text)로
+     * 호출하면 자동으로 NGram 분석기가 적용된다.
      */
     @Bean
     Analyzer luceneAnalyzer() {
-        UserDictionary userDict = loadUserDictionary();
+        Analyzer noriAnalyzer = createNoriAnalyzer();
+        Analyzer ngramAnalyzer = createNgramAnalyzer();
+        return new PerFieldAnalyzerWrapper(noriAnalyzer, Map.of("title_ngram", ngramAnalyzer));
+    }
 
+    /**
+     * IC(감탄사)를 stop tags에서 제거한 Nori 분석기.
+     * standalone '안녕'이 IC로 태깅 → 필터링 → 빈 쿼리가 되는 문제를 방지한다.
+     */
+    private Analyzer createNoriAnalyzer() {
+        UserDictionary userDict = loadUserDictionary();
         Set<POS.Tag> stopTags = EnumSet.copyOf(KoreanPartOfSpeechStopFilter.DEFAULT_STOP_TAGS);
         stopTags.remove(POS.Tag.IC);
+        return new KoreanAnalyzer(userDict, KoreanTokenizer.DEFAULT_DECOMPOUND, stopTags, false);
+    }
 
-        return new KoreanAnalyzer(
-                userDict,
-                KoreanTokenizer.DEFAULT_DECOMPOUND,
-                stopTags,
-                false
-        );
+    /**
+     * 2-3gram 문자 단위 분석기.
+     * "안녕하세요" → ["안녕", "녕하", "하세", "세요", "안녕하", "녕하세", "하세요"]
+     * 형태소 분석 없이 문자 시퀀스를 직접 매칭하므로, 불완전 입력이나 OOV에 강하다.
+     */
+    private Analyzer createNgramAnalyzer() {
+        return new Analyzer() {
+            @Override
+            protected TokenStreamComponents createComponents(String fieldName) {
+                StandardTokenizer tokenizer = new StandardTokenizer();
+                TokenStream filter = new LowerCaseFilter(tokenizer);
+                filter = new NGramTokenFilter(filter, 2, 3, false);
+                return new TokenStreamComponents(tokenizer, filter);
+            }
+        };
     }
 
     private UserDictionary loadUserDictionary() {
