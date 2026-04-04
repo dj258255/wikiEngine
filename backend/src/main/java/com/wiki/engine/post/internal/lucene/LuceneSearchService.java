@@ -367,31 +367,45 @@ public class LuceneSearchService {
     /**
      * BM25 텍스트 관련성 + 인기도(viewCount, likeCount) + 최신성(recency decay)을 결합한 쿼리.
      *
-     * final_score = BM25(title^3, content^1)          // MUST: 텍스트 관련성
+     * final_score = dis_max(BM25(title^3, content^1), ngram(title_ngram))  // MUST: 텍스트 OR n-gram
      *             + satu(viewCount, w=3.0, pivot=1000) // SHOULD: 조회수 부스트
      *             + satu(likeCount, w=2.0, pivot=100)  // SHOULD: 좋아요 부스트
      *             + recencyBoost(createdAt)             // SHOULD: 최신성 감쇠
+     *
+     * dis_max: 형태소 분석 쿼리와 n-gram 쿼리 중 높은 점수를 채택한다.
+     * 형태소가 정상 동작하면 형태소 점수가 높고(boost=3.0),
+     * 불완전 입력("안녕하세")으로 형태소가 실패하면 n-gram이 fallback 역할.
+     * tie_breaker=0.3으로 양쪽 모두 매칭 시 소폭 보너스.
+     * (Elastic 공식 CJK 검색 가이드 권장 패턴)
      */
     private Query buildQuery(String keyword, Long categoryId) throws ParseException {
         // 1. BM25 텍스트 관련성 쿼리 + 동의어 확장
         Query textQuery = buildTextQueryWithSynonyms(keyword);
 
-        // 2. 인기도 부스트 (FeatureField saturation — BlockMaxWAND 호환)
+        // 2. N-gram 쿼리 — 형태소 분석 우회, 문자 시퀀스 직접 매칭
+        Query ngramQuery = buildNgramBoost(keyword);
+
+        // 3. dis_max: 형태소 OR n-gram 중 높은 점수 채택
+        // 기존: textQuery(MUST) + ngram(SHOULD) → MUST에서 탈락하면 ngram이 구제 불가
+        // 수정: dis_max로 둘 중 하나만 매칭되면 통과 → 불완전 입력도 n-gram으로 커버
+        Query textOrNgram = new DisjunctionMaxQuery(
+                List.of(
+                        new BoostQuery(textQuery, 3.0f),
+                        new BoostQuery(ngramQuery, 1.0f)
+                ),
+                0.3f
+        );
+
+        // 4. 인기도 부스트 (FeatureField saturation — BlockMaxWAND 호환)
         Query viewBoost = FeatureField.newSaturationQuery("features", "viewCount", 3.0f, 1000);
         Query likeBoost = FeatureField.newSaturationQuery("features", "likeCount", 2.0f, 100);
 
-        // 3. 최신성 감쇠 (exponential decay, 반감기 30일)
+        // 5. 최신성 감쇠 (exponential decay, 반감기 30일)
         Query recencyBoost = buildRecencyBoost(5.0f, 30);
 
-        // 4. N-gram 부스트 — 형태소 분석 우회, 문자 시퀀스 직접 매칭
-        // Nori가 불완전 입력("안녕하세")을 비표준 토큰화할 때,
-        // n-gram 오버랩이 높은 문서("안녕하세요")를 상위로 끌어올린다.
-        Query ngramBoost = buildNgramBoost(keyword);
-
-        // 5. MUST(텍스트) + SHOULD(n-gram + 인기도 + 최신성) + FILTER(카테고리)
+        // 6. MUST(dis_max) + SHOULD(인기도 + 최신성) + FILTER(카테고리)
         BooleanQuery.Builder builder = new BooleanQuery.Builder()
-                .add(textQuery, BooleanClause.Occur.MUST)
-                .add(new BoostQuery(ngramBoost, 0.3f), BooleanClause.Occur.SHOULD)
+                .add(textOrNgram, BooleanClause.Occur.MUST)
                 .add(viewBoost, BooleanClause.Occur.SHOULD)
                 .add(likeBoost, BooleanClause.Occur.SHOULD)
                 .add(recencyBoost, BooleanClause.Occur.SHOULD);
