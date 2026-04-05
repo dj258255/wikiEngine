@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 /**
  * AI 요약 피드백 저장 + Micrometer 메트릭 노출 서비스.
  *
- * 피드백 데이터 활용 (현업 패턴):
+ * 피드백 데이터 활용:
  * 1. 프롬프트 개선 — thumbs_down 많은 쿼리 패턴 분석
  * 2. 품질 모니터링 — Grafana 대시보드에서 thumbs_up_rate 추이 추적
  * 3. A/B 테스트 — prompt_version별 피드백 비교

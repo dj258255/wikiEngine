@@ -1,4 +1,4 @@
-package com.wiki.engine.config;
+package com.wiki.engine.post.internal.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import io.micrometer.core.instrument.MeterRegistry;

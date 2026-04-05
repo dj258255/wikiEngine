@@ -1,7 +1,6 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import com.wiki.engine.config.TieredCacheService;
 import com.wiki.engine.post.Post;
 import com.wiki.engine.post.PostEvent;
 import org.junit.jupiter.api.DisplayName;

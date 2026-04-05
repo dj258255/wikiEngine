@@ -3,7 +3,7 @@ package com.wiki.engine.post;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
-import com.wiki.engine.config.TieredCacheService;
+import com.wiki.engine.post.internal.cache.TieredCacheService;
 import com.wiki.engine.post.dto.CachedSearchResult;
 import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.post.internal.lucene.LuceneSearchService;

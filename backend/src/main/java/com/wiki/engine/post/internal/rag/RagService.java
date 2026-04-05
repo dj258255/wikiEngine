@@ -23,10 +23,9 @@ import java.util.regex.Pattern;
  * RAG(Retrieval-Augmented Generation) 서비스.
  *
  * BM25 검색 결과(Top-5)를 Gemini 컨텍스트에 주입하여 AI 요약을 생성한다.
- * SSE(Server-Sent Events)로 토큰 단위 스트리밍 — Google AI Overviews, ChatGPT와 동일 패턴.
+ * SSE(Server-Sent Events)로 토큰 단위 스트리밍한다.
  *
  * 캐싱: 동일 쿼리의 AI 요약을 Redis에 TTL 30분으로 캐싱하여 LLM 호출 절감.
- * 현업 기준 동일/유사 쿼리 반복률 30%+ → 캐싱으로 LLM 비용 40-60% 절감 가능.
  */
 @Slf4j
 @Service

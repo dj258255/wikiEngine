@@ -18,7 +18,6 @@ import org.springframework.util.backoff.FixedBackOff;
  * CDC 이벤트는 DB 일시 장애, Lucene I/O 오류 등 일시적 실패가 대부분이므로
  * 재시도로 해결되는 경우가 많다. 10회 후에도 실패하면 DLT로 격리.
  *
- * <p>현업 근거: Confluent 공식 블로그, Uber CDC 파이프라인 — DLQ는 "운영 관찰성 시그널".
  * DLT에 메시지가 쌓이면 알림 → 원인 분석 → 수정 후 재처리.
  */
 @Configuration

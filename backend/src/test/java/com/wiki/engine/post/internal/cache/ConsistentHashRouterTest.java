@@ -1,4 +1,4 @@
-package com.wiki.engine.config;
+package com.wiki.engine.post.internal.cache;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
