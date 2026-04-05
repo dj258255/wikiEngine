@@ -44,6 +44,7 @@ public class PostAdminController {
     private final PostRepository postRepository;
     private final Analyzer analyzer;
     private final LTRFeatureExtractor ltrFeatureExtractor;
+    private final org.apache.lucene.search.SearcherManager searcherManager;
 
     /**
      * 전체 배치 인덱싱 트리거.
@@ -283,6 +284,45 @@ public class PostAdminController {
             stream.end();
         }
         return tokens;
+    }
+
+    /**
+     * title_raw PrefixQuery 디버그용 — 자동완성 Lucene fallback 동작 확인.
+     */
+    @GetMapping("/debug-title-raw")
+    public Map<String, Object> debugTitleRaw(@RequestParam String prefix,
+                                              @RequestParam(defaultValue = "10") int limit) throws IOException {
+        var searcher = searcherManager.acquire();
+        try {
+            var query = new org.apache.lucene.search.PrefixQuery(
+                    new org.apache.lucene.index.Term("title_raw", prefix.toLowerCase()));
+            var topDocs = searcher.search(query, limit);
+            var storedFields = searcher.storedFields();
+            var titles = new java.util.ArrayList<String>();
+            for (var sd : topDocs.scoreDocs) {
+                var doc = storedFields.document(sd.doc);
+                titles.add(doc.get("title"));
+            }
+            // 인덱스 필드 정보
+            var reader = searcher.getIndexReader();
+            var fieldInfos = new java.util.ArrayList<String>();
+            for (var leaf : reader.leaves()) {
+                var fi = leaf.reader().getFieldInfos();
+                var titleRawInfo = fi.fieldInfo("title_raw");
+                fieldInfos.add("segment=" + leaf.reader() +
+                        " title_raw=" + (titleRawInfo != null ? titleRawInfo.getIndexOptions() : "NOT_FOUND") +
+                        " docCount=" + leaf.reader().numDocs());
+            }
+            return Map.of(
+                    "prefix", prefix.toLowerCase(),
+                    "totalHits", topDocs.totalHits.value(),
+                    "titles", titles,
+                    "segments", fieldInfos,
+                    "readerClass", reader.getClass().getSimpleName()
+            );
+        } finally {
+            searcherManager.release(searcher);
+        }
     }
 
     /**
