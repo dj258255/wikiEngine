@@ -110,6 +110,7 @@ public class RedisAutocompleteService {
                 String json = redisFor(key).opsForValue().get(key);
                 if (json != null) {
                     List<?> raw = jsonMapper.readValue(json, List.class);
+                    log.info("자동완성 Redis 히트: prefix='{}', key='{}', results={}", prefix, key, raw.size());
                     return raw.stream()
                             .map(Object::toString)
                             .limit(limit)
@@ -137,7 +138,9 @@ public class RedisAutocompleteService {
 
         // 2. Lucene PrefixQuery fallback
         try {
-            return luceneSearchService.autocomplete(prefix, limit);
+            List<String> fallback = luceneSearchService.autocomplete(prefix, limit);
+            log.info("자동완성 Lucene fallback: prefix='{}', results={}", prefix, fallback.size());
+            return fallback;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
