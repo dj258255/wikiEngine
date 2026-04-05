@@ -24,8 +24,15 @@ public class AutocompleteBatchScheduler {
     private final JobLauncher jobLauncher;
     private final Job autocompleteBuildJob;
 
+    @org.springframework.beans.factory.annotation.Value("${lucene.mode:primary}")
+    private String luceneMode;
+
     @Scheduled(cron = "0 0 * * * *")
     public void runAutocompleteBuildJob() {
+        if (!"primary".equals(luceneMode)) {
+            log.debug("[Batch] replica 모드 — 자동완성 배치 스킵");
+            return;
+        }
         try {
             var params = new JobParametersBuilder()
                     .addLong("timestamp", System.currentTimeMillis())
