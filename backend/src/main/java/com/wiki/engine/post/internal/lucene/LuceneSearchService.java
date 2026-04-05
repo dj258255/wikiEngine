@@ -379,10 +379,10 @@ public class LuceneSearchService {
      *             + recencyBoost(createdAt)             // SHOULD: 최신성 감쇠
      *
      * dis_max: 형태소 분석 쿼리와 n-gram 쿼리 중 높은 점수를 채택한다.
-     * 형태소가 정상 동작하면 형태소 점수가 높고(boost=3.0),
-     * 불완전 입력("안녕하세")으로 형태소가 실패하면 n-gram이 fallback 역할.
-     * tie_breaker=0.3으로 양쪽 모두 매칭 시 소폭 보너스.
-     * (Elastic 공식 CJK 검색 가이드 권장 패턴)
+     * 형태소가 정상 동작하면 내부 title^3 boost로 형태소 점수가 높고,
+     * 불완전 입력("안녕하세")으로 형태소가 실패하면 n-gram(boost=2.0)이 fallback 역할.
+     * tie_breaker=0.1으로 양쪽 모두 매칭 시 소폭 보너스.
+     * (Elastic 공식 CJK 검색 가이드의 형태소+n-gram multi-field 조합 패턴 참고)
      */
     private Query buildQuery(String keyword, Long categoryId) throws ParseException {
         // 1. BM25 텍스트 관련성 쿼리 + 동의어 확장
