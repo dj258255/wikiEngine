@@ -66,8 +66,7 @@ public class LuceneSearchService {
      * 검색 경로에서 생성하지 않고 RefreshListener.afterRefresh()에서 미리 생성하여 volatile에 저장.
      * 검색 경로에서는 lock 없이 volatile read만 수행 → lock contention 제거.
      *
-     * <p>현업 근거: Lucene 공식 Javadoc — "create it once and re-use for a given IndexReader".
-     * Mike McCandless LUCENE-7905: OrdinalMap 빌드 비용 26.6M terms에 ~106초.
+     * <p>OrdinalMap 빌드 비용이 높으므로 IndexReader당 한 번만 생성하여 재사용.
      */
     private volatile SortedSetDocValuesReaderState cachedFacetState;
 

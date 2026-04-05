@@ -15,26 +15,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * LTR 학습 데이터 생성 서비스 — Gemini LLM-as-a-Judge.
  *
- * <p>현업 근거: SIGIR 2023 (Thomas et al.) — LLM의 relevance 판정이
- * crowdsource annotator와 Cohen's Kappa 0.6~0.7로 동등 이상.
- * OpenSource Connections: editorial judgment 100~200 query × 20~50 docs로
- * BM25 대비 NDCG +10~15% 개선 가능.
- *
  * <p>방식: Pointwise + Chain-of-Thought + 4-point scale (0~3).
  * - 0: Irrelevant — 문서가 쿼리와 무관
  * - 1: Marginally relevant — 주제 언급만
  * - 2: Relevant — 부분적 답변
  * - 3: Highly relevant — 직접적이고 완전한 답변
  *
- * <p>현업 대비 설계 판단:
- * - LinkedIn SAGE는 Frontier LLM → 8B Student → Ultra-compact 3단계 distillation을 사용하지만,
- *   본 프로젝트는 학습 데이터 생성 목적이므로 LLM 직접 판정 + 3회 평균으로 충분.
- * - Walmart은 RAG + few-shot으로 단일 호출하지만, 우리는 쿼리당 20건 소규모이므로
- *   3회 호출 평균 반올림이 비용 대비 분산 감소에 최적 (TREC LLMJudge RMIT-IR 팀 방식).
- * - 현업은 Kafka 큐 기반 비동기 파이프라인 (Airbnb: Kafka → Spark → Airflow)이지만,
- *   LTR 데이터 생성은 1회성 배치 작업이고 병목이 Gemini rate limit(15 RPM)이므로
- *   consumer를 늘려도 처리량이 증가하지 않음. CSV append + resume로 crash-safe 내구성 확보.
- *   Kafka는 클릭 로그 기반 재학습(실시간 이벤트 수집)에서 활용 예정.
+ * <p>설계 판단:
+ * - LLM 직접 판정 + 3회 평균으로 학습 데이터 생성.
+ * - 쿼리당 20건 소규모이므로 3회 호출 평균 반올림이 비용 대비 분산 감소에 최적.
+ * - 1회성 배치 작업이고 병목이 Gemini rate limit(15 RPM)이므로
+ *   CSV append + resume로 crash-safe 내구성 확보.
  *
  * <p>Rate limit 대응 (Gemini 무료 티어 15 RPM):
  * - 라운드 간 5초 딜레이 (분당 12 요청 → 15 RPM 이내)
@@ -181,13 +172,10 @@ public class LTRDataGenerationService {
      * Gemini로 (query, document) 쌍의 relevance를 판정한다.
      * 3회 호출 → 평균 → 반올림 (non-deterministic 대응).
      *
-     * <p>현업 근거: TREC LLMJudge 참가팀(RMIT-IR) — 3회 생성 후 평균 반올림.
-     * Graded relevance(0~3)에서는 Majority Voting보다 Averaging이 분산을 줄여 적합.
-     * temperature=0이어도 GPU batch 구성/부동소수점 비결합성으로 완전 deterministic 아님.
-     * 출처: arxiv 2404.18796 (PoLL), arxiv 2412.12509 (Trust LLM Judgments)
+     * <p>Graded relevance(0~3)에서는 Majority Voting보다 Averaging이 분산을 줄여 적합.
+     * temperature=0이어도 완전 deterministic 아님.
      *
-     * <p>실패 시 지수 백오프 재시도 (Google Vertex AI 공식 권장 패턴).
-     * 라운드당 최대 2회 재시도, 10초 → 20초 대기.
+     * <p>실패 시 지수 백오프 재시도. 라운드당 최대 2회 재시도, 10초 → 20초 대기.
      */
     private int judgeRelevance(String query, String title, String snippet) {
         String prompt = String.format(JUDGE_PROMPT, query, title,

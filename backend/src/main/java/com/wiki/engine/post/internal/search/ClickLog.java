@@ -6,11 +6,7 @@ import java.time.LocalDateTime;
 /**
  * 검색 결과 클릭 로그 — LTR implicit feedback 수집.
  *
- * <p>현업 근거: Joachims et al. (SIGIR 2005) — 클릭 데이터는 explicit judgment와
- * 비교 가능한 implicit feedback. position, dwell_time이 핵심 컬럼.
- *
- * <p>Airbnb/Netflix는 search_events, impressions, clicks 3테이블이지만,
- * 현재 트래픽 규모에서는 단일 테이블로 시작.
+ * <p>position, dwell_time이 핵심 컬럼.
  */
 @Entity
 @Table(name = "click_logs")

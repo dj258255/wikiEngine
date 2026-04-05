@@ -14,10 +14,7 @@ import java.util.Map;
 /**
  * 검색 클릭 로그 수집 서비스 — Kafka produce + DB 저장.
  *
- * <p>현업 아키텍처 (Netflix/Airbnb):
- * Frontend → API → Kafka topic → Consumer → DB/Data Warehouse → Daily Batch → LTR 재학습.
- *
- * <p>본 프로젝트 구현:
+ * <p>구현:
  * - 클릭 이벤트: Kafka topic "search.clicks"에 produce + DB 즉시 저장
  * - Dwell time: Beacon API로 비동기 수신 → 기존 click_log 레코드에 업데이트
  * - Kafka는 향후 실시간 분석/재학습 파이프라인 연결점

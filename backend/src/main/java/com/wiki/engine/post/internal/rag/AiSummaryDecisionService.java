@@ -15,12 +15,10 @@ import java.util.regex.Pattern;
 /**
  * AI 요약 트리거 조건 판단 + Rate Limiting 서비스.
  *
- * Google AI Overviews, 네이버 Cue: 등 현업 검색엔진의 패턴을 참고하여,
  * 쿼리 의도(informational/navigational/transactional)와 검색 결과 품질,
- * 그리고 Gemini 무료 티어 rate limit(15 RPM)을 기반으로 AI 요약 생성 여부를 결정한다.
+ * Gemini 무료 티어 rate limit(15 RPM)을 기반으로 AI 요약 생성 여부를 결정한다.
  *
  * Rate Limiting: Redis 기반 Token Bucket — 서버 2대 이상에서 전역 제한 공유.
- * 현업 표준: Stripe, AWS API Gateway, Spring Cloud Gateway 모두 Token Bucket 사용.
  */
 @Slf4j
 @Service
@@ -132,7 +130,6 @@ public class AiSummaryDecisionService {
      * 키가 TTL 없이 영구 존재하여 rate limit이 영구 차단됨.
      * Lua 스크립트는 Redis 서버에서 단일 원자적 연산으로 실행되어 이 문제를 방지.
      *
-     * <p>현업 표준: Stripe, AWS API Gateway, Spring Cloud Gateway 모두 Token Bucket 사용.
      */
     private static final String RATE_LIMIT_LUA = """
             local count = redis.call('INCR', KEYS[1])

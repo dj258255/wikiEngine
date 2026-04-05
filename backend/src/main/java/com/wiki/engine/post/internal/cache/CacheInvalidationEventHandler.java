@@ -1,7 +1,6 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import com.wiki.engine.config.TieredCacheService;
 import com.wiki.engine.post.PostEvent;
 import com.wiki.engine.post.internal.cdc.DebeziumCdcConsumer;
 import lombok.extern.slf4j.Slf4j;

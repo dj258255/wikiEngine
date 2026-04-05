@@ -150,7 +150,6 @@ public class PostController {
     /**
      * AI 검색 요약 — SSE 스트리밍 RAG.
      *
-     * 현업 패턴(Google AI Overviews, ChatGPT, Perplexity)과 동일하게
      * SSE(Server-Sent Events)로 토큰 단위 스트리밍한다.
      * 검색 결과는 별도 /search API로 즉시 반환되고,
      * AI 요약은 이 엔드포인트에서 한 글자씩 스트리밍된다.
@@ -194,7 +193,7 @@ public class PostController {
 
     /**
      * AI 요약 피드백 — "이 답변이 도움이 되었나요?"
-     * Google/ChatGPT/Perplexity 동일 패턴: thumbs up/down + 카테고리 + 코멘트.
+     * thumbs up/down + 카테고리 + 코멘트.
      * Grafana에서 ai_summary_feedback_total{rating=up/down} 메트릭으로 품질 추이 모니터링.
      */
     @PostMapping("/search/ai-summary/feedback")

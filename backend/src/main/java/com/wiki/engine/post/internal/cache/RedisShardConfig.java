@@ -1,4 +1,4 @@
-package com.wiki.engine.config;
+package com.wiki.engine.post.internal.cache;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

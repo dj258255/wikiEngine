@@ -21,9 +21,7 @@ import java.util.*;
 /**
  * LTR(Learning to Rank) 피처 추출기 — 14개 피처.
  *
- * <p>현업 기준 (Etsy 50~100, OLX 60~80, LinkedIn 200+):
- * cold start 시 10~20개 피처로 시작. BM25 score가 거의 항상 최중요 피처.
- * "처음 20개 피처가 전체 성능의 80%를 차지한다" (업계 공통).
+ * <p>cold start 시 14개 피처로 시작. BM25 score가 최중요 피처.
  *
  * <p>피처 분류:
  * - query-dependent (6개): bm25Title, bm25Content, bm25Snippet, queryTermCoverageTitle,

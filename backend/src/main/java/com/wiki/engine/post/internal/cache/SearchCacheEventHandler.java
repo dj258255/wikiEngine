@@ -1,4 +1,4 @@
-package com.wiki.engine.post.internal;
+package com.wiki.engine.post.internal.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.wiki.engine.post.PostEvent;

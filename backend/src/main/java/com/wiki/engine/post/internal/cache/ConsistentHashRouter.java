@@ -1,4 +1,4 @@
-package com.wiki.engine.config;
+package com.wiki.engine.post.internal.cache;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
 
