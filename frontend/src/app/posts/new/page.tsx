@@ -33,6 +33,10 @@ export default function NewPostPage() {
       setError("제목과 내용을 모두 입력해주세요.");
       return;
     }
+    if (!categoryId) {
+      setError("카테고리를 선택해주세요.");
+      return;
+    }
 
     setSubmitting(true);
     setError("");
@@ -139,7 +143,7 @@ export default function NewPostPage() {
               onChange={(e) => setCategoryId(e.target.value)}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"
             >
-              <option value="">카테고리 선택 (선택사항)</option>
+              <option value="">카테고리를 선택하세요</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
