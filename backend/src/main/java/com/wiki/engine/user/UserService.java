@@ -8,7 +8,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 사용자 비즈니스 로직 서비스.
@@ -64,6 +67,13 @@ public class UserService {
     /** ID로 사용자를 조회한다. */
     public Optional<User> findById(Long id) {
         return userRepository.findById(id);
+    }
+
+    /** ID 목록으로 닉네임을 일괄 조회한다 (N+1 방지). */
+    public Map<Long, String> getNicknamesByIds(Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Map.of();
+        return userRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(User::getId, User::getNickname));
     }
 
     /** username으로 사용자를 조회한다 (로그인 시 사용). */

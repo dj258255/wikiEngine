@@ -12,6 +12,7 @@ interface PostSummary {
   id: number;
   title: string;
   authorId: number;
+  authorNickname: string | null;
   categoryId: number | null;
   viewCount: number;
   likeCount: number;
@@ -101,6 +102,7 @@ function PostListContent() {
                 <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
                   <tr>
                     <th className="px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">제목</th>
+                    <th className="hidden w-28 px-4 py-3 text-center font-medium text-zinc-500 sm:table-cell dark:text-zinc-400">작성자</th>
                     <th className="hidden w-24 px-4 py-3 text-center font-medium text-zinc-500 sm:table-cell dark:text-zinc-400">조회</th>
                     <th className="hidden w-24 px-4 py-3 text-center font-medium text-zinc-500 sm:table-cell dark:text-zinc-400">좋아요</th>
                     <th className="hidden w-32 px-4 py-3 text-right font-medium text-zinc-500 sm:table-cell dark:text-zinc-400">날짜</th>
@@ -121,6 +123,9 @@ function PostListContent() {
                           <span>좋아요 {(post.likeCount ?? 0).toLocaleString()}</span>
                           <span>{formatDate(post.createdAt)}</span>
                         </div>
+                      </td>
+                      <td className="hidden px-4 py-3 text-center text-zinc-600 sm:table-cell dark:text-zinc-400">
+                        {post.authorNickname || "—"}
                       </td>
                       <td className="hidden px-4 py-3 text-center text-zinc-500 sm:table-cell dark:text-zinc-400">
                         {(post.viewCount ?? 0).toLocaleString()}

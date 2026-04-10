@@ -1,11 +1,12 @@
 package com.wiki.engine.post.internal.lucene;
 
+import com.wiki.engine.common.BusinessException;
+import com.wiki.engine.common.ErrorCode;
 import org.apache.lucene.index.IndexCommit;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.SnapshotDeletionPolicy;
 import org.apache.lucene.search.SearcherManager;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,9 +52,7 @@ class LuceneInternalController {
 
     @PostMapping("/snapshot")
     ResponseEntity<String> snapshot() throws IOException {
-        if (indexWriter == null || snapshotPolicy == null) {
-            return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).build();
-        }
+        requirePrimary(indexWriter, snapshotPolicy);
         indexWriter.commit();
         IndexCommit commit = snapshotPolicy.snapshot();
         return ResponseEntity.ok(String.valueOf(commit.getGeneration()));
@@ -61,9 +60,7 @@ class LuceneInternalController {
 
     @DeleteMapping("/snapshot/{generation}")
     ResponseEntity<Void> releaseSnapshot(@PathVariable long generation) throws IOException {
-        if (snapshotPolicy == null) {
-            return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).build();
-        }
+        requirePrimary(snapshotPolicy);
         for (IndexCommit commit : snapshotPolicy.getSnapshots()) {
             if (commit.getGeneration() == generation) {
                 snapshotPolicy.release(commit);
@@ -75,9 +72,7 @@ class LuceneInternalController {
 
     @PostMapping("/commit")
     ResponseEntity<Void> commit() throws IOException {
-        if (indexWriter == null) {
-            return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).build();
-        }
+        requirePrimary(indexWriter);
         indexWriter.commit();
         return ResponseEntity.ok().build();
     }
@@ -90,19 +85,29 @@ class LuceneInternalController {
 
     @PostMapping("/pause-refresh")
     ResponseEntity<Void> pauseRefresh() {
-        if (replicaRefresher == null) {
-            return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).build();
-        }
+        requireReplica();
         replicaRefresher.pause();
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/resume-refresh")
     ResponseEntity<Void> resumeRefresh() throws IOException {
-        if (replicaRefresher == null) {
-            return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).build();
-        }
+        requireReplica();
         replicaRefresher.resume();
         return ResponseEntity.ok().build();
+    }
+
+    private void requirePrimary(Object... beans) {
+        for (Object bean : beans) {
+            if (bean == null) {
+                throw new BusinessException(ErrorCode.METHOD_NOT_ALLOWED);
+            }
+        }
+    }
+
+    private void requireReplica() {
+        if (replicaRefresher == null) {
+            throw new BusinessException(ErrorCode.METHOD_NOT_ALLOWED);
+        }
     }
 }

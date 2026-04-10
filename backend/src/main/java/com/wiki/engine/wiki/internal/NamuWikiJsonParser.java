@@ -51,7 +51,7 @@ public class NamuWikiJsonParser {
 
             // 최상위 배열 시작 '['
             if (parser.nextToken() != JsonToken.START_ARRAY) {
-                throw new RuntimeException("JSON 파일이 배열([)로 시작하지 않습니다: " + filePath);
+                throw new WikiParsingException("JSON 파일이 배열([)로 시작하지 않습니다: " + filePath);
             }
 
             long sequenceId = 0;
@@ -109,7 +109,7 @@ public class NamuWikiJsonParser {
 
         } catch (Exception e) {
             log.error("나무위키 JSON 파싱 실패: {}", filePath, e);
-            throw new RuntimeException("나무위키 JSON 파싱 실패: " + filePath, e);
+            throw new WikiParsingException("나무위키 JSON 파싱 실패: " + filePath, e);
         }
     }
 }

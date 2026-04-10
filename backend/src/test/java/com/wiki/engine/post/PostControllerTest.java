@@ -10,10 +10,13 @@ import com.wiki.engine.post.internal.search.ClickLogService;
 import com.wiki.engine.auth.UserPrincipal;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
+import com.wiki.engine.user.UserService;
 import com.wiki.engine.post.dto.CreatePostRequest;
+import com.wiki.engine.post.dto.LikeResponse;
 import com.wiki.engine.post.dto.UpdatePostRequest;
 import com.wiki.engine.post.internal.rag.AiFeedbackRequest;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -39,6 +42,7 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
@@ -79,12 +83,21 @@ class PostControllerTest {
     @MockitoBean
     private ClickLogService clickLogService;
 
+    @MockitoBean
+    private UserService userService;
+
     private static final String BASE = "/api/v1.0/posts";
 
     private void authenticate(long userId, String username) {
         UserPrincipal principal = new UserPrincipal(userId, username);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+    }
+
+    @BeforeEach
+    void setUpNicknames() {
+        given(userService.getNicknamesByIds(any()))
+                .willReturn(Map.of(1L, "john닉네임"));
     }
 
     @AfterEach
@@ -273,25 +286,26 @@ class PostControllerTest {
     class UpdatePost {
 
         @Test
-        @DisplayName("[해피] 정상 수정 — 200")
+        @DisplayName("[해피] 정상 수정 — 200 + 수정된 게시글 반환")
         void success() throws Exception {
             authenticate(1L, "john1");
+            given(postService.updatePost(1L, "수정 제목", "수정 본문", 1L))
+                    .willReturn(createTestPost());
 
             mockMvc.perform(put(BASE + "/1")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
                                     new UpdatePostRequest("수정 제목", "수정 본문"))))
-                    .andExpect(status().isOk());
-
-            verify(postService).updatePost(1L, "수정 제목", "수정 본문", 1L);
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.title").value("테스트 게시글"));
         }
 
         @Test
         @DisplayName("[코너] 작성자가 아닌 사용자 — 403 ACCESS_DENIED")
         void accessDenied() throws Exception {
             authenticate(999L, "other");
-            doThrow(new BusinessException(ErrorCode.ACCESS_DENIED))
-                    .when(postService).updatePost(1L, "수정 제목", "수정 본문", 999L);
+            given(postService.updatePost(1L, "수정 제목", "수정 본문", 999L))
+                    .willThrow(new BusinessException(ErrorCode.ACCESS_DENIED));
 
             mockMvc.perform(put(BASE + "/1")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -305,8 +319,8 @@ class PostControllerTest {
         @DisplayName("[코너] 존재하지 않는 게시글 — 404 POST_NOT_FOUND")
         void notFound() throws Exception {
             authenticate(1L, "john1");
-            doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
-                    .when(postService).updatePost(eq(999L), any(), any(), eq(1L));
+            given(postService.updatePost(eq(999L), any(), any(), eq(1L)))
+                    .willThrow(new BusinessException(ErrorCode.POST_NOT_FOUND));
 
             mockMvc.perform(put(BASE + "/999")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -384,20 +398,24 @@ class PostControllerTest {
     class LikePost {
 
         @Test
-        @DisplayName("[해피] 새 좋아요 — 200 OK")
+        @DisplayName("[해피] 새 좋아요 — 200 + likeCount 반환")
         void success() throws Exception {
             authenticate(1L, "john1");
-            given(postService.likePost(1L, 1L)).willReturn(true);
+            given(postService.likePost(1L, 1L))
+                    .willReturn(new LikeResponse(10, true));
 
             mockMvc.perform(post(BASE + "/1/like"))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.likeCount").value(10))
+                    .andExpect(jsonPath("$.data.liked").value(true));
         }
 
         @Test
         @DisplayName("[코너] 이미 좋아요 — 409 Conflict")
         void alreadyLiked() throws Exception {
             authenticate(1L, "john1");
-            given(postService.likePost(1L, 1L)).willReturn(false);
+            willThrow(new BusinessException(ErrorCode.ALREADY_LIKED))
+                    .given(postService).likePost(1L, 1L);
 
             mockMvc.perform(post(BASE + "/1/like"))
                     .andExpect(status().isConflict());
@@ -418,20 +436,24 @@ class PostControllerTest {
     class UnlikePost {
 
         @Test
-        @DisplayName("[해피] 좋아요 취소 — 200 OK")
+        @DisplayName("[해피] 좋아요 취소 — 200 + likeCount 반환")
         void success() throws Exception {
             authenticate(1L, "john1");
-            given(postService.unlikePost(1L, 1L)).willReturn(true);
+            given(postService.unlikePost(1L, 1L))
+                    .willReturn(new LikeResponse(9, false));
 
             mockMvc.perform(delete(BASE + "/1/like"))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.likeCount").value(9))
+                    .andExpect(jsonPath("$.data.liked").value(false));
         }
 
         @Test
         @DisplayName("[코너] 좋아요 기록 없음 — 404 Not Found")
         void notLiked() throws Exception {
             authenticate(1L, "john1");
-            given(postService.unlikePost(1L, 1L)).willReturn(false);
+            willThrow(new BusinessException(ErrorCode.LIKE_NOT_FOUND))
+                    .given(postService).unlikePost(1L, 1L);
 
             mockMvc.perform(delete(BASE + "/1/like"))
                     .andExpect(status().isNotFound());
@@ -454,7 +476,7 @@ class PostControllerTest {
         @Test
         @DisplayName("[해피] 정상 검색 — 200 + 결과 반환")
         void success() throws Exception {
-            PostSearchResponse response = new PostSearchResponse(1L, "테스트 게시글", "테스트 본문...", 0L, 0L, java.time.Instant.now());
+            PostSearchResponse response = new PostSearchResponse(1L, "테스트 게시글", "테스트 본문...", 1L, null, 0L, 0L, java.time.Instant.now());
             given(postService.search(eq("테스트"), isNull(), any(Pageable.class)))
                     .willReturn(new SearchResponseWithSuggestion(new SliceImpl<>(List.of(response)), null, Map.of()));
 
@@ -508,7 +530,7 @@ class PostControllerTest {
         @DisplayName("[해피] 트리거 충족 — 200 SSE 스트림 반환")
         void success() throws Exception {
             PostSearchResponse response = new PostSearchResponse(
-                    1L, "테스트", "본문...", 0L, 0L, java.time.Instant.now());
+                    1L, "테스트", "본문...", 1L, null, 0L, 0L, java.time.Instant.now());
             given(postService.search(eq("테스트"), isNull(), any(Pageable.class)))
                     .willReturn(new SearchResponseWithSuggestion(
                             new SliceImpl<>(List.of(response)), null, Map.of()));
@@ -577,25 +599,25 @@ class PostControllerTest {
     class AiSummaryFeedback {
 
         @Test
-        @DisplayName("[해피] thumbs up 피드백 — 200 OK")
+        @DisplayName("[해피] thumbs up 피드백 — 204 No Content")
         void thumbsUp() throws Exception {
             mockMvc.perform(post(BASE + "/search/ai-summary/feedback")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
                                     new AiFeedbackRequest("테스트", 1, null, null))))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isNoContent());
 
             verify(aiFeedbackService).saveFeedback(any(AiFeedbackRequest.class), isNull());
         }
 
         @Test
-        @DisplayName("[해피] thumbs down + 카테고리 + 코멘트 — 200 OK")
+        @DisplayName("[해피] thumbs down + 카테고리 + 코멘트 — 204 No Content")
         void thumbsDownWithDetails() throws Exception {
             mockMvc.perform(post(BASE + "/search/ai-summary/feedback")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(jsonMapper.writeValueAsString(
                                     new AiFeedbackRequest("테스트", -1, "inaccurate", "잘못된 정보"))))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isNoContent());
 
             verify(aiFeedbackService).saveFeedback(any(AiFeedbackRequest.class), isNull());
         }

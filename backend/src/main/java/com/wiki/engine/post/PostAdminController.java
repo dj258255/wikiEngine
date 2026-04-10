@@ -125,7 +125,7 @@ public class PostAdminController {
             @RequestParam String q,
             @PageableDefault(size = 20) Pageable pageable) throws IOException {
 
-        return luceneSearchService.search(q, null, pageable).posts().map(PostSummaryResponse::from);
+        return luceneSearchService.search(q, null, pageable).posts().map(p -> PostSummaryResponse.from(p, null));
     }
 
     /**

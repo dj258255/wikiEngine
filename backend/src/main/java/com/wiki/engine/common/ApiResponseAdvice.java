@@ -6,6 +6,7 @@ import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
@@ -32,6 +33,9 @@ public class ApiResponseAdvice implements ResponseBodyAdvice<Object> {
             return body;
         }
 
-        return ApiResponse.ok(body);
+        int status = (response instanceof ServletServerHttpResponse servletResponse)
+                ? servletResponse.getServletResponse().getStatus()
+                : 200;
+        return new ApiResponse<>(status, body, null, null, null, java.time.Instant.now());
     }
 }

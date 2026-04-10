@@ -156,7 +156,7 @@ public class WikiXmlParser {
             reader.close();
         } catch (Exception e) {
             log.error("위키 XML 파싱 실패", e);
-            throw new RuntimeException("위키 XML 파싱 실패", e);
+            throw new WikiParsingException("위키 XML 파싱 실패", e);
         }
     }
 }

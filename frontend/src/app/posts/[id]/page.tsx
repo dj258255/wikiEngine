@@ -14,6 +14,7 @@ interface Article {
   title: string;
   content: string;
   authorId: number;
+  authorNickname: string | null;
   viewCount: number;
   likeCount: number;
   createdAt: string;
@@ -50,6 +51,7 @@ export default function WikiArticlePage({
         const post = json.data;
         setArticle(post);
         setLikeCount(post.likeCount || 0);
+        setLiked(post.liked || false);
       } catch {
         setArticle(null);
       } finally {
@@ -102,26 +104,17 @@ export default function WikiArticlePage({
     setLikeLoading(true);
 
     try {
-      if (liked) {
-        const res = await fetch(`${API_URL}/api/v1.0/posts/${id}/like`, {
-          method: "DELETE",
-          credentials: "include",
-        });
-        if (res.ok) {
-          setLiked(false);
-          setLikeCount((prev) => Math.max(0, prev - 1));
-        }
-      } else {
-        const res = await fetch(`${API_URL}/api/v1.0/posts/${id}/like`, {
-          method: "POST",
-          credentials: "include",
-        });
-        if (res.ok) {
-          setLiked(true);
-          setLikeCount((prev) => prev + 1);
-        } else if (res.status === 409) {
-          setLiked(true);
-        }
+      const res = await fetch(`${API_URL}/api/v1.0/posts/${id}/like`, {
+        method: liked ? "DELETE" : "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const data = json.data;
+        setLiked(data.liked);
+        setLikeCount(data.likeCount);
+      } else if (res.status === 409) {
+        setLiked(true);
       }
     } catch {
       // 네트워크 오류 무시
@@ -221,6 +214,11 @@ export default function WikiArticlePage({
                 )}
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-zinc-500 dark:text-zinc-400">
+                {article.authorNickname && (
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                    {article.authorNickname}
+                  </span>
+                )}
                 {parsed.format !== "plain" && (
                   <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
                     {parsed.format === "namumark" ? "NamuMark" : "MediaWiki"}

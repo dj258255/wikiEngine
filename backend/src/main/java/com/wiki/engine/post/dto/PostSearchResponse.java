@@ -14,6 +14,8 @@ public record PostSearchResponse(
         Long id,
         String title,
         String snippet,
+        Long authorId,
+        String authorNickname,
         Long viewCount,
         Long likeCount,
         Instant createdAt
@@ -78,6 +80,8 @@ public record PostSearchResponse(
                 post.getId(),
                 post.getTitle(),
                 createSnippet(post.getContent()),
+                post.getAuthorId(),
+                null,
                 post.getViewCount(),
                 post.getLikeCount(),
                 post.getCreatedAt()
@@ -98,10 +102,17 @@ public record PostSearchResponse(
                 post.getId(),
                 post.getTitle(),
                 snippet,
+                post.getAuthorId(),
+                null,
                 post.getViewCount(),
                 post.getLikeCount(),
                 post.getCreatedAt()
         );
+    }
+
+    /** authorNickname을 채운 복사본을 반환한다 (Controller 합성용). */
+    public PostSearchResponse withNickname(String nickname) {
+        return new PostSearchResponse(id, title, snippet, authorId, nickname, viewCount, likeCount, createdAt);
     }
 
     /**
