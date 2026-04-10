@@ -130,7 +130,7 @@ export function parseMediaWiki(raw: string): ParseResult {
   );
 
   // Allowed HTML tags passthrough
-  const allowedInline = ["s", "u", "sub", "sup", "small", "big", "span", "div", "blockquote", "del", "ins", "mark", "abbr"];
+  const allowedInline = ["s", "u", "sub", "sup", "small", "big", "blockquote", "del", "ins", "mark", "abbr"];
   // Allow these tags through (basic sanitization: only allow simple attributes or none)
   for (const tag of allowedInline) {
     const openRe = new RegExp(`<${tag}(\\s[^>]*)?>`, "gi");
@@ -377,6 +377,33 @@ export function parseMediaWiki(raw: string): ParseResult {
 
   // Remove empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, "");
+
+  // ── 후처리 클린업 ──
+
+  // 1. 깨진 figure/figcaption (이미지 URL 없는 빈 figure) 제거
+  html = html.replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, "");
+
+  // 2. 남은 각주 번호 [1], [37], [141] 등 제거
+  html = html.replace(/\[(\d{1,4})\]/g, "");
+
+  // 3. 남은 템플릿 잔해 {{...}} (중첩 제거 루프에서 놓친 것)
+  html = html.replace(/\{\{[\s\S]*?\}\}/g, "");
+
+  // 4. 남은 span/div 태그 잔해 제거 (허용 태그에서 제외했으므로 escape된 것도 정리)
+  html = html.replace(/&lt;span[^&]*&gt;/gi, "");
+  html = html.replace(/&lt;\/span&gt;/gi, "");
+  html = html.replace(/&lt;div[^&]*&gt;/gi, "");
+  html = html.replace(/&lt;\/div&gt;/gi, "");
+  html = html.replace(/<span[^>]*>/gi, "");
+  html = html.replace(/<\/span>/gi, "");
+  html = html.replace(/<div[^>]*>/gi, "");
+  html = html.replace(/<\/div>/gi, "");
+
+  // 5. 빈 섹션 제거 ("== 각주 ==" 등 내용 없는 헤딩)
+  html = html.replace(/<h(\d)[^>]*>(?:각주|참고 문헌|참조|외부 링크|같이 보기)\s*<\/h\1>\s*(?=<h|$)/gi, "");
+
+  // 6. 연속 빈 줄 정리
+  html = html.replace(/(<br\/>\s*){3,}/g, "<br/><br/>");
 
   return { html, categories, footnotes };
 }
