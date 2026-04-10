@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import UserMenu from "../../../components/UserMenu";
+import RichEditor from "../../../components/RichEditor";
 import { useAuth } from "../../../contexts/AuthContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -130,16 +131,12 @@ export default function EditPostPage({
           </div>
 
           <div>
-            <label htmlFor="content" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               내용
             </label>
-            <textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={16}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"
-            />
+            {!loading && (
+              <RichEditor content={content} onChange={setContent} />
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-3">
