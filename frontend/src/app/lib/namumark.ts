@@ -311,14 +311,7 @@ export function parseNamuMark(raw: string): ParseResult {
     html = html.replace(`<p>\x00CODEBLOCK${idx}\x00</p>`, block);
   });
 
-  // Build footnotes section
-  if (footnotes.length > 0) {
-    html += `\n<section class="wiki-footnotes"><hr class="wiki-hr"/><ol>`;
-    footnotes.forEach((note, idx) => {
-      html += `<li id="fn-${idx + 1}"><a href="#fnref-${idx + 1}">↑</a> ${escapeHtml(note)}</li>`;
-    });
-    html += `</ol></section>`;
-  }
+  // 각주 섹션은 생성하지 않음 — ref 내용이 대부분 비어서 ↑만 남는 문제
 
   // Remove empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, "");
@@ -328,17 +321,32 @@ export function parseNamuMark(raw: string): ParseResult {
   // 1. 깨진 figure/figcaption 제거
   html = html.replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, "");
 
-  // 2. 남은 각주 번호 [1], [37] 등 제거
+  // 2. 남은 각주 번호 + 각주 링크 제거
   html = html.replace(/\[(\d{1,4})\]/g, "");
+  html = html.replace(/<sup class="wiki-footnote-ref">[\s\S]*?<\/sup>/gi, "");
 
   // 3. 남은 템플릿 잔해
   html = html.replace(/\{\{[\s\S]*?\}\}/g, "");
+  html = html.replace(/\}\}/g, "");
 
   // 4. 깨진 HTML 태그 잔해
-  html = html.replace(/<span\s+class=[^>]*(?:loading|style)[^>]*>/gi, "");
+  html = html.replace(/<span[^>]*>/gi, "");
+  html = html.replace(/<\/span>/gi, "");
 
-  // 5. 연속 빈 줄 정리
+  // 5. 인포박스 파라미터 잔해
+  html = html.replace(/<p>\s*\|[^<]*=\s*<\/p>/g, "");
+  html = html.replace(/\*{2,}\s*/g, "");
+
+  // 6. 하단 빈 섹션 통째로 제거
+  html = html.replace(/<h(\d)[^>]*>\s*(?:각주|참고 문헌|참조|외부 링크|같이 보기|내용주|출처|관련 문서)\s*<\/h\1>[\s\S]*?(?=<h[1-3][ >]|$)/gi, "");
+
+  // 7. 빈 리스트 아이템, 빈 목록 제거
+  html = html.replace(/<li>\s*<\/li>/g, "");
+  html = html.replace(/<[ou]l>\s*<\/[ou]l>/g, "");
+
+  // 8. 연속 빈 줄 정리
   html = html.replace(/(<br\/>\s*){3,}/g, "<br/><br/>");
+  html = html.replace(/<p>\s*<\/p>/g, "");
 
   return { html, categories, footnotes };
 }
