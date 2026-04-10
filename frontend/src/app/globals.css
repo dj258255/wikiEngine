@@ -56,15 +56,10 @@ body {
 .wiki-content .wiki-h5 { font-size: 1em; border-bottom: none; }
 .wiki-content .wiki-h6 { font-size: 0.9em; border-bottom: none; }
 
-/* Links */
-.wiki-content .wiki-link {
-  color: #2563eb;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.15s;
-}
-.wiki-content .wiki-link:hover {
-  border-bottom-color: #2563eb;
+/* Internal wiki links — 비활성화 (텍스트만 표시) */
+.wiki-content .wiki-link-disabled {
+  color: #3f3f46;
+  cursor: default;
 }
 
 .wiki-content .wiki-ext-link {
@@ -76,8 +71,7 @@ body {
 }
 
 @media (prefers-color-scheme: dark) {
-  .wiki-content .wiki-link { color: #60a5fa; }
-  .wiki-content .wiki-link:hover { border-bottom-color: #60a5fa; }
+  .wiki-content .wiki-link-disabled { color: #a1a1aa; }
   .wiki-content .wiki-ext-link { color: #a78bfa; }
 }
 
