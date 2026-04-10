@@ -4,12 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import UserMenu from "./components/UserMenu";
+import { useAuth } from "./contexts/AuthContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export default function Home() {
   const [query, setQuery] = useState("");
   const router = useRouter();
+  const { user } = useAuth();
 
   // 자동완성 — 입력 prefix를 볼드 하이라이트
   const highlightMatch = (text: string, prefix: string) => {
@@ -203,12 +205,22 @@ export default function Home() {
             </div>
           )}
         </form>
-        <Link
-          href="/posts"
-          className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
-        >
-          최신 게시글 보기
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/posts"
+            className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+          >
+            최신 게시글 보기
+          </Link>
+          {user && (
+            <Link
+              href="/posts/new"
+              className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600"
+            >
+              글쓰기
+            </Link>
+          )}
+        </div>
       </main>
     </div>
   );
