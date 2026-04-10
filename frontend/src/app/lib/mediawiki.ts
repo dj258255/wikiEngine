@@ -366,30 +366,27 @@ export function parseMediaWiki(raw: string): ParseResult {
     html = html.replace(`<p>\x00PREBLOCK${idx}\x00</p>`, block);
   });
 
-  // Build footnotes section
-  if (footnotes.length > 0) {
-    html += `\n<section class="wiki-footnotes"><hr class="wiki-hr"/><ol>`;
-    footnotes.forEach((note, idx) => {
-      html += `<li id="fn-${idx + 1}"><a href="#fnref-${idx + 1}">↑</a> ${note}</li>`;
-    });
-    html += `</ol></section>`;
-  }
+  // 각주 섹션은 생성하지 않음 — ref 내용이 대부분 비어서 ↑만 남는 문제
+  // (위키피디아 각주는 {{cite web}} 등 템플릿이라 파싱 후 빈 문자열이 됨)
 
   // Remove empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, "");
 
   // ── 후처리 클린업 ──
 
-  // 1. 깨진 figure/figcaption (이미지 URL 없는 빈 figure) 제거
+  // 1. 깨진 figure/figcaption 제거
   html = html.replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, "");
 
-  // 2. 남은 각주 번호 [1], [37], [141] 등 제거
+  // 2. 남은 각주 번호 [1], [37] 등 + 각주 링크 제거
   html = html.replace(/\[(\d{1,4})\]/g, "");
+  html = html.replace(/<sup class="wiki-footnote-ref">[\s\S]*?<\/sup>/gi, "");
 
-  // 3. 남은 템플릿 잔해 {{...}} (중첩 제거 루프에서 놓친 것)
+  // 3. 남은 템플릿 잔해 {{...}}
   html = html.replace(/\{\{[\s\S]*?\}\}/g, "");
+  // 닫히지 않은 }} 잔해
+  html = html.replace(/\}\}/g, "");
 
-  // 4. 남은 span/div 태그 잔해 제거 (허용 태그에서 제외했으므로 escape된 것도 정리)
+  // 4. 남은 span/div 태그 잔해 제거
   html = html.replace(/&lt;span[^&]*&gt;/gi, "");
   html = html.replace(/&lt;\/span&gt;/gi, "");
   html = html.replace(/&lt;div[^&]*&gt;/gi, "");
@@ -399,11 +396,21 @@ export function parseMediaWiki(raw: string): ParseResult {
   html = html.replace(/<div[^>]*>/gi, "");
   html = html.replace(/<\/div>/gi, "");
 
-  // 5. 빈 섹션 제거 ("== 각주 ==" 등 내용 없는 헤딩)
-  html = html.replace(/<h(\d)[^>]*>(?:각주|참고 문헌|참조|외부 링크|같이 보기)\s*<\/h\1>\s*(?=<h|$)/gi, "");
+  // 5. 인포박스 파라미터 잔해 (| key = value, ** 텍스트)
+  html = html.replace(/<p>\s*\|[^<]*=\s*<\/p>/g, "");
+  html = html.replace(/\|\s*[\p{L}\p{N}_-]+=\s*/gu, "");
+  html = html.replace(/\*{2,}\s*/g, "");
 
-  // 6. 연속 빈 줄 정리
+  // 6. 하단 빈 섹션 통째로 제거 (각주, 외부 링크, 같이 보기, 내용주, 참고 문헌 등)
+  html = html.replace(/<h(\d)[^>]*>\s*(?:각주|참고 문헌|참조|외부 링크|같이 보기|내용주|출처|참고|관련 항목|함께 보기)\s*<\/h\1>[\s\S]*?(?=<h[1-3][ >]|$)/gi, "");
+
+  // 7. 빈 리스트 아이템, 빈 목록 제거
+  html = html.replace(/<li>\s*<\/li>/g, "");
+  html = html.replace(/<[ou]l>\s*<\/[ou]l>/g, "");
+
+  // 8. 연속 빈 줄 정리
   html = html.replace(/(<br\/>\s*){3,}/g, "<br/><br/>");
+  html = html.replace(/<p>\s*<\/p>/g, "");
 
   return { html, categories, footnotes };
 }
