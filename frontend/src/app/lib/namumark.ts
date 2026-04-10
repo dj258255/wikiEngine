@@ -323,5 +323,22 @@ export function parseNamuMark(raw: string): ParseResult {
   // Remove empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, "");
 
+  // ── 후처리 클린업 ──
+
+  // 1. 깨진 figure/figcaption 제거
+  html = html.replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, "");
+
+  // 2. 남은 각주 번호 [1], [37] 등 제거
+  html = html.replace(/\[(\d{1,4})\]/g, "");
+
+  // 3. 남은 템플릿 잔해
+  html = html.replace(/\{\{[\s\S]*?\}\}/g, "");
+
+  // 4. 깨진 HTML 태그 잔해
+  html = html.replace(/<span\s+class=[^>]*(?:loading|style)[^>]*>/gi, "");
+
+  // 5. 연속 빈 줄 정리
+  html = html.replace(/(<br\/>\s*){3,}/g, "<br/><br/>");
+
   return { html, categories, footnotes };
 }
