@@ -9,6 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@tiptap/extension-image": "^3.22.3",
+    "@tiptap/extension-link": "^3.22.3",
+    "@tiptap/extension-placeholder": "^3.22.3",
+    "@tiptap/extension-underline": "^3.22.3",
+    "@tiptap/pm": "^3.22.3",
+    "@tiptap/react": "^3.22.3",
+    "@tiptap/starter-kit": "^3.22.3",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
