@@ -184,15 +184,15 @@ export function parseMediaWiki(raw: string): ParseResult {
     // Italic ''text''
     line = line.replace(/''(.+?)''/g, "<em>$1</em>");
 
-    // Internal links
-    line = line.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_m, href, display) => {
-      return `<a class="wiki-link" href="/posts/${encodeURIComponent(href.trim())}">${processInline(display.trim())}</a>`;
+    // Internal links — 비활성화 (텍스트만 표시, 클릭 불가)
+    line = line.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_m, _href, display) => {
+      return `<span class="wiki-link-disabled">${processInline(display.trim())}</span>`;
     });
     line = line.replace(/\[\[([^\]]+)\]\]/g, (_m, href) => {
       if (href.startsWith("http://") || href.startsWith("https://")) {
         return `<a class="wiki-ext-link" href="${escapeHtml(href.trim())}" rel="noopener noreferrer">${escapeHtml(href.trim())}</a>`;
       }
-      return `<a class="wiki-link" href="/posts/${encodeURIComponent(href.trim())}">${escapeHtml(href.trim())}</a>`;
+      return `<span class="wiki-link-disabled">${escapeHtml(href.trim())}</span>`;
     });
 
     // External links
