@@ -8,16 +8,18 @@ public record PostSummaryResponse(
         Long id,
         String title,
         Long authorId,
+        String authorNickname,
         Long categoryId,
         Long viewCount,
         Long likeCount,
         Instant createdAt
 ) {
-    public static PostSummaryResponse from(Post post) {
+    public static PostSummaryResponse from(Post post, String authorNickname) {
         return new PostSummaryResponse(
                 post.getId(),
                 post.getTitle(),
                 post.getAuthorId(),
+                authorNickname,
                 post.getCategoryId(),
                 post.getViewCount(),
                 post.getLikeCount(),

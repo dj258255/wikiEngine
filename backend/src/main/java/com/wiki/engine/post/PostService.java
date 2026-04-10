@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.wiki.engine.post.internal.cache.TieredCacheService;
 import com.wiki.engine.post.dto.CachedSearchResult;
 import com.wiki.engine.post.dto.PostSearchResponse;
+import com.wiki.engine.post.dto.LikeResponse;
 import com.wiki.engine.post.dto.SearchResponseWithSuggestion;
 import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
@@ -149,9 +150,10 @@ public class PostService {
      * @param title 수정할 제목
      * @param content 수정할 본문
      * @param userId 요청한 사용자 ID (작성자 검증용)
+     * @return 수정된 게시글
      */
     @Transactional
-    public void updatePost(Long id, String title, String content, Long userId) {
+    public Post updatePost(Long id, String title, String content, Long userId) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -161,6 +163,7 @@ public class PostService {
 
         post.update(title, content);
         eventPublisher.publishEvent(new PostEvent.Updated(id, post));
+        return post;
     }
 
     /**
@@ -192,18 +195,19 @@ public class PostService {
      *
      * @param postId 게시글 ID
      * @param userId 사용자 ID
-     * @return 새로 좋아요가 추가되면 true, 이미 눌렀으면 false
+     * @return 좋아요 후 현재 상태 (likeCount + liked)
+     * @throws BusinessException ALREADY_LIKED — 이미 좋아요를 누른 경우
      */
     @Transactional
-    public boolean likePost(Long postId, Long userId) {
+    public LikeResponse likePost(Long postId, Long userId) {
         int inserted = postLikeRepository.insertIgnore(postId, userId);
 
-        if (inserted > 0) {
-            postRepository.incrementLikeCount(postId);
-            eventPublisher.publishEvent(new PostEvent.LikeChanged(postId));
-            return true;
+        if (inserted == 0) {
+            throw new BusinessException(ErrorCode.ALREADY_LIKED);
         }
-        return false;
+        postRepository.incrementLikeCount(postId);
+        eventPublisher.publishEvent(new PostEvent.LikeChanged(postId));
+        return new LikeResponse(postRepository.findLikeCountById(postId), true);
     }
 
     /**
@@ -211,18 +215,19 @@ public class PostService {
      *
      * @param postId 게시글 ID
      * @param userId 사용자 ID
-     * @return 좋아요가 취소되면 true, 좋아요 기록이 없으면 false
+     * @return 취소 후 현재 상태 (likeCount + liked)
+     * @throws BusinessException LIKE_NOT_FOUND — 좋아요 기록이 없는 경우
      */
     @Transactional
-    public boolean unlikePost(Long postId, Long userId) {
+    public LikeResponse unlikePost(Long postId, Long userId) {
         int deleted = postLikeRepository.deleteByPostIdAndUserId(postId, userId);
 
-        if (deleted > 0) {
-            postRepository.decrementLikeCount(postId);
-            eventPublisher.publishEvent(new PostEvent.LikeChanged(postId));
-            return true;
+        if (deleted == 0) {
+            throw new BusinessException(ErrorCode.LIKE_NOT_FOUND);
         }
-        return false;
+        postRepository.decrementLikeCount(postId);
+        eventPublisher.publishEvent(new PostEvent.LikeChanged(postId));
+        return new LikeResponse(postRepository.findLikeCountById(postId), false);
     }
 
     /**

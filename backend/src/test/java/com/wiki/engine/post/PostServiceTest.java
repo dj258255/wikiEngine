@@ -5,6 +5,7 @@ import com.wiki.engine.common.BusinessException;
 import com.wiki.engine.common.ErrorCode;
 import com.wiki.engine.post.internal.cache.TieredCacheService;
 import com.wiki.engine.post.dto.CachedSearchResult;
+import com.wiki.engine.post.dto.LikeResponse;
 import com.wiki.engine.post.dto.PostSearchResponse;
 import com.wiki.engine.post.internal.lucene.LuceneSearchService;
 import com.wiki.engine.post.internal.autocomplete.SpellCheckService;
@@ -176,8 +177,9 @@ class PostServiceTest {
             Post post = createTestPost();
             given(postRepository.findById(1L)).willReturn(Optional.of(post));
 
-            postService.updatePost(1L, "수정 제목", "수정 본문", 1L);
+            Post result = postService.updatePost(1L, "수정 제목", "수정 본문", 1L);
 
+            assertThat(result).isSameAs(post);
             assertThat(post.getTitle()).isEqualTo("수정 제목");
             assertThat(post.getContent()).isEqualTo("수정 본문");
             assertThat(post.getUpdatedAt()).isNotNull();
@@ -263,25 +265,28 @@ class PostServiceTest {
     class LikePost {
 
         @Test
-        @DisplayName("[해피] 새 좋아요 — true + likeCount 증가 + LikeChanged 이벤트")
+        @DisplayName("[해피] 새 좋아요 — likeCount 증가 + LikeChanged 이벤트 + 현재 상태 반환")
         void success() {
             given(postLikeRepository.insertIgnore(1L, 1L)).willReturn(1);
+            given(postRepository.findLikeCountById(1L)).willReturn(10L);
 
-            boolean result = postService.likePost(1L, 1L);
+            LikeResponse result = postService.likePost(1L, 1L);
 
-            assertThat(result).isTrue();
+            assertThat(result.likeCount()).isEqualTo(10);
+            assertThat(result.liked()).isTrue();
             verify(postRepository).incrementLikeCount(1L);
             verify(eventPublisher).publishEvent(any(PostEvent.LikeChanged.class));
         }
 
         @Test
-        @DisplayName("[코너] 이미 좋아요 — false + likeCount 미증가")
+        @DisplayName("[코너] 이미 좋아요 — ALREADY_LIKED 예외")
         void alreadyLiked() {
             given(postLikeRepository.insertIgnore(1L, 1L)).willReturn(0);
 
-            boolean result = postService.likePost(1L, 1L);
-
-            assertThat(result).isFalse();
+            assertThatThrownBy(() -> postService.likePost(1L, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.ALREADY_LIKED));
             verify(postRepository, never()).incrementLikeCount(any());
         }
     }
@@ -293,25 +298,28 @@ class PostServiceTest {
     class UnlikePost {
 
         @Test
-        @DisplayName("[해피] 좋아요 취소 — true + likeCount 감소 + LikeChanged 이벤트")
+        @DisplayName("[해피] 좋아요 취소 — likeCount 감소 + LikeChanged 이벤트 + 현재 상태 반환")
         void success() {
             given(postLikeRepository.deleteByPostIdAndUserId(1L, 1L)).willReturn(1);
+            given(postRepository.findLikeCountById(1L)).willReturn(9L);
 
-            boolean result = postService.unlikePost(1L, 1L);
+            LikeResponse result = postService.unlikePost(1L, 1L);
 
-            assertThat(result).isTrue();
+            assertThat(result.likeCount()).isEqualTo(9);
+            assertThat(result.liked()).isFalse();
             verify(postRepository).decrementLikeCount(1L);
             verify(eventPublisher).publishEvent(any(PostEvent.LikeChanged.class));
         }
 
         @Test
-        @DisplayName("[코너] 좋아요 기록 없음 — false + likeCount 미감소")
+        @DisplayName("[코너] 좋아요 기록 없음 — LIKE_NOT_FOUND 예외")
         void notLiked() {
             given(postLikeRepository.deleteByPostIdAndUserId(1L, 1L)).willReturn(0);
 
-            boolean result = postService.unlikePost(1L, 1L);
-
-            assertThat(result).isFalse();
+            assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                            .isEqualTo(ErrorCode.LIKE_NOT_FOUND));
             verify(postRepository, never()).decrementLikeCount(any());
         }
     }

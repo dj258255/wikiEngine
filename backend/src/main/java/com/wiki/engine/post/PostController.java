@@ -10,6 +10,7 @@ import com.wiki.engine.post.internal.rag.AiFeedbackService;
 import com.wiki.engine.post.internal.rag.AiSummaryDecisionService;
 import com.wiki.engine.post.internal.rag.RagService;
 import com.wiki.engine.post.internal.rag.RagSummaryResponse;
+import com.wiki.engine.user.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -27,6 +29,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 게시글 REST API 컨트롤러.
@@ -44,6 +49,7 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
+    private final UserService userService;
     private final ViewCountService viewCountService;
     private final RagService ragService;
     private final AiSummaryDecisionService aiSummaryDecisionService;
@@ -60,7 +66,8 @@ public class PostController {
                 ? postService.getPostsByCategory(categoryId, pageable)
                 : postService.getPosts(pageable);
 
-        return posts.map(PostSummaryResponse::from);
+        Map<Long, String> nicknames = resolveNicknames(posts.getContent());
+        return posts.map(p -> PostSummaryResponse.from(p, nicknames.get(p.getAuthorId())));
     }
 
     /**
@@ -69,10 +76,16 @@ public class PostController {
      * GET 요청에서 DB 쓰기를 제거하여 R/W 분리 라우팅 문제 해결.
      */
     @GetMapping("/{id}")
-    public PostDetailResponse getPost(@PathVariable Long id) {
+    public PostDetailResponse getPost(
+            @PathVariable Long id,
+            @CurrentUser UserPrincipal currentUser) {
+
         Post post = postService.findByIdCached(id);
         viewCountService.increment(id);
-        return PostDetailResponse.from(post);
+        String nickname = userService.getNicknamesByIds(Set.of(post.getAuthorId()))
+                .get(post.getAuthorId());
+        boolean liked = currentUser != null && postService.hasUserLiked(id, currentUser.userId());
+        return PostDetailResponse.from(post, nickname, liked);
     }
 
     /** 게시글 생성 (인증 필요) */
@@ -84,53 +97,52 @@ public class PostController {
         Post post = postService.createPost(
                 request.title(), request.content(), currentUser.userId(), request.categoryId());
 
+        String nickname = userService.getNicknamesByIds(Set.of(currentUser.userId()))
+                .get(currentUser.userId());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(PostDetailResponse.from(post));
+                .body(PostDetailResponse.from(post, nickname, false));
     }
 
-    /** 게시글 수정 (인증 필요, 작성자만) */
+    /** 게시글 수정 (인증 필요, 작성자만) — 수정된 게시글을 반환한다. */
     @PutMapping("/{id}")
-    public ResponseEntity<Void> updatePost(
+    public PostDetailResponse updatePost(
             @PathVariable Long id,
             @Valid @RequestBody UpdatePostRequest request,
             @CurrentUser UserPrincipal currentUser) {
 
-        postService.updatePost(id, request.title(), request.content(), currentUser.userId());
-        return ResponseEntity.ok().build();
+        Post post = postService.updatePost(id, request.title(), request.content(), currentUser.userId());
+        String nickname = userService.getNicknamesByIds(Set.of(currentUser.userId()))
+                .get(currentUser.userId());
+        boolean liked = postService.hasUserLiked(id, currentUser.userId());
+        return PostDetailResponse.from(post, nickname, liked);
     }
 
     /** 게시글 삭제 (인증 필요, 작성자만) */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePost(
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deletePost(
             @PathVariable Long id,
             @CurrentUser UserPrincipal currentUser) {
 
         postService.deletePost(id, currentUser.userId());
-        return ResponseEntity.noContent().build();
     }
 
-    /** 좋아요 (인증 필요) */
+    /** 좋아요 (인증 필요) — 현재 좋아요 수와 상태를 반환한다. */
     @PostMapping("/{id}/like")
-    public ResponseEntity<Void> likePost(
+    public LikeResponse likePost(
             @PathVariable Long id,
             @CurrentUser UserPrincipal currentUser) {
 
-        boolean liked = postService.likePost(id, currentUser.userId());
-        return liked
-                ? ResponseEntity.ok().build()
-                : ResponseEntity.status(HttpStatus.CONFLICT).build();
+        return postService.likePost(id, currentUser.userId());
     }
 
-    /** 좋아요 취소 (인증 필요) */
+    /** 좋아요 취소 (인증 필요) — 현재 좋아요 수와 상태를 반환한다. */
     @DeleteMapping("/{id}/like")
-    public ResponseEntity<Void> unlikePost(
+    public LikeResponse unlikePost(
             @PathVariable Long id,
             @CurrentUser UserPrincipal currentUser) {
 
-        boolean unliked = postService.unlikePost(id, currentUser.userId());
-        return unliked
-                ? ResponseEntity.ok().build()
-                : ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        return postService.unlikePost(id, currentUser.userId());
     }
 
     /**
@@ -144,7 +156,17 @@ public class PostController {
             @RequestParam(required = false) Long categoryId,
             @PageableDefault(size = 20) Pageable pageable) {
 
-        return postService.search(q, categoryId, pageable);
+        SearchResponseWithSuggestion result = postService.search(q, categoryId, pageable);
+        List<PostSearchResponse> content = result.results().getContent();
+
+        Map<Long, String> nicknames = resolveSearchNicknames(content);
+        List<PostSearchResponse> enriched = content.stream()
+                .map(r -> r.withNickname(nicknames.get(r.authorId())))
+                .toList();
+
+        Slice<PostSearchResponse> enrichedSlice = new SliceImpl<>(
+                enriched, result.results().getPageable(), result.results().hasNext());
+        return new SearchResponseWithSuggestion(enrichedSlice, result.suggestion(), result.categoryFacets());
     }
 
     /**
@@ -197,11 +219,11 @@ public class PostController {
      * Grafana에서 ai_summary_feedback_total{rating=up/down} 메트릭으로 품질 추이 모니터링.
      */
     @PostMapping("/search/ai-summary/feedback")
-    public ResponseEntity<Void> aiSummaryFeedback(
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void aiSummaryFeedback(
             @Valid @RequestBody AiFeedbackRequest request) {
 
         aiFeedbackService.saveFeedback(request, null);
-        return ResponseEntity.ok().build();
     }
 
     /**
@@ -246,5 +268,21 @@ public class PostController {
             @RequestParam String sessionId,
             @RequestParam long dwellTimeMs) {
         clickLogService.updateDwellTime(sessionId, id, dwellTimeMs);
+    }
+
+    /** Post 목록에서 authorId를 추출하여 닉네임을 배치 조회한다. */
+    private Map<Long, String> resolveNicknames(List<Post> posts) {
+        Set<Long> authorIds = posts.stream()
+                .map(Post::getAuthorId)
+                .collect(Collectors.toSet());
+        return userService.getNicknamesByIds(authorIds);
+    }
+
+    /** 검색 결과에서 authorId를 추출하여 닉네임을 배치 조회한다. */
+    private Map<Long, String> resolveSearchNicknames(List<PostSearchResponse> results) {
+        Set<Long> authorIds = results.stream()
+                .map(PostSearchResponse::authorId)
+                .collect(Collectors.toSet());
+        return userService.getNicknamesByIds(authorIds);
     }
 }

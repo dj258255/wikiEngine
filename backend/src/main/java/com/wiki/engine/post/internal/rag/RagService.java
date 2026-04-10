@@ -129,7 +129,7 @@ public class RagService {
                     try {
                         emitter.send(SseEmitter.event().name("delta").data(token));
                     } catch (IOException e) {
-                        throw new RuntimeException("SSE 전송 실패", e);
+                        throw new java.io.UncheckedIOException("SSE 전송 실패", e);
                     }
                 })
                 .doOnComplete(() -> {

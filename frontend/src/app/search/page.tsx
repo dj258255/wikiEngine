@@ -415,13 +415,63 @@ function SearchPageContent() {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8">
+        {/* 카테고리 탭 */}
+        {query && categories.length > 0 && (
+          <div className="mb-6 border-b border-zinc-200 dark:border-zinc-800">
+            <nav className="-mb-px flex gap-0 overflow-x-auto scrollbar-hide" aria-label="카테고리 필터">
+              <button
+                onClick={() => handleCategoryChange("")}
+                className={`relative shrink-0 px-4 py-3 text-sm font-medium transition-colors ${
+                  !selectedCategory
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                }`}
+              >
+                전체
+                {!selectedCategory && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 dark:bg-green-400" />
+                )}
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategoryChange(String(cat.id))}
+                  className={`relative shrink-0 px-4 py-3 text-sm font-medium transition-colors ${
+                    selectedCategory === String(cat.id)
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  }`}
+                >
+                  {cat.name}
+                  {selectedCategory === String(cat.id) && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 dark:bg-green-400" />
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
+
+        {/* 검색 결과 텍스트 + 오타 교정 */}
         {query && (
-          <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
             &quot;{query}&quot; 검색 결과
           </p>
         )}
+        {spellSuggestion && (
+          <div className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+            혹시{" "}
+            <button
+              onClick={() => navigateSearch(spellSuggestion, 0, selectedCategory)}
+              className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
+            >
+              &quot;{spellSuggestion}&quot;
+            </button>
+            을(를) 찾으셨나요?
+          </div>
+        )}
 
-        {/* AI 요약 섹션 — 로딩 중이거나 요약이 있을 때만 표시 (트리거 스킵 시 숨김) */}
+        {/* AI 요약 섹션 */}
         {query && (aiLoading || aiSummary) && (
           <div className="mb-8 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 dark:border-blue-800 dark:from-blue-950/50 dark:to-indigo-950/50">
             <div className="mb-3 flex items-center gap-2">
@@ -497,49 +547,6 @@ function SearchPageContent() {
             ) : (
               <p className="text-sm text-zinc-500 dark:text-zinc-400">요약을 생성할 수 없습니다.</p>
             )}
-          </div>
-        )}
-
-        {/* 오타 교정 제안 */}
-        {spellSuggestion && (
-          <div className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
-            혹시{" "}
-            <button
-              onClick={() => navigateSearch(spellSuggestion, 0, selectedCategory)}
-              className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
-            >
-              &quot;{spellSuggestion}&quot;
-            </button>
-            을(를) 찾으셨나요?
-          </div>
-        )}
-
-        {/* 카테고리 필터 */}
-        {query && categories.length > 0 && (
-          <div className="mb-6 flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => handleCategoryChange("")}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                !selectedCategory
-                  ? "bg-blue-500 text-white"
-                  : "border border-zinc-300 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-              }`}
-            >
-              전체
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => handleCategoryChange(String(cat.id))}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                  selectedCategory === String(cat.id)
-                    ? "bg-blue-500 text-white"
-                    : "border border-zinc-300 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
           </div>
         )}
 
