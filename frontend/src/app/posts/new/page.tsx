@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import UserMenu from "../../components/UserMenu";
@@ -19,6 +19,17 @@ export default function NewPostPage() {
   const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [catOpen, setCatOpen] = useState(false);
+  const catRef = useRef<HTMLDivElement>(null);
+
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (catRef.current && !catRef.current.contains(e.target as Node)) setCatOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     fetch(`${API_URL}/api/v1.0/categories`)
@@ -133,23 +144,51 @@ export default function NewPostPage() {
             />
           </div>
 
-          <div>
-            <label htmlFor="category" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <div ref={catRef} className="relative">
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               카테고리
             </label>
-            <select
-              id="category"
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-blue-800"
+            <button
+              type="button"
+              onClick={() => setCatOpen(!catOpen)}
+              className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm outline-none transition-all ${
+                catOpen
+                  ? "border-blue-400 ring-2 ring-blue-200 dark:border-blue-500 dark:ring-blue-800"
+                  : "border-zinc-300 dark:border-zinc-700"
+              } bg-white/80 backdrop-blur-xl dark:bg-zinc-900/80`}
             >
-              <option value="">카테고리를 선택하세요</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+              <span className={categoryId ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 dark:text-zinc-500"}>
+                {categoryId ? categories.find(c => String(c.id) === categoryId)?.name : "카테고리를 선택하세요"}
+              </span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className={`h-4 w-4 text-zinc-400 transition-transform ${catOpen ? "rotate-180" : ""}`}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+            {catOpen && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-[220px] overflow-y-auto rounded-2xl border border-zinc-200/60 bg-white/70 shadow-xl shadow-zinc-200/40 backdrop-blur-2xl dark:border-zinc-700/60 dark:bg-zinc-900/70 dark:shadow-zinc-900/40">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => { setCategoryId(String(cat.id)); setCatOpen(false); }}
+                    className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition-colors ${
+                      String(cat.id) === categoryId
+                        ? "bg-blue-50/80 font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                        : "text-zinc-700 hover:bg-zinc-50/80 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
