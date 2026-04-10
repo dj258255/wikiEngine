@@ -11,6 +11,7 @@ import com.wiki.engine.post.internal.rag.AiSummaryDecisionService;
 import com.wiki.engine.post.internal.rag.RagService;
 import com.wiki.engine.post.internal.rag.RagSummaryResponse;
 import com.wiki.engine.user.UserService;
+import org.springframework.security.core.context.SecurityContextHolder;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -76,15 +77,18 @@ public class PostController {
      * GET 요청에서 DB 쓰기를 제거하여 R/W 분리 라우팅 문제 해결.
      */
     @GetMapping("/{id}")
-    public PostDetailResponse getPost(
-            @PathVariable Long id,
-            @CurrentUser UserPrincipal currentUser) {
-
+    public PostDetailResponse getPost(@PathVariable Long id) {
         Post post = postService.findByIdCached(id);
         viewCountService.increment(id);
         String nickname = userService.getNicknamesByIds(Set.of(post.getAuthorId()))
                 .get(post.getAuthorId());
-        boolean liked = currentUser != null && postService.hasUserLiked(id, currentUser.userId());
+
+        // 비로그인 사용자도 조회 가능 — @CurrentUser는 인증 필수라 직접 SecurityContext 확인
+        boolean liked = false;
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof UserPrincipal principal) {
+            liked = postService.hasUserLiked(id, principal.userId());
+        }
         return PostDetailResponse.from(post, nickname, liked);
     }
 
