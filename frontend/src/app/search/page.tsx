@@ -118,6 +118,7 @@ function SearchPageContent() {
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const catNavRef = useRef<HTMLElement>(null);
 
   // 카테고리 목록 로드 (1회)
   useEffect(() => {
@@ -417,13 +418,29 @@ function SearchPageContent() {
       <main className="mx-auto max-w-5xl px-6 py-8">
         {/* 카테고리 탭 */}
         {query && categories.length > 0 && (() => {
-          const priorityNames = ["웹 콘텐츠", "뉴스"];
-          const priority = categories.filter(c => priorityNames.includes(c.name));
-          const rest = categories.filter(c => !priorityNames.includes(c.name));
+          const priorityOrder = ["웹 콘텐츠", "뉴스"];
+          const priority = priorityOrder
+            .map(name => categories.find(c => c.name === name))
+            .filter((c): c is Category => c != null);
+          const rest = categories.filter(c => !priorityOrder.includes(c.name));
           const sorted = [...priority, ...rest];
           return (
-            <div className="mb-6 border-b border-zinc-200 dark:border-zinc-800">
-              <nav className="-mb-px flex gap-0 overflow-x-auto scrollbar-hide" aria-label="카테고리 필터">
+            <div className="relative mb-6 border-b border-zinc-200 dark:border-zinc-800">
+              {/* 왼쪽 화살표 */}
+              <button
+                onClick={() => catNavRef.current?.scrollBy({ left: -200, behavior: "smooth" })}
+                className="absolute -left-1 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-1 shadow-md transition-colors hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                aria-label="카테고리 왼쪽 스크롤"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 text-zinc-500">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+              </button>
+              <nav
+                ref={catNavRef}
+                className="-mb-px mx-6 flex gap-0 overflow-x-hidden"
+                aria-label="카테고리 필터"
+              >
                 <button
                   onClick={() => handleCategoryChange("")}
                   className={`relative shrink-0 px-4 py-3 text-sm font-medium transition-colors ${
@@ -454,6 +471,16 @@ function SearchPageContent() {
                   </button>
                 ))}
               </nav>
+              {/* 오른쪽 화살표 */}
+              <button
+                onClick={() => catNavRef.current?.scrollBy({ left: 200, behavior: "smooth" })}
+                className="absolute -right-1 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-1 shadow-md transition-colors hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                aria-label="카테고리 오른쪽 스크롤"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 text-zinc-500">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
             </div>
           );
         })()}
