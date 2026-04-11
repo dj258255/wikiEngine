@@ -58,7 +58,7 @@ export default function UserMenu() {
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+        <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-800">
           <div className="border-b border-zinc-100 px-4 py-3 dark:border-zinc-700">
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{user.username}</p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">로그인됨</p>
