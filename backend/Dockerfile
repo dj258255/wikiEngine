@@ -20,10 +20,14 @@ RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew bootJar --no-daemon -x test
 
 # --- 실행 스테이지 ---
-FROM eclipse-temurin:25-jre
+# JDK 사용 이유: jcmd, jmap, jstat 등 JVM 진단 도구 필요 (NMT, GC 분석, heap dump)
+FROM eclipse-temurin:25-jdk
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl libgomp1 && rm -rf /var/lib/apt/lists/*
+
+# GC log / heap dump / JFR 저장 디렉토리
+RUN mkdir -p /var/log/gc && chmod 755 /var/log/gc
 
 COPY --from=build /app/build/libs/*.jar app.jar
 

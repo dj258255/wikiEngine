@@ -120,6 +120,7 @@ services:
       - "8080:8080"  # Prometheus 스크래핑용 (nginx는 80/443)
     volumes:
       - lucene_index:/data/lucene  # Lucene 인덱스 (컨테이너 재생성 시에도 보존)
+      - gc_logs:/var/log/gc  # GC log / JFR / heap dump (컨테이너 재생성 시에도 보존)
     deploy:
       resources:
         limits:
@@ -240,6 +241,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - mysql_logs:/var/log/mysql:ro
+      - gc_logs:/var/log/gc:ro  # GC log 수집 → Loki
       - alloy_data:/var/lib/alloy/data
     command:
       - run
@@ -315,6 +317,7 @@ volumes:
   redis_data:
   redis_shard1_data:
   alloy_data:
+  gc_logs:
 
 networks:
   wiki-net:

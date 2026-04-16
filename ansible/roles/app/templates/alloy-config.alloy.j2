@@ -77,7 +77,23 @@ loki.process "mysql_slow" {
 }
 
 // ============================================================
-// 3. Loki 전송 엔드포인트
+// 3. JVM GC 로그 수집 (Phase: JVM 튜닝 실험)
+// ============================================================
+
+local.file_match "gc_logs" {
+  path_targets = [{
+    __path__ = "/var/log/gc/gc-*.log",
+    job      = "jvm-gc",
+  }]
+}
+
+loki.source.file "gc_logs" {
+  targets    = local.file_match.gc_logs.targets
+  forward_to = [loki.write.default.receiver]
+}
+
+// ============================================================
+// 4. Loki 전송 엔드포인트
 // ============================================================
 
 loki.write "default" {
