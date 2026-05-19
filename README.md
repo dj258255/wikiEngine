@@ -12,6 +12,8 @@
 
 ![Architecture](docs/readme-images/architecture.svg)
 
+> 더 자세한 설명은 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (C4 Model 경량) 와 [`docs/adr/`](docs/adr/README.md) (주요 기술 결정 7건의 *why*) 를 참고하세요.
+
 ---
 
 ## Tech Stack
@@ -197,3 +199,25 @@ cd ansible
 ansible-vault decrypt group_vars/all.yml
 ansible-playbook -i inventory.yml site.yml --ask-vault-pass
 ```
+
+로컬 환경 셋업 / 테스트 / JVM 진단은 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) 참조.
+
+---
+
+## Documentation
+
+| 문서 | 내용 |
+|------|------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | C4 Model 경량 — Context · Container · Component 3단계 |
+| [docs/adr/](docs/adr/README.md) | Architecture Decision Records — 기술 결정 7건의 *why* |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 로컬 개발 환경, 테스트, JVM 튜닝 |
+| [docs/BENCHMARK_REPORT.md](docs/BENCHMARK_REPORT.md) | k6 부하 테스트 결과 (100 VU, 20분) |
+| [docs/ROADMAP_NOW.md](docs/ROADMAP_NOW.md) | 진행 중 작업 |
+| [docs/ROADMAP_FUTURE.md](docs/ROADMAP_FUTURE.md) | 향후 계획 |
+| [CHANGELOG.md](CHANGELOG.md) | 버전별 변경 이력 ([Keep a Changelog](https://keepachangelog.com/) 포맷) |
+
+---
+
+## License
+
+이 프로젝트는 [MIT License](LICENSE) 하에 배포됩니다.

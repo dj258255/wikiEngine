@@ -52,9 +52,6 @@ frontend/.vercel
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
-# Docs
-docs/
-
 # Environment (secrets)
 **/.env
 **/.env.*
@@ -75,4 +72,3 @@ logs/
 *.log
 
 images/phase13/
-docs/
