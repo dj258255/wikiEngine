@@ -11,7 +11,7 @@
 #   - Kafka + Debezium CDC 파이프라인 동작 중
 #
 # 사용법:
-#   export API_URL="https://api.studywithtymee.com"
+#   export API_URL="https://api.example.com"
 #   export SSH_HOST="서버1_IP"
 #   export SSH_USER="ubuntu"
 #   export MYSQL_CONTAINER="wiki-mysql-prod"
@@ -26,7 +26,7 @@
 set -euo pipefail
 
 # ─── 설정 ────────────────────────────────────────────────
-API_URL="${API_URL:?'API_URL 환경변수를 설정하세요 (예: https://api.studywithtymee.com)'}"
+API_URL="${API_URL:?'API_URL 환경변수를 설정하세요 (예: https://api.example.com)'}"
 SSH_HOST="${SSH_HOST:?'SSH_HOST 환경변수를 설정하세요 (MySQL Primary 서버 IP)'}"
 SSH_USER="${SSH_USER:-rocky}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/oci_key}"

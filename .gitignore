@@ -68,6 +68,9 @@ sync-index.sh
 docs/ROADMAP_NOW.md
 docs/ROADMAP_FUTURE.md
 
+# Test outputs (may contain tokens, cookies, server IPs)
+backend/scripts/cdc-test-results/
+
 # Lucene index data
 data/
 backend/data/
