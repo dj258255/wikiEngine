@@ -4,8 +4,6 @@
 
 위키 문서를 그대로 사용하지 않고, 실제 커뮤니티 게시판처럼 변환하여 적재했습니다. 단순히 "검색 기능을 만들었다"가 아니라, **가장 느린 상태에서 시작하여 병목이 드러날 때마다 다음 기술로 전환**하는 과정 전체를 기록한 프로젝트입니다.
 
-> **Live**: [studywithtymee.com](https://studywithtymee.com)
-
 ---
 
 ## Architecture
@@ -211,7 +209,6 @@ ansible-playbook -i inventory.yml site.yml --ask-vault-pass
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | C4 Model 경량 — Context · Container · Component 3단계 |
 | [docs/adr/](docs/adr/README.md) | Architecture Decision Records — 기술 결정 7건의 *why* |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 로컬 개발 환경, 테스트, JVM 튜닝 |
-| [docs/BENCHMARK_REPORT.md](docs/BENCHMARK_REPORT.md) | k6 부하 테스트 결과 (100 VU, 20분) |
 | [CHANGELOG.md](CHANGELOG.md) | 버전별 변경 이력 ([Keep a Changelog](https://keepachangelog.com/) 포맷) |
 
 ---

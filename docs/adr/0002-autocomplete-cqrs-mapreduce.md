@@ -95,7 +95,7 @@ search_logs 24h 윈도우
 
 ### Positive
 
-- **P95 < 100 ms 달성** (실측 43 ms 평균 / 99 ms P95, k6 100 VU 기준 — [BENCHMARK_REPORT.md](../BENCHMARK_REPORT.md))
+- **P95 < 100 ms 달성** (실측 43 ms 평균 / 99 ms P95, k6 100 VU 기준)
 - 인프라 추가 0 — Redis 는 이미 캐시용으로 운영 중
 - 한글 자모·영어·한글 prefix 가 같은 `GET` 호출 하나로 처리
 - 인기도 가중치, 최신성 가중치 등을 **배치 단계에서만 처리** → 응답 경로는 단순 KV 조회

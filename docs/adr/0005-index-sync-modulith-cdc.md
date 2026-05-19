@@ -142,7 +142,7 @@ MySQL binlog
 
 ## Validation
 
-- **CRUD 응답 시간** — POST 49 ms 평균, P95 142 ms — Lucene 인덱싱이 트랜잭션과 분리되어 영향 없음 ([BENCHMARK_REPORT.md](../BENCHMARK_REPORT.md))
+- **CRUD 응답 시간** — POST 49 ms 평균, P95 142 ms — Lucene 인덱싱이 트랜잭션과 분리되어 영향 없음
 - **서버 1 ↔ 2 인덱스 지연** — Kafka consumer lag 메트릭으로 모니터링 (목표 < 5 s)
 - **이벤트 처리 실패율** — Spring Modulith 이벤트 publication 테이블의 미완료 row 카운트 (Modulith 가 자동 재시도)
 - **CDC offset 진행** — Prometheus `kafka_consumer_lag` 알람

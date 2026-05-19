@@ -257,4 +257,3 @@ curl -X POST http://localhost:8080/api/admin/autocomplete/rebuild
 
 - 시스템 전체 구조: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - 기술 결정의 배경: [adr/](./adr/README.md)
-- 부하 테스트 결과: [BENCHMARK_REPORT.md](./BENCHMARK_REPORT.md)

@@ -32,6 +32,7 @@ backend/.env
 # Frontend (Node/Next.js)
 frontend/node_modules/
 frontend/.next/
+/.next/
 frontend/out/
 frontend/build/
 frontend/coverage/
@@ -66,6 +67,7 @@ sync-index.sh
 # Private notes (never publish)
 docs/ROADMAP_NOW.md
 docs/ROADMAP_FUTURE.md
+docs/BENCHMARK_REPORT.md
 
 # Lucene index data
 data/
