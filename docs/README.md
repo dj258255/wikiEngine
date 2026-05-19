@@ -19,15 +19,8 @@
 
 | 문서 | 다루는 내용 |
 |---|---|
-| [**DEVELOPMENT.md**](./DEVELOPMENT.md) | 로컬 개발 환경 셋업, 테스트, 디버깅, JVM 튜닝 |
-| [**BENCHMARK_REPORT.md**](./BENCHMARK_REPORT.md) | k6 부하 테스트 결과 (100 VU, 20분, P50/P95/P99) |
-
-### 로드맵
-
-| 문서 | 다루는 내용 |
-|---|---|
-| [**ROADMAP_NOW.md**](./ROADMAP_NOW.md) | 지금 진행 중인 작업 |
-| [**ROADMAP_FUTURE.md**](./ROADMAP_FUTURE.md) | 향후 계획 |
+| [**DEVELOPMENT.md**](./DEVELOPMENT.md) | 로컬 개발 환경 셋업, 테스트, 디버깅, JVM 진단 |
+| [**JVM_MEMORY_NOTES.md**](./JVM_MEMORY_NOTES.md) | JVM/메모리 튜닝 관점 정리 — Heap vs Page Cache, GC 비교, Off-heap, Lucene OOM 패턴 |
 
 ---
 

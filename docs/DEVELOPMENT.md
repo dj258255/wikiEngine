@@ -257,3 +257,4 @@ curl -X POST http://localhost:8080/api/admin/autocomplete/rebuild
 
 - 시스템 전체 구조: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - 기술 결정의 배경: [adr/](./adr/README.md)
+- JVM/메모리 튜닝 관점: [JVM_MEMORY_NOTES.md](./JVM_MEMORY_NOTES.md)

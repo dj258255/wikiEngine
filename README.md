@@ -208,7 +208,8 @@ ansible-playbook -i inventory.yml site.yml --ask-vault-pass
 |------|------|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | C4 Model 경량 — Context · Container · Component 3단계 |
 | [docs/adr/](docs/adr/README.md) | Architecture Decision Records — 기술 결정 7건의 *why* |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 로컬 개발 환경, 테스트, JVM 튜닝 |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 로컬 개발 환경, 테스트, JVM 진단 |
+| [docs/JVM_MEMORY_NOTES.md](docs/JVM_MEMORY_NOTES.md) | JVM/메모리 튜닝 관점 정리 (Heap vs Page Cache, GC, Off-heap 등) |
 | [CHANGELOG.md](CHANGELOG.md) | 버전별 변경 이력 ([Keep a Changelog](https://keepachangelog.com/) 포맷) |
 
 ---

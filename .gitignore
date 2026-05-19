@@ -67,7 +67,6 @@ sync-index.sh
 # Private notes (never publish)
 docs/ROADMAP_NOW.md
 docs/ROADMAP_FUTURE.md
-docs/BENCHMARK_REPORT.md
 
 # Lucene index data
 data/
