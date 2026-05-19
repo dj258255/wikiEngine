@@ -1,19 +1,17 @@
 # OCI 멀티서버 배포 워크플로우 (Ansible + Vault)
-# main 브랜치 push 시: GHCR 이미지 빌드 → 서버별 독립 배포 (matrix)
+# GHCR 이미지 빌드 → 서버별 독립 배포 (matrix)
+#
+# 라이브 종료 후 자동 트리거 비활성 — 필요 시 GitHub UI 의 "Run workflow"
+# 또는 `gh workflow run` 으로 수동 실행.
 #
 # 필요한 GitHub Secrets:
-#   OCI_SSH_KEY      - SSH 개인키 (PEM, 3대 서버 공통)
+#   OCI_SSH_KEY      - SSH 개인키 (PEM, 서버 공통)
 #   VAULT_PASSWORD   - ansible-vault 비밀번호
 
 name: Deploy to OCI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'ansible/**'
-      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
 
 jobs:
   build:
