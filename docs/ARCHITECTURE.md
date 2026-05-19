@@ -47,7 +47,7 @@ graph TB
 
 **wikiEngine 은 *어떤 배포 단위*로 쪼개져 있는가?**
 
-OCI Free Tier 4 대로 운영합니다. 각 컨테이너의 역할과 통신 경로:
+OCI Free Tier 4 대로 구성했습니다. 각 컨테이너의 역할과 통신 경로:
 
 ![Containers](./readme-images/architecture.svg)
 

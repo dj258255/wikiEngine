@@ -63,6 +63,10 @@ ansible/.vault_pass
 # Ops scripts (contain server IPs)
 sync-index.sh
 
+# Private notes (never publish)
+docs/ROADMAP_NOW.md
+docs/ROADMAP_FUTURE.md
+
 # Lucene index data
 data/
 backend/data/

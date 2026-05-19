@@ -51,7 +51,7 @@
 
 ## Server Configuration
 
-Oracle Cloud Free Tier 4대로 운영합니다.
+Oracle Cloud Free Tier 4대로 구성했습니다.
 
 | 서버 | 스펙 | 역할 |
 |------|------|------|
@@ -212,8 +212,6 @@ ansible-playbook -i inventory.yml site.yml --ask-vault-pass
 | [docs/adr/](docs/adr/README.md) | Architecture Decision Records — 기술 결정 7건의 *why* |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 로컬 개발 환경, 테스트, JVM 튜닝 |
 | [docs/BENCHMARK_REPORT.md](docs/BENCHMARK_REPORT.md) | k6 부하 테스트 결과 (100 VU, 20분) |
-| [docs/ROADMAP_NOW.md](docs/ROADMAP_NOW.md) | 진행 중 작업 |
-| [docs/ROADMAP_FUTURE.md](docs/ROADMAP_FUTURE.md) | 향후 계획 |
 | [CHANGELOG.md](CHANGELOG.md) | 버전별 변경 이력 ([Keep a Changelog](https://keepachangelog.com/) 포맷) |
 
 ---
