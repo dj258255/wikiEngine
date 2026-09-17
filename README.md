@@ -214,6 +214,22 @@ ansible-playbook -i inventory.yml site.yml --ask-vault-pass
 
 ---
 
+## 일정과 작업 방식
+
+날짜는 모두 커밋 기록과 CHANGELOG의 Phase 기준입니다. 전체 커밋은 272개고 2026년 2월 4일부터 5월 19일 사이에 몰려 있습니다. 그 뒤로는 8월 9일에 커밋 1건만 남아 있습니다.
+
+| 단계 | 기간 | 한 일 | 산출물 |
+|---|---|---|---|
+| Phase 1~8 초기 구축 | 2026.02.04~03.14 | Spring Boot 골격, JWT 인증, 게시판 CRUD, OCI 인프라와 CI/CD, 1,215만 건 데이터 적재 | 초기 서비스, 데이터 적재 |
+| Phase 9~11 자동완성과 캐시 | 2026.03.15~03.19 | Trie 자동완성, Tomcat/JVM 튜닝, Caffeine+Redis 2단 캐시 | 자동완성, 2단 캐시 |
+| Phase 12~15 분산 인프라 | 2026.03.18~03.23 | MySQL Replication과 R/W 분리, App 스케일아웃, Kafka CDC, Redis 샤딩 | 읽기/쓰기 분리, CDC 동기화 |
+| Phase 17~21 검색 품질 | 2026.03.24~03.30 | 동의어·오타 교정, Facet, LTR 재랭킹, 콘텐츠 필터링, RAG 검색 요약 | LTR 모델, RAG 요약 |
+| 문서화와 종료 | 2026.05.19 | ADR 7건, ARCHITECTURE/DEVELOPMENT 문서, CHANGELOG, 라이브 종료 반영 | 문서 세트, 종료 커밋 |
+
+GitHub Issue나 PR은 쓰지 않고 CHANGELOG.md의 Phase 번호로 마일스톤을 남기며 ADR 7건으로 주요 기술 결정의 근거를 기록했습니다. 각 Phase 항목에는 관련 ADR 링크를 달아 결정과 구현을 연결해 뒀습니다.
+
+프로젝트를 만든 배경과 트레이드오프 판단은 [블로그 소개 글](https://dj258255.github.io/IT-Oasis/blog/project/wikiengine/wiki-search-overview/)에 더 자세히 적었습니다.
+
 ## License
 
 이 프로젝트는 [MIT License](LICENSE) 하에 배포됩니다.
